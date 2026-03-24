@@ -1,34 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Para formatear fechas
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../../providers/partes_provider.dart';
+import '../../providers/auth_provider.dart';
 
-class CrearParteScreen extends StatefulWidget {
+class CrearParteScreen extends ConsumerStatefulWidget {
   const CrearParteScreen({super.key});
 
   @override
-  State<CrearParteScreen> createState() => _CrearParteScreenState();
+  ConsumerState<CrearParteScreen> createState() => _CrearParteScreenState();
 }
 
-class _CrearParteScreenState extends State<CrearParteScreen> {
+class _CrearParteScreenState extends ConsumerState<CrearParteScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  // Datos del parte
   DateTime _fecha = DateTime.now();
   double _horasNormales = 8.0;
-  String _descripcion = "";
+  double _horasExtra = 0.0;
+  String _descripcion = '';
   int? _idObraSeleccionada;
-
-  // Lista de obras (Esto vendrá de tu API obra_repo.findAll())
-  final List<Map<String, dynamic>> _obras = [
-    {'id': 1, 'nombre': 'Residencial Palma'},
-    {'id': 2, 'nombre': 'Reforma Hotel Sol'},
-  ];
+  bool _enviando = false;
 
   @override
   Widget build(BuildContext context) {
+    final obrasAsync = ref.watch(obrasProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nuevo Parte Diario'),
-        backgroundColor: Colors.orange[800], // Color construcción
+        backgroundColor: Colors.orange[800],
+        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -42,28 +43,28 @@ class _CrearParteScreenState extends State<CrearParteScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
-
-              // Selector de Obra
-              DropdownButtonFormField<int>(
-                decoration: const InputDecoration(
-                  labelText: 'Obra asignada',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.foundation),
+              obrasAsync.when(
+                loading: () => const CircularProgressIndicator(),
+                error: (e, _) => Text('Error cargando obras: $e'),
+                data: (obras) => DropdownButtonFormField<int>(
+                  decoration: const InputDecoration(
+                    labelText: 'Obra asignada',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.foundation),
+                  ),
+                  items: obras
+                      .map(
+                        (o) => DropdownMenuItem<int>(
+                          value: o.id,
+                          child: Text(o.nombre),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) => setState(() => _idObraSeleccionada = val),
+                  validator: (val) => val == null ? 'Selecciona la obra' : null,
                 ),
-                items: _obras
-                    .map(
-                      (o) => DropdownMenuItem<int>(
-                        value: o['id'],
-                        child: Text(o['nombre']),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (val) => setState(() => _idObraSeleccionada = val),
-                validator: (val) => val == null ? 'Selecciona la obra' : null,
               ),
               const SizedBox(height: 20),
-
-              // Selector de Fecha
               ListTile(
                 shape: RoundedRectangleBorder(
                   side: const BorderSide(color: Colors.grey),
@@ -76,21 +77,18 @@ class _CrearParteScreenState extends State<CrearParteScreen> {
                 onTap: _pickDate,
               ),
               const SizedBox(height: 25),
-
               const Text(
                 "Registro de Horas",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
-
               Row(
                 children: [
                   Expanded(
                     child: TextFormField(
-                      initialValue: "8",
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Horas Normales',
+                        labelText: 'Horas',
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (v) =>
@@ -100,13 +98,11 @@ class _CrearParteScreenState extends State<CrearParteScreen> {
                 ],
               ),
               const SizedBox(height: 25),
-
               const Text(
                 "Tareas Realizadas",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
-
               TextFormField(
                 maxLines: 5,
                 decoration: const InputDecoration(
@@ -118,8 +114,6 @@ class _CrearParteScreenState extends State<CrearParteScreen> {
                 onChanged: (v) => _descripcion = v,
               ),
               const SizedBox(height: 30),
-
-              // Botón de Envío
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -128,11 +122,16 @@ class _CrearParteScreenState extends State<CrearParteScreen> {
                     backgroundColor: Colors.orange[800],
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: _enviarAlEncargado,
-                  child: const Text(
-                    'ENVIAR AL ENCARGADO',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                  onPressed: _enviando ? null : _enviarParte,
+                  child: _enviando
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'ENVIAR PARTE',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -152,18 +151,36 @@ class _CrearParteScreenState extends State<CrearParteScreen> {
     if (picked != null) setState(() => _fecha = picked);
   }
 
-  void _enviarAlEncargado() {
-    if (_formKey.currentState!.validate()) {
-      // Aquí llamarías a tu servicio de API
-      print("Obra ID: $_idObraSeleccionada");
-      print("Tareas: $_descripcion");
-      // Al guardar, el backend pondrá 'firmado = false'
-      // para que el Encargado lo vea en su lista.
+  Future<void> _enviarParte() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Parte enviado correctamente')),
-      );
-      Navigator.pop(context);
+    final perfil = ref.read(authProvider).valueOrNull;
+    if (perfil == null) return;
+
+    setState(() => _enviando = true);
+    try {
+      await ref.read(apiServiceProvider).crearParte({
+        'id_obra': _idObraSeleccionada,
+        'id_perfil': perfil.id,
+        'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
+        'horas_normales': _horasNormales,
+        'descripcion': _descripcion,
+      });
+      ref.invalidate(partesProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Parte enviado correctamente')),
+        );
+        context.go('/partes');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al enviar: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _enviando = false);
     }
   }
 }

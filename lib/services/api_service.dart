@@ -35,4 +35,8 @@ class ApiService {
     final response = await _dio.get('/obra', options: await _authHeaders());
     return response.data;
   }
+
+  Future<void> validarParte(int parteId) async {
+    await _dio.put('/partes/validar/$parteId', options: await _authHeaders());
+  }
 }
