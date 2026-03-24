@@ -25,27 +25,40 @@ class AppDrawer extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.assignment),
             title: const Text('Mis partes'),
-            onTap: () => context.go('/partes'),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.go('/partes');
+            },
           ),
-          // Crear parte — todos los roles
-          ListTile(
-            leading: const Icon(Icons.add_box),
-            title: const Text('Crear parte'),
-            onTap: () => context.go('/partes/nuevo'),
-          ),
+          // Crear parte — solo operario y encargado
+          if (perfil.puedeCrearParte)
+            ListTile(
+              leading: const Icon(Icons.add_box),
+              title: const Text('Crear parte'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/partes/nuevo');
+              },
+            ),
           // Obras — todos excepto operario
           if (!perfil.esOperario)
             ListTile(
               leading: const Icon(Icons.business),
               title: const Text('Obras'),
-              onTap: () => context.go('/obras'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/obras');
+              },
             ),
           // Usuarios — solo gestión y admin
-          if (perfil.esGestion)
+          if (perfil.esGestion || perfil.esAdmin)
             ListTile(
               leading: const Icon(Icons.people),
               title: const Text('Usuarios'),
-              onTap: () => context.go('/usuarios'),
+              onTap: () {
+                Navigator.of(context).pop(); // Cierra el drawer
+                context.go('/usuarios');
+              },
             ),
           const Divider(),
           ListTile(
