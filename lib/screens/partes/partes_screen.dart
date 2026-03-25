@@ -97,10 +97,6 @@ class PartesScreen extends ConsumerWidget {
                               const SizedBox(height: 5),
                               Text(parte.descripcion),
                               const SizedBox(height: 8),
-                              Text(
-                                "Horas extra: ${parte.horasExtra}h",
-                                style: const TextStyle(color: Colors.grey),
-                              ),
                               const SizedBox(height: 15),
                               // Botón firmar — solo si no está firmado
                               // y el usuario no es operario

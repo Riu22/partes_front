@@ -21,6 +21,17 @@ class AppDrawer extends ConsumerWidget {
             currentAccountPicture: const CircleAvatar(
               child: Icon(Icons.person),
             ),
+            // Añade esto:
+            otherAccountsPictures: [
+              IconButton(
+                icon: const Icon(Icons.settings, color: Colors.white),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.push('/configuracion');
+                },
+              ),
+            ],
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor),
           ),
           ListTile(
             leading: const Icon(Icons.assignment),

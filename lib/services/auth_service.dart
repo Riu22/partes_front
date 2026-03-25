@@ -33,4 +33,19 @@ class AuthService {
   Future<String?> getToken() async {
     return await _storage.read(key: 'jwt');
   }
+
+  Future<void> cambiarPassword(String nuevaPassword) async {
+    final token = await getToken();
+    await _dio.put(
+      '$_supabaseUrl/auth/v1/user',
+      data: {'password': nuevaPassword},
+      options: Options(
+        headers: {
+          'apikey': _anonKey,
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ),
+    );
+  }
 }

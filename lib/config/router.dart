@@ -7,6 +7,7 @@ import '../screens/partes/partes_screen.dart';
 import '../screens/partes/crear_parte_screen.dart';
 import '../screens/obras/obras_screen.dart';
 import '../screens/admin/usuarios_screen.dart';
+import '../screens/configurarion_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -21,8 +22,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!isLoggedIn && location != '/login') return '/login';
       if (isLoggedIn && location == '/login') return '/partes';
 
-      // --- PROTECCIÓN POR ROL ---
-      // Usuarios: solo GESTION y ADMIN
       if (location == '/usuarios' &&
           perfil != null &&
           !perfil.esGestion &&
@@ -30,18 +29,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/partes';
       }
 
-      // Obras: no para operarios
-      if (location == '/obras' && perfil != null && perfil.esOperario) {
-        return '/partes';
-      }
-
       return null;
     },
     routes: [
-      // Ruta pública — sin shell
-      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
-
-      // Shell SPA — todas las rutas protegidas comparten AppShell (Drawer)
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -50,7 +41,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/partes',
-                builder: (_, _) => const PartesScreen(),
+                builder: (context, state) => const PartesScreen(),
               ),
             ],
           ),
@@ -58,7 +49,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/obras',
-                builder: (_, _) => const ObrasScreen(),
+                builder: (context, state) => const ObrasScreen(),
               ),
             ],
           ),
@@ -66,17 +57,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/usuarios',
-                builder: (_, _) => const UsuariosScreen(),
+                builder: (context, state) => const UsuariosScreen(),
               ),
             ],
           ),
         ],
       ),
-
-      // Ruta de creación de parte — fuera del shell (pantalla completa sin drawer)
       GoRoute(
         path: '/partes/nuevo',
-        builder: (_, _) => const CrearParteScreen(),
+        builder: (context, state) => const CrearParteScreen(),
+      ),
+      GoRoute(
+        path: '/configuracion',
+        builder: (context, state) => const ConfiguracionScreen(),
       ),
     ],
   );

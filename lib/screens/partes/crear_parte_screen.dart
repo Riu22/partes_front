@@ -16,7 +16,7 @@ class _CrearParteScreenState extends ConsumerState<CrearParteScreen> {
   final _formKey = GlobalKey<FormState>();
   DateTime _fecha = DateTime.now();
   double _horasNormales = 8.0;
-  double _horasExtra = 0.0;
+  final double _horasExtra = 0.0;
   String _descripcion = '';
   int? _idObraSeleccionada;
   bool _enviando = false;
