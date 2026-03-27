@@ -47,6 +47,14 @@ class ConfiguracionScreen extends ConsumerWidget {
             title: const Text('Correo electrónico'),
             subtitle: Text(perfil.email),
           ),
+          ListTile(
+            leading: const Icon(Icons.email_outlined, color: Colors.blue),
+            title: const Text('Correo electrónico'),
+            subtitle: Text(perfil.email),
+            trailing: const Icon(Icons.edit, size: 20),
+            onTap: () =>
+                _mostrarDialogoCambioEmail(context, ref), // Nueva función
+          ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.lock_outline, color: Colors.orange),
@@ -146,6 +154,89 @@ class ConfiguracionScreen extends ConsumerWidget {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('ACTUALIZAR'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _mostrarDialogoCambioEmail(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    bool enviando = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Cambiar correo electrónico'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Se enviará un mensaje de confirmación a la nueva dirección para validar el cambio.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Nuevo correo',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCELAR'),
+            ),
+            FilledButton(
+              onPressed: enviando
+                  ? null
+                  : () async {
+                      if (!controller.text.contains('@')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Email no válido')),
+                        );
+                        return;
+                      }
+                      setState(() => enviando = true);
+                      try {
+                        await ref
+                            .read(authServiceProvider)
+                            .cambiarEmail(controller.text.trim());
+
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Revisa tu bandeja de entrada para confirmar el cambio',
+                              ),
+                              duration: Duration(seconds: 5),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                        }
+                      } finally {
+                        setState(() => enviando = false);
+                      }
+                    },
+              child: enviando
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('CAMBIAR CORREO'),
             ),
           ],
         ),

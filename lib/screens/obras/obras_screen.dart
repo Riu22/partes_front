@@ -82,12 +82,15 @@ class _ObrasAdminView extends ConsumerWidget {
                       subtitle: Text('${o.municipio} • ${o.ubicacion}'),
                       trailing: PopupMenuButton<String>(
                         onSelected: (accion) {
-                          if (accion == 'editar')
+                          if (accion == 'editar') {
                             _mostrarDialogoEditar(context, ref, o);
-                          if (accion == 'asignar')
+                          }
+                          if (accion == 'asignar') {
                             _mostrarDialogoAsignar(context, ref, o.id);
-                          if (accion == 'eliminar')
+                          }
+                          if (accion == 'eliminar') {
                             _confirmarEliminar(context, ref, o.id);
+                          }
                         },
                         itemBuilder: (_) => [
                           const PopupMenuItem(

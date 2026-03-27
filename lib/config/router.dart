@@ -8,6 +8,7 @@ import '../screens/partes/crear_parte_screen.dart';
 import '../screens/obras/obras_screen.dart';
 import '../screens/admin/usuarios_screen.dart';
 import '../screens/configurarion_screen.dart';
+import '../screens/NuevaPasswordScreen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -15,10 +16,12 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/partes',
     redirect: (context, state) {
-      final perfil = auth.valueOrNull;
-      final isLoggedIn = perfil != null;
       final location = state.matchedLocation;
 
+      if (location == '/nueva-password') return null;
+
+      final perfil = auth.valueOrNull;
+      final isLoggedIn = perfil != null;
       if (!isLoggedIn && location != '/login') return '/login';
       if (isLoggedIn && location == '/login') return '/partes';
 
@@ -33,6 +36,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+
+      GoRoute(
+        path: '/nueva-password',
+        builder: (context, state) => const NuevaPasswordScreen(),
+      ),
+
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),

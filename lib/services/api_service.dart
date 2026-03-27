@@ -119,4 +119,45 @@ class ApiService {
     );
     return response.data;
   }
+
+  Future<void> crearParteJefe(Map<String, dynamic> data) async {
+    await _dio.post(
+      '/partes/new_parte_jefe',
+      data: data,
+      options: await _authHeaders(),
+    );
+  }
+
+  Future<List<dynamic>> getPartesJefe() async {
+    final response = await _dio.get(
+      '/partes/get_partes_jefe',
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  Future<void> validarParteJefe(int parteId) async {
+    await _dio.put(
+      '/partes/validar_jefe/$parteId',
+      options: await _authHeaders(),
+    );
+  }
+
+  Future<List<dynamic>> buscarPartes({
+    String? obra,
+    String? operario,
+    String? especialidad,
+  }) async {
+    final params = <String, String>{};
+    if (obra != null && obra.isNotEmpty) params['obra'] = obra;
+    if (operario != null && operario.isNotEmpty) params['operario'] = operario;
+    if (especialidad != null) params['especialidad'] = especialidad;
+
+    final response = await _dio.get(
+      '/partes/buscar',
+      queryParameters: params,
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
 }

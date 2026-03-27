@@ -14,3 +14,23 @@ final obrasProvider = FutureProvider<List<Obra>>((ref) async {
   final data = await api.getObras();
   return data.map((e) => Obra.fromJson(e)).toList();
 });
+
+final partesJefeProvider = FutureProvider<List<dynamic>>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  final data = await api.getPartesJefe();
+  return data;
+});
+
+final busquedaPartesProvider =
+    FutureProvider.family<List<dynamic>, Map<String, String?>>((
+      ref,
+      filtros,
+    ) async {
+      return await ref
+          .read(apiServiceProvider)
+          .buscarPartes(
+            obra: filtros['obra'],
+            operario: filtros['operario'],
+            especialidad: filtros['especialidad'],
+          );
+    });

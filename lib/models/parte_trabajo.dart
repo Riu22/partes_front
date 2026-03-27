@@ -6,6 +6,7 @@ class ParteTrabajo {
   final double horasNormales;
   final String descripcion;
   final bool firmado;
+  final String? especialidad; // nuevo
 
   ParteTrabajo({
     required this.id,
@@ -15,6 +16,7 @@ class ParteTrabajo {
     required this.horasNormales,
     required this.descripcion,
     required this.firmado,
+    this.especialidad,
   });
 
   factory ParteTrabajo.fromJson(Map<String, dynamic> json) => ParteTrabajo(
@@ -23,7 +25,8 @@ class ParteTrabajo {
     operarioNombre: json['perfil']?['name'] ?? 'Sin nombre',
     fecha: DateTime.parse(json['fecha']),
     horasNormales: (json['horas_normales'] ?? 8.0).toDouble(),
-    descripcion: json['descripcion'] ?? '',
+    descripcion: json['descripcion_tareas'] ?? '',
     firmado: json['firmado'] ?? false,
+    especialidad: json['especialidad'],
   );
 }

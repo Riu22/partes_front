@@ -48,4 +48,43 @@ class AuthService {
       ),
     );
   }
+
+  Future<bool> solicitarRecuperacion(String email) async {
+    try {
+      await _dio.post(
+        '$_supabaseUrl/auth/v1/recover',
+        data: {'email': email},
+        options: Options(
+          headers: {
+            'apikey': _anonKey,
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_anonKey',
+          },
+        ),
+        // Añadimos el query parameter para la redirección
+        queryParameters: {
+          'redirect_to': 'http://localhost:3000/#/nueva-password',
+        },
+      );
+      return true;
+    } catch (e) {
+      print("Error en recover: $e");
+      return false;
+    }
+  }
+
+  Future<void> cambiarEmail(String nuevoEmail) async {
+    final token = await getToken();
+    await _dio.put(
+      '$_supabaseUrl/auth/v1/user',
+      data: {'email': nuevoEmail},
+      options: Options(
+        headers: {
+          'apikey': _anonKey,
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ),
+    );
+  }
 }

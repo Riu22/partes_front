@@ -35,6 +35,8 @@ class UsuariosScreen extends ConsumerWidget {
           itemBuilder: (context, index) {
             final u = usuarios[index];
             final bool activo = u['activo'] ?? true;
+            final jefe = u['jefeDirecto'];
+
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: ListTile(
@@ -50,6 +52,18 @@ class UsuariosScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(u['email'] ?? ''),
+                    if (jefe != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Jefe: ${jefe['name'] ?? 'Desconocido'}',
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic,
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         _chipRol(u['rol']),
