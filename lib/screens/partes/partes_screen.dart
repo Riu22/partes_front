@@ -392,7 +392,7 @@ class _PartesJefeScreen extends ConsumerWidget {
 // Card parte normal
 // ─────────────────────────────────────────
 class _CardParteNormal extends StatelessWidget {
-  final ParteTrabajo parte; // ← tipo correcto
+  final ParteTrabajo parte;
   final bool puedeValidar;
   final VoidCallback onValidar;
 
