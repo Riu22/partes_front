@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../providers/partes_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/sync_provider.dart';
 
 class CrearParteScreen extends ConsumerWidget {
   const CrearParteScreen({super.key});
@@ -11,11 +13,9 @@ class CrearParteScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(authProvider).valueOrNull;
-    if (perfil == null) return const SizedBox();
-
-    if (perfil.esJefeObra) {
-      return const _FormularioParteJefe();
-    }
+    if (perfil == null)
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (perfil.esJefeObra) return const _FormularioParteJefe();
     return const _FormularioParteNormal();
   }
 }
@@ -25,7 +25,6 @@ class CrearParteScreen extends ConsumerWidget {
 // ─────────────────────────────────────────
 class _FormularioParteNormal extends ConsumerStatefulWidget {
   const _FormularioParteNormal();
-
   @override
   ConsumerState<_FormularioParteNormal> createState() =>
       _FormularioParteNormalState();
@@ -34,21 +33,26 @@ class _FormularioParteNormal extends ConsumerStatefulWidget {
 class _FormularioParteNormalState
     extends ConsumerState<_FormularioParteNormal> {
   final _formKey = GlobalKey<FormState>();
+  final _obraSearchCtrl = TextEditingController();
   DateTime _fecha = DateTime.now();
   double _horasNormales = 8.0;
   String _descripcion = '';
   int? _idObraSeleccionada;
   String? _especialidad;
   bool _enviando = false;
-
   final DateTime _fechaMinima = DateTime.now().subtract(
     const Duration(days: 14),
   );
 
   @override
+  void dispose() {
+    _obraSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nuevo Parte'),
@@ -68,24 +72,26 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 12),
               obrasAsync.when(
-                loading: () => const CircularProgressIndicator(),
+                loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text('Error: $e'),
-                data: (obras) => DropdownButtonFormField<int>(
+                data: (obras) => TextFormField(
+                  controller: _obraSearchCtrl,
+                  readOnly: true,
                   decoration: const InputDecoration(
-                    labelText: 'Obra',
+                    labelText: 'Seleccionar obra',
+                    hintText: 'Toca para buscar...',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.foundation),
+                    prefixIcon: Icon(Icons.search),
                   ),
-                  items: obras
-                      .map(
-                        (o) => DropdownMenuItem<int>(
-                          value: o.id,
-                          child: Text(o.nombre),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => _idObraSeleccionada = v),
-                  validator: (v) => v == null ? 'Selecciona la obra' : null,
+                  onTap: () => _abrirBuscadorGeneral(context, obras, (o) {
+                    setState(() {
+                      _idObraSeleccionada = o.id;
+                      _obraSearchCtrl.text = o.nombre;
+                    });
+                  }),
+                  validator: (v) => _idObraSeleccionada == null
+                      ? 'Selecciona una obra'
+                      : null,
                 ),
               ),
               const SizedBox(height: 20),
@@ -106,16 +112,18 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 25),
               const Text(
-                'Horas',
+                'Horas normales',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 initialValue: '8',
-                keyboardType: TextInputType.number,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
-                  labelText: 'Horas normales',
                   border: OutlineInputBorder(),
+                  suffixText: 'horas',
                 ),
                 onChanged: (v) => _horasNormales = double.tryParse(v) ?? 8.0,
               ),
@@ -158,11 +166,10 @@ class _FormularioParteNormalState
               TextFormField(
                 maxLines: 5,
                 decoration: const InputDecoration(
-                  hintText: 'Describe qué has hecho hoy...',
+                  hintText: 'Descripción del trabajo...',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    v!.isEmpty ? 'Describe las tareas realizadas' : null,
+                validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
                 onChanged: (v) => _descripcion = v,
               ),
               const SizedBox(height: 30),
@@ -207,17 +214,40 @@ class _FormularioParteNormalState
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;
     if (perfil == null) return;
-
     setState(() => _enviando = true);
+
+    final data = {
+      'id_obra': _idObraSeleccionada,
+      'id_perfil': perfil.id,
+      'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
+      'horas_normales': _horasNormales,
+      'especialidad': _especialidad,
+      'descripcion': _descripcion,
+    };
+
     try {
-      await ref.read(apiServiceProvider).crearParte({
-        'id_obra': _idObraSeleccionada,
-        'id_perfil': perfil.id,
-        'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
-        'horas_normales': _horasNormales,
-        'especialidad': _especialidad,
-        'descripcion': _descripcion,
-      });
+      final resultado = await Connectivity().checkConnectivity();
+      final hayRed = resultado.any((r) => r != ConnectivityResult.none);
+
+      if (!hayRed) {
+        await ref.read(offlineQueueProvider).guardarParteOffline(data);
+        ref.invalidate(pendientesOfflineProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sin conexión — parte guardado, se enviará automáticamente',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          context.go('/partes');
+        }
+        return;
+      }
+
+      await ref.read(apiServiceProvider).crearParte(data);
       ref.invalidate(partesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -226,23 +256,28 @@ class _FormularioParteNormalState
         context.go('/partes');
       }
     } catch (e) {
+      await ref.read(offlineQueueProvider).guardarParteOffline(data);
+      ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error de conexión — parte guardado localmente'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        context.go('/partes');
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
     }
   }
-}
+} // ← cierre _FormularioParteNormalState
 
 // ─────────────────────────────────────────
 // Formulario JEFE DE OBRA
 // ─────────────────────────────────────────
 class _FormularioParteJefe extends ConsumerStatefulWidget {
   const _FormularioParteJefe();
-
   @override
   ConsumerState<_FormularioParteJefe> createState() =>
       _FormularioParteJefeState();
@@ -267,7 +302,7 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nuevo Parte — Jefe de Obra'),
+        title: const Text('Parte Jefe de Obra'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
@@ -278,117 +313,13 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.teal.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today, color: Colors.teal),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Fecha del parte',
-                          style: TextStyle(
-                            color: Colors.teal,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          DateFormat('dd/MM/yyyy').format(DateTime.now()),
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const Text(
-                          'Se asigna automáticamente',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              _buildInfoFecha(),
               const SizedBox(height: 25),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Obras y porcentajes',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: totalValido ? Colors.green : Colors.orange,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Total: ${total.toStringAsFixed(0)}%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'La suma de porcentajes debe ser exactamente 100%',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              _buildHeaderPorcentajes(total, totalValido),
               const SizedBox(height: 12),
-              // LISTA DE OBRAS
-              ..._lineas.asMap().entries.map((entry) {
-                final i = entry.key;
-                final linea = entry.value;
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.business, color: Colors.teal),
-                    title: Text(linea['obra_nombre'] ?? ''),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 70,
-                          child: TextFormField(
-                            initialValue:
-                                linea['porcentaje']?.toString() ?? '0',
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              suffixText: '%',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                            ),
-                            onChanged: (v) => setState(() {
-                              _lineas[i]['porcentaje'] =
-                                  double.tryParse(v) ?? 0.0;
-                            }),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.remove_circle,
-                            color: Colors.red,
-                          ),
-                          onPressed: () => setState(() => _lineas.removeAt(i)),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+              ..._lineas.asMap().entries.map(
+                (e) => _buildCardLinea(e.key, e.value),
+              ),
               obrasAsync.when(
                 loading: () => const SizedBox(),
                 error: (e, _) => const SizedBox(),
@@ -399,53 +330,39 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
                       .toList();
                   if (disponibles.isEmpty) return const SizedBox();
                   return OutlinedButton.icon(
-                    onPressed: () => _mostrarSelectorObra(context, disponibles),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Añadir obra'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.teal,
+                    ),
+                    onPressed: () =>
+                        _abrirBuscadorGeneral(context, disponibles, (o) {
+                          setState(
+                            () => _lineas.add({
+                              'obra_id': o.id,
+                              'obra_nombre': o.nombre,
+                              'porcentaje': 0.0,
+                            }),
+                          );
+                        }),
+                    icon: const Icon(Icons.search),
+                    label: const Text('Buscar y añadir obra'),
                   );
                 },
               ),
               const SizedBox(height: 25),
               const Text(
-                'Descripción',
+                'Descripción general',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               TextFormField(
-                maxLines: 5,
-                decoration: const InputDecoration(
-                  hintText: 'Describe las tareas realizadas hoy...',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => v!.isEmpty ? 'Describe las tareas' : null,
+                maxLines: 4,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
                 onChanged: (v) => _descripcion = v,
               ),
               const SizedBox(height: 30),
               if (!totalValido && _lineas.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.warning, color: Colors.orange),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Los porcentajes suman ${total.toStringAsFixed(1)}%. '
-                          'Deben sumar exactamente 100%.',
-                          style: const TextStyle(color: Colors.orange),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _buildWarningPorcentaje(total),
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -475,53 +392,111 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
     );
   }
 
-  void _mostrarSelectorObra(BuildContext context, List obras) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Seleccionar obra'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: obras.length,
-            itemBuilder: (context, index) {
-              final o = obras[index];
-              return ListTile(
-                leading: const Icon(Icons.business),
-                title: Text(o.nombre),
-                subtitle: Text(o.municipio),
-                onTap: () {
-                  setState(() {
-                    _lineas.add({
-                      'obra_id': o.id,
-                      'obra_nombre': o.nombre,
-                      'porcentaje': 0.0,
-                    });
-                  });
-                  Navigator.pop(context);
-                },
-              );
-            },
-          ),
+  Widget _buildInfoFecha() => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.teal.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.teal.withOpacity(0.2)),
+    ),
+    child: Text(
+      'Fecha del parte: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
+      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal),
+    ),
+  );
+
+  Widget _buildHeaderPorcentajes(double total, bool totalValido) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      const Text(
+        'Distribución',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      Text(
+        'Total: ${total.toStringAsFixed(0)}%',
+        style: TextStyle(
+          color: totalValido ? Colors.green : Colors.red,
+          fontWeight: FontWeight.bold,
+          fontSize: 18,
         ),
       ),
-    );
-  }
+    ],
+  );
+
+  Widget _buildCardLinea(int i, Map<String, dynamic> linea) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    child: ListTile(
+      title: Text(
+        linea['obra_nombre'] ?? '',
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 60,
+            child: TextFormField(
+              initialValue: '0',
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(suffixText: '%'),
+              onChanged: (v) => setState(
+                () => _lineas[i]['porcentaje'] = double.tryParse(v) ?? 0.0,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            onPressed: () => setState(() => _lineas.removeAt(i)),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildWarningPorcentaje(double total) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Text(
+      '⚠️ La suma debe ser 100% (actual: ${total.toStringAsFixed(0)}%)',
+      style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+    ),
+  );
 
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _enviando = true);
+
+    final data = {
+      'descripcion': _descripcion,
+      'obras': _lineas
+          .map((l) => {'id_obra': l['obra_id'], 'porcentaje': l['porcentaje']})
+          .toList(),
+    };
+
     try {
-      await ref.read(apiServiceProvider).crearParteJefe({
-        'descripcion': _descripcion,
-        'obras': _lineas
-            .map(
-              (l) => {'id_obra': l['obra_id'], 'porcentaje': l['porcentaje']},
-            )
-            .toList(),
-      });
+      final resultado = await Connectivity().checkConnectivity();
+      final hayRed = resultado.any((r) => r != ConnectivityResult.none);
+
+      if (!hayRed) {
+        await ref.read(offlineQueueProvider).guardarParteJefeOffline(data);
+        ref.invalidate(pendientesOfflineProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sin conexión — parte guardado, se enviará automáticamente',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          context.go('/partes');
+        }
+        return;
+      }
+
+      await ref.read(apiServiceProvider).crearParteJefe(data);
       ref.invalidate(partesJefeProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -530,17 +505,146 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
         context.go('/partes');
       }
     } catch (e) {
+      await ref.read(offlineQueueProvider).guardarParteJefeOffline(data);
+      ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error de conexión — parte guardado localmente'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        context.go('/partes');
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
     }
   }
+} // ← cierre _FormularioParteJefeState
+
+// ─────────────────────────────────────────
+// BUSCADOR GENERAL
+// ─────────────────────────────────────────
+void _abrirBuscadorGeneral(
+  BuildContext context,
+  List obras,
+  Function(dynamic) alSeleccionar,
+) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => DraggableScrollableSheet(
+      initialChildSize: 0.8,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: _CuerpoBuscador(
+          obras: obras,
+          alSeleccionar: alSeleccionar,
+          scrollController: scrollController,
+        ),
+      ),
+    ),
+  );
 }
 
+class _CuerpoBuscador extends StatefulWidget {
+  final List obras;
+  final Function(dynamic) alSeleccionar;
+  final ScrollController scrollController;
+  const _CuerpoBuscador({
+    required this.obras,
+    required this.alSeleccionar,
+    required this.scrollController,
+  });
+  @override
+  State<_CuerpoBuscador> createState() => _CuerpoBuscadorState();
+}
+
+class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
+  String _filtro = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtradas = widget.obras
+        .where(
+          (o) =>
+              o.nombre.toLowerCase().contains(_filtro.toLowerCase()) ||
+              o.municipio.toLowerCase().contains(_filtro.toLowerCase()),
+        )
+        .toList();
+
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        Container(
+          width: 50,
+          height: 5,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: TextField(
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Nombre de obra o municipio...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: Colors.grey[100],
+            ),
+            onChanged: (v) => setState(() => _filtro = v),
+          ),
+        ),
+        Expanded(
+          child: filtradas.isEmpty
+              ? const Center(child: Text('No se han encontrado obras'))
+              : ListView.separated(
+                  controller: widget.scrollController,
+                  itemCount: filtradas.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final o = filtradas[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.blueGrey,
+                        child: Icon(Icons.business, color: Colors.white),
+                      ),
+                      title: Text(
+                        o.nombre,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(o.municipio),
+                      onTap: () {
+                        widget.alSeleccionar(o);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// BOTÓN ESPECIALIDAD
+// ─────────────────────────────────────────
 class _BotonEspecialidad extends StatelessWidget {
   final String label;
   final IconData icono;
@@ -560,23 +664,23 @@ class _BotonEspecialidad extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: seleccionado ? color : color.withValues(alpha: 0.1),
+          color: seleccionado ? color : color.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color, width: seleccionado ? 2 : 1),
         ),
         child: Column(
           children: [
-            Icon(icono, color: seleccionado ? Colors.white : color, size: 32),
-            const SizedBox(height: 8),
+            Icon(icono, color: seleccionado ? Colors.white : color, size: 28),
+            const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: seleccionado ? Colors.white : color,
                 fontWeight: FontWeight.bold,
+                fontSize: 12,
               ),
             ),
           ],

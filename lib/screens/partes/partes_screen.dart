@@ -6,36 +6,17 @@ import '../../providers/partes_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/parte_trabajo.dart';
 
-class PartesScreen extends ConsumerWidget {
+class PartesScreen extends ConsumerStatefulWidget {
   const PartesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final perfil = ref.watch(authProvider).valueOrNull;
-    if (perfil == null) return const SizedBox();
-
-    if (perfil.esJefeObra) {
-      return _PartesJefeScreen();
-    }
-    return _PartesNormalesScreen();
-  }
+  ConsumerState<PartesScreen> createState() => _PartesScreenState();
 }
 
-// ─────────────────────────────────────────
-// Partes para OPERARIO y ENCARGADO
-// ─────────────────────────────────────────
-class _PartesNormalesScreen extends ConsumerStatefulWidget {
-  const _PartesNormalesScreen();
-
-  @override
-  ConsumerState<_PartesNormalesScreen> createState() =>
-      _PartesNormalesScreenState();
-}
-
-class _PartesNormalesScreenState extends ConsumerState<_PartesNormalesScreen> {
+class _PartesScreenState extends ConsumerState<PartesScreen> {
   final _obraCtrl = TextEditingController();
   final _operarioCtrl = TextEditingController();
-  String? _especialidadFiltro; // null = todos
+  String? _especialidadFiltro;
   bool _buscando = false;
   List<dynamic>? _resultadosBusqueda;
 
@@ -51,6 +32,7 @@ class _PartesNormalesScreenState extends ConsumerState<_PartesNormalesScreen> {
     }
     setState(() => _buscando = true);
     try {
+      // Importante: asegúrate de tener este método en tu apiServiceProvider
       final r = await ref
           .read(apiServiceProvider)
           .buscarPartes(
@@ -59,6 +41,12 @@ class _PartesNormalesScreenState extends ConsumerState<_PartesNormalesScreen> {
             especialidad: _especialidadFiltro,
           );
       setState(() => _resultadosBusqueda = r);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error en búsqueda: $e')));
+      }
     } finally {
       setState(() => _buscando = false);
     }
@@ -75,322 +63,190 @@ class _PartesNormalesScreenState extends ConsumerState<_PartesNormalesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final partesAsync = ref.watch(partesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
-    final puedeValidar = perfil != null && !perfil.esOperario;
-    final puedeVer = perfil != null && !perfil.esOperario;
+    if (perfil == null)
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
-    return Stack(
-      children: [
-        Column(
-          children: [
-            // Buscador — solo para roles que ven partes de otros
-            if (puedeVer)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _obraCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Buscar por obra',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.business),
-                              isDense: true,
-                            ),
-                            onSubmitted: (_) => _buscar(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _operarioCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Buscar por operario',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.person),
-                              isDense: true,
-                            ),
-                            onSubmitted: (_) => _buscar(),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String?>(
-                            value: _especialidadFiltro,
-                            decoration: const InputDecoration(
-                              labelText: 'Especialidad',
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: null,
-                                child: Text('Todas'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'ELECTRICIDAD',
-                                child: Text('Electricidad'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'FONTANERIA',
-                                child: Text('Fontanería'),
-                              ),
-                            ],
-                            onChanged: (v) =>
-                                setState(() => _especialidadFiltro = v),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: _buscar,
-                          icon: _buscando
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.search),
-                          label: const Text('Buscar'),
-                        ),
-                        if (_hayFiltros) ...[
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: _limpiarBusqueda,
-                            tooltip: 'Limpiar',
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 8),
-            // Lista de partes
-            Expanded(
-              child: _resultadosBusqueda != null
-                  ? _listaDesdeJson(_resultadosBusqueda!, puedeValidar)
-                  : partesAsync.when(
-                      loading: () =>
-                          const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Center(child: Text('Error: $e')),
-                      data: (partes) => partes.isEmpty
-                          ? const Center(
-                              child: Text('No hay partes registrados'),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.only(
-                                left: 8,
-                                right: 8,
-                                top: 8,
-                                bottom: 80,
-                              ),
-                              itemCount: partes.length,
-                              itemBuilder: (context, index) {
-                                final parte = partes[index];
-                                return _CardParteNormal(
-                                  parte: parte,
-                                  puedeValidar: puedeValidar,
-                                  onValidar: () =>
-                                      _validarParte(context, ref, parte.id),
-                                );
-                              },
-                            ),
-                    ),
-            ),
-          ],
-        ),
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: FloatingActionButton(
-            heroTag: 'fab_partes',
-            onPressed: () => context.go('/partes/nuevo'),
-            child: const Icon(Icons.add),
+    return Scaffold(
+      body: Column(
+        children: [
+          // Buscador superior
+          _buildBuscador(perfil),
+          Expanded(
+            child: _resultadosBusqueda != null
+                ? _listaDesdeJson(_resultadosBusqueda!, !perfil.esOperario)
+                : (perfil.esJefeObra
+                      ? const _PartesJefeView()
+                      : _PartesNormalesView(perfil: perfil)),
           ),
-        ),
-      ],
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'fab_partes_unique',
+        onPressed: () => context.go('/partes/nuevo'),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
-  // Los resultados de búsqueda vienen como Map (dynamic) no como ParteTrabajo
-  Widget _listaDesdeJson(List<dynamic> partes, bool puedeValidar) {
-    if (partes.isEmpty) {
-      return const Center(child: Text('Sin resultados'));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 80),
-      itemCount: partes.length,
-      itemBuilder: (context, index) {
-        final p = partes[index];
-        final firmado = p['firmado'] ?? false;
-        final fecha = DateTime.tryParse(p['fecha'] ?? '') ?? DateTime.now();
-        final especialidad = p['especialidad'] ?? '';
+  Widget _buildBuscador(dynamic perfil) {
+    // Si es operario, quizás no quieres que busque partes de otros
+    if (perfil.esOperario) return const SizedBox.shrink();
 
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ExpansionTile(
-            leading: Icon(
-              firmado ? Icons.verified : Icons.pending_actions,
-              color: firmado ? Colors.green : Colors.orange,
-            ),
-            title: Text(
-              p['obra']?['nombre'] ?? '',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              '${p['perfil']?['name'] ?? ''} • ${DateFormat('dd/MM/yyyy').format(fecha)}',
-            ),
-            trailing: _chipEspecialidad(especialidad),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      color: Colors.grey[50],
+      child: Column(
+        children: [
+          Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p['descripcion_tareas'] ?? ''),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Horas: ${p['horas_normales'] ?? 8}h',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    if (!firmado && puedeValidar) ...[
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _validarParte(context, ref, p['id']),
-                          icon: const Icon(Icons.edit_note),
-                          label: const Text('FIRMAR PARTE'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+              Expanded(
+                child: TextField(
+                  controller: _obraCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Obra',
+                    prefixIcon: Icon(Icons.business),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _buscar(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _operarioCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Operario',
+                    prefixIcon: Icon(Icons.person),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onSubmitted: (_) => _buscar(),
                 ),
               ),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _chipEspecialidad(String especialidad) {
-    final esElectricidad = especialidad == 'ELECTRICIDAD';
-    return Chip(
-      label: Text(
-        esElectricidad ? 'Electricidad' : 'Fontanería',
-        style: const TextStyle(fontSize: 10, color: Colors.white),
-      ),
-      backgroundColor: esElectricidad ? Colors.amber[700] : Colors.blue[700],
-      padding: EdgeInsets.zero,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-  }
-
-  void _validarParte(BuildContext context, WidgetRef ref, dynamic parteId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('¿Validar parte?'),
-        content: const Text(
-          'Al firmar confirmas que las horas y tareas son correctas.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCELAR'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ref.read(apiServiceProvider).validarParte(parteId);
-                ref.invalidate(partesProvider);
-                setState(() => _resultadosBusqueda = null);
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              }
-            },
-            child: const Text('CONFIRMAR'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String?>(
+                  value: _especialidadFiltro,
+                  decoration: const InputDecoration(
+                    labelText: 'Especialidad',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todas')),
+                    DropdownMenuItem(
+                      value: 'ELECTRICIDAD',
+                      child: Text('Electricidad'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'FONTANERIA',
+                      child: Text('Fontanería'),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _especialidadFiltro = v),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: _buscando ? null : _buscar,
+                icon: _buscando
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.search),
+                label: const Text('Buscar'),
+              ),
+              if (_hayFiltros) ...[
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: _limpiarBusqueda,
+                ),
+              ],
+            ],
           ),
         ],
       ),
     );
   }
-}
 
-// ─────────────────────────────────────────
-// Partes para JEFE DE OBRA
-// ─────────────────────────────────────────
-class _PartesJefeScreen extends ConsumerWidget {
-  const _PartesJefeScreen();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final partesAsync = ref.watch(partesJefeProvider);
-
-    return Stack(
-      children: [
-        partesAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error: $e')),
-          data: (partes) => partes.isEmpty
-              ? const Center(child: Text('No hay partes registrados'))
-              : ListView.builder(
-                  padding: const EdgeInsets.only(
-                    left: 8,
-                    right: 8,
-                    top: 8,
-                    bottom: 80,
-                  ),
-                  itemCount: partes.length,
-                  itemBuilder: (context, index) {
-                    final parte = partes[index];
-                    return _CardParteJefe(parte: parte);
-                  },
-                ),
-        ),
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: FloatingActionButton(
-            heroTag: 'fab_partes_jefe',
-            onPressed: () => context.go('/partes/nuevo'),
-            child: const Icon(Icons.add),
-          ),
-        ),
-      ],
+  Widget _listaDesdeJson(List<dynamic> partes, bool puedeValidar) {
+    if (partes.isEmpty) return const Center(child: Text('Sin resultados'));
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8),
+      itemCount: partes.length,
+      itemBuilder: (context, index) {
+        final p = partes[index];
+        return _CardGenericaBusqueda(p: p, puedeValidar: puedeValidar);
+      },
     );
   }
 }
 
 // ─────────────────────────────────────────
-// Card parte normal
+// Vistas de Datos (Riverpod)
 // ─────────────────────────────────────────
+
+class _PartesNormalesView extends ConsumerWidget {
+  final dynamic perfil;
+  const _PartesNormalesView({required this.perfil});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final partesAsync = ref.watch(partesProvider);
+    final puedeValidar = !perfil.esOperario;
+
+    return partesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (partes) => partes.isEmpty
+          ? const Center(child: Text('No hay partes registrados'))
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8),
+              itemCount: partes.length,
+              itemBuilder: (context, index) => _CardParteNormal(
+                parte: partes[index],
+                puedeValidar: puedeValidar,
+                onValidar: () =>
+                    _validarParteGlobal(context, ref, partes[index].id),
+              ),
+            ),
+    );
+  }
+}
+
+class _PartesJefeView extends ConsumerWidget {
+  const _PartesJefeView();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final partesAsync = ref.watch(partesJefeProvider);
+    return partesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (partes) => partes.isEmpty
+          ? const Center(child: Text('No hay partes registrados'))
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8),
+              itemCount: partes.length,
+              itemBuilder: (context, index) =>
+                  _CardParteJefe(parte: partes[index]),
+            ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Componentes de Tarjetas (Tus diseños originales)
+// ─────────────────────────────────────────
+
 class _CardParteNormal extends StatelessWidget {
   final ParteTrabajo parte;
   final bool puedeValidar;
@@ -416,27 +272,21 @@ class _CardParteNormal extends StatelessWidget {
         ),
         title: Text(
           parte.obraNombre,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
-        subtitle: Text(
-          '${parte.operarioNombre} • ${DateFormat('dd/MM/yyyy').format(parte.fecha)}',
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${parte.horasNormales}h',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              '${parte.operarioNombre} • ${DateFormat('dd/MM/yyyy').format(parte.fecha)}',
             ),
-            Text(
-              parte.firmado ? 'FIRMADO' : 'PENDIENTE',
-              style: TextStyle(
-                fontSize: 10,
-                color: parte.firmado ? Colors.green : Colors.orange,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            if (parte.especialidad != null)
+              _chipEspecialidad(parte.especialidad!),
           ],
+        ),
+        trailing: _TrailingHoras(
+          firmado: parte.firmado,
+          horas: parte.horasNormales.toString(),
         ),
         children: [
           Padding(
@@ -451,55 +301,12 @@ class _CardParteNormal extends StatelessWidget {
                     color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 5),
                 Text(parte.descripcion),
-                const SizedBox(height: 15),
-                if (!parte.firmado && puedeValidar)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: onValidar,
-                      icon: const Icon(Icons.edit_note),
-                      label: const Text('FIRMAR PARTE'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
+                if (!parte.firmado && puedeValidar) ...[
+                  const SizedBox(height: 15),
+                  _BotonFirmar(onPressed: onValidar),
+                ],
               ],
-            ),
-          ),
-        ],
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '${parte.horasNormales}h',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          // Chip especialidad
-          if (parte.especialidad != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: parte.especialidad == 'ELECTRICIDAD'
-                    ? Colors.amber[700]
-                    : Colors.blue[700],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                parte.especialidad == 'ELECTRICIDAD' ? 'Elect.' : 'Font.',
-                style: const TextStyle(fontSize: 9, color: Colors.white),
-              ),
-            ),
-          Text(
-            parte.firmado ? 'FIRMADO' : 'PENDIENTE',
-            style: TextStyle(
-              fontSize: 10,
-              color: parte.firmado ? Colors.green : Colors.orange,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -508,9 +315,6 @@ class _CardParteNormal extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────
-// Card parte jefe de obra
-// ─────────────────────────────────────────
 class _CardParteJefe extends StatelessWidget {
   final dynamic parte;
   const _CardParteJefe({required this.parte});
@@ -518,7 +322,8 @@ class _CardParteJefe extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool firmado = parte['firmado'] ?? false;
-    final fecha = DateTime.tryParse(parte['fecha'] ?? '') ?? DateTime.now();
+    final fechaStr = parte['fecha'] ?? '';
+    final fecha = DateTime.tryParse(fechaStr) ?? DateTime.now();
     final obras = (parte['obras'] as List?) ?? [];
 
     return Card(
@@ -536,8 +341,7 @@ class _CardParteJefe extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
-          '${obras.length} obra(s) • '
-          '${firmado ? "FIRMADO" : "PENDIENTE"}',
+          '${obras.length} obra(s) • ${firmado ? "FIRMADO" : "PENDIENTE"}',
         ),
         children: [
           Padding(
@@ -552,39 +356,23 @@ class _CardParteJefe extends StatelessWidget {
                     color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 8),
                 ...obras.map(
-                  (o) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.business,
-                          size: 16,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(o['obra']?['nombre'] ?? '')),
-                        Text(
-                          '${o['porcentaje']}%',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
+                  (o) => ListTile(
+                    dense: true,
+                    leading: const Icon(
+                      Icons.business,
+                      size: 16,
+                      color: Colors.blue,
+                    ),
+                    title: Text(o['obra']?['nombre'] ?? ''),
+                    trailing: Text(
+                      '${o['porcentaje']}%',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
                 const Divider(),
-                const SizedBox(height: 8),
-                const Text(
-                  'Descripción:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(parte['descripcion_tareas'] ?? ''),
+                Text(parte['descripcion'] ?? 'SIN DESCRIPCION'),
               ],
             ),
           ),
@@ -592,4 +380,155 @@ class _CardParteJefe extends StatelessWidget {
       ),
     );
   }
+}
+
+// Card genérica para cuando los resultados vienen de la búsqueda (JSON)
+class _CardGenericaBusqueda extends ConsumerWidget {
+  final dynamic p;
+  final bool puedeValidar;
+  const _CardGenericaBusqueda({required this.p, required this.puedeValidar});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final firmado = p['firmado'] ?? false;
+    final fechaStr = p['fecha'] ?? '';
+    final fecha = DateTime.tryParse(fechaStr) ?? DateTime.now();
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ExpansionTile(
+        leading: Icon(
+          firmado ? Icons.verified : Icons.pending_actions,
+          color: firmado ? Colors.green : Colors.orange,
+        ),
+        title: Text(p['obra']?['nombre'] ?? 'Sin Obra'),
+        subtitle: Text(
+          '${p['perfil']?['name'] ?? ''} • ${DateFormat('dd/MM/yyyy').format(fecha)}',
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(p['descripcion'] ?? ''),
+                if (!firmado && puedeValidar)
+                  _BotonFirmar(
+                    onPressed: () => _validarParteGlobal(context, ref, p['id']),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Pequeños Widgets de apoyo para limpiar el código
+// ─────────────────────────────────────────
+
+Widget _chipEspecialidad(String especialidad) {
+  final esElectricidad = especialidad == 'ELECTRICIDAD';
+  return Container(
+    margin: const EdgeInsets.only(top: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: esElectricidad ? Colors.amber[700] : Colors.blue[700],
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      esElectricidad ? 'ELECT.' : 'FONT.',
+      style: const TextStyle(
+        fontSize: 9,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+}
+
+class _TrailingHoras extends StatelessWidget {
+  final bool firmado;
+  final String horas;
+  const _TrailingHoras({required this.firmado, required this.horas});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          '$horas h',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        Text(
+          firmado ? 'FIRMADO' : 'PENDIENTE',
+          style: TextStyle(
+            fontSize: 9,
+            color: firmado ? Colors.green : Colors.orange,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BotonFirmar extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _BotonFirmar({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.edit_note),
+        label: const Text('FIRMAR PARTE'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+void _validarParteGlobal(BuildContext context, WidgetRef ref, dynamic parteId) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('¿Validar parte?'),
+      content: const Text(
+        'Al firmar confirmas que las horas y tareas son correctas.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('CANCELAR'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            Navigator.pop(context);
+            try {
+              await ref.read(apiServiceProvider).validarParte(parteId);
+              ref.invalidate(partesProvider);
+              ref.invalidate(partesJefeProvider);
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
+              }
+            }
+          },
+          child: const Text('CONFIRMAR'),
+        ),
+      ],
+    ),
+  );
 }

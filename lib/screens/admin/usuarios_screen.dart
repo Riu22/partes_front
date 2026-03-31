@@ -1,108 +1,200 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/buscador_operario.dart';
 
-class UsuariosScreen extends ConsumerWidget {
+class UsuariosScreen extends ConsumerStatefulWidget {
   const UsuariosScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UsuariosScreen> createState() => _UsuariosScreenState();
+}
+
+class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
+  String _filtro = '';
+
+  @override
+  Widget build(BuildContext context) {
     final usuariosAsync = ref.watch(usuariosProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esAdmin = perfil?.esAdmin ?? false;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Usuarios'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(usuariosProvider),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.go('/usuarios/nuevo'),
+        child: const Icon(Icons.person_add),
+      ),
+      body: Column(
+        children: [
+          // INTEGRACIÓN DEL BUSCADOR
+          BuscadorOperario(
+            onBuscar: (texto) => setState(() => _filtro = texto),
+            onLimpiar: () => setState(() => _filtro = ''),
+          ),
+
+          Expanded(
+            child: usuariosAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (usuarios) {
+                // FILTRADO LOCAL
+                final listaFiltrada = usuarios.where((u) {
+                  final nombre = (u['name'] ?? '').toString().toLowerCase();
+                  final email = (u['email'] ?? '').toString().toLowerCase();
+                  return nombre.contains(_filtro.toLowerCase()) ||
+                      email.contains(_filtro.toLowerCase());
+                }).toList();
+
+                if (listaFiltrada.isEmpty) {
+                  return const Center(
+                    child: Text('No se encontraron usuarios'),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: listaFiltrada.length,
+                  padding: const EdgeInsets.only(bottom: 80, top: 10),
+                  itemBuilder: (context, index) {
+                    final u = listaFiltrada[index];
+                    return _buildUsuarioCard(
+                      context,
+                      ref,
+                      u,
+                      esAdmin,
+                      usuarios,
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _mostrarDialogoCrear(context, ref),
-        child: const Icon(Icons.person_add),
-      ),
-      body: usuariosAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (usuarios) => ListView.builder(
-          itemCount: usuarios.length,
-          padding: const EdgeInsets.all(8),
-          itemBuilder: (context, index) {
-            final u = usuarios[index];
-            final bool activo = u['activo'] ?? true;
-            final jefe = u['jefeDirecto'];
+    );
+  }
 
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: _colorRol(u['rol']),
+  Widget _buildUsuarioCard(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic u,
+    bool esAdmin,
+    List<dynamic> todos,
+  ) {
+    final bool activo = u['activo'] ?? true;
+    final jefe = u['jefeDirecto'];
+    final String rol = u['rol'] ?? 'OPERARIO';
+
+    // Determinamos si este usuario puede tener subordinados para cambiar el texto del menú
+    final bool puedeTenerEquipo = [
+      'JEFE_DE_OBRA',
+      'ENCARGADO',
+      'GESTION',
+      'ADMINISTRACION',
+    ].contains(rol);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _colorRol(rol),
+          child: Text(
+            (u['name'] ?? u['email'] ?? '?')[0].toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        title: Text(
+          u['name'] ?? 'Sin nombre',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                u['email'] ?? '',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+              if (jefe != null) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   child: Text(
-                    (u['name'] ?? u['email'] ?? '?')[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white),
+                    'Jefe: ${jefe['name']}',
+                    style: const TextStyle(
+                      color: Colors.blue,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                title: Text(u['name'] ?? 'Sin nombre'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ],
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, children: [_chipRol(rol), _chipActivo(activo)]),
+            ],
+          ),
+        ),
+        isThreeLine: true,
+        trailing: PopupMenuButton(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (accion) {
+            if (accion == 'editar') context.go('/usuarios/editar', extra: u);
+            if (accion == 'equipo') {
+              context.go(
+                '/usuarios/asignar-jefe',
+                extra: {'usuario': u, 'todos': todos},
+              );
+            }
+            if (accion == 'eliminar') _confirmarEliminar(context, ref, u['id']);
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(
+              value: 'editar',
+              child: Row(
+                children: [
+                  Icon(Icons.edit, size: 20),
+                  SizedBox(width: 8),
+                  Text('Editar'),
+                ],
+              ),
+            ),
+            if (puedeTenerEquipo)
+              const PopupMenuItem(
+                value: 'equipo',
+                child: Row(
                   children: [
-                    Text(u['email'] ?? ''),
-                    if (jefe != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Jefe: ${jefe['name'] ?? 'Desconocido'}',
-                        style: TextStyle(
-                          fontStyle: FontStyle.italic,
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        _chipRol(u['rol']),
-                        const SizedBox(width: 8),
-                        _chipActivo(activo),
-                      ],
-                    ),
+                    Icon(Icons.groups, size: 20),
+                    SizedBox(width: 8),
+                    Text('Gestionar Equipo'),
                   ],
-                ),
-                isThreeLine: true,
-                trailing: PopupMenuButton(
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'editar', child: Text('Editar')),
-                    const PopupMenuItem(
-                      value: 'jefe',
-                      child: Text('Asignar jefe'),
-                    ),
-                    if (esAdmin)
-                      const PopupMenuItem(
-                        value: 'eliminar',
-                        child: Text(
-                          'Eliminar',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ),
-                  ],
-                  onSelected: (accion) {
-                    if (accion == 'editar') {
-                      _mostrarDialogoEditar(context, ref, u);
-                    } else if (accion == 'jefe') {
-                      _mostrarDialogoAsignarJefe(context, ref, u, usuarios);
-                    } else if (accion == 'eliminar') {
-                      _confirmarEliminar(context, ref, u['id']);
-                    }
-                  },
                 ),
               ),
-            );
-          },
+            if (esAdmin)
+              const PopupMenuItem(
+                value: 'eliminar',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 20, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Eliminar', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -119,284 +211,50 @@ class UsuariosScreen extends ConsumerWidget {
       case 'ENCARGADO':
         return Colors.orange;
       default:
-        return Colors.grey;
+        return Colors.blueGrey;
     }
   }
 
-  Widget _chipRol(String? rol) => Chip(
-    label: Text(
-      rol ?? 'OPERARIO',
-      style: const TextStyle(fontSize: 10, color: Colors.white),
+  Widget _chipRol(String rol) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: _colorRol(rol),
+      borderRadius: BorderRadius.circular(12),
     ),
-    backgroundColor: _colorRol(rol),
-    padding: EdgeInsets.zero,
-    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    child: Text(
+      rol,
+      style: const TextStyle(
+        fontSize: 9,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
   );
 
-  Widget _chipActivo(bool activo) => Chip(
-    label: Text(
+  Widget _chipActivo(bool activo) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: activo ? Colors.green : Colors.red,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
       activo ? 'ACTIVO' : 'INACTIVO',
-      style: const TextStyle(fontSize: 10, color: Colors.white),
+      style: const TextStyle(
+        fontSize: 9,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
     ),
-    backgroundColor: activo ? Colors.green : Colors.red,
-    padding: EdgeInsets.zero,
-    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
   );
-
-  void _mostrarDialogoCrear(BuildContext context, WidgetRef ref) {
-    final emailCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
-    final nameCtrl = TextEditingController();
-    String rolSeleccionado = 'OPERARIO';
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Crear usuario'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre completo',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: emailCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: passCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Contraseña',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: rolSeleccionado,
-                  decoration: const InputDecoration(
-                    labelText: 'Rol',
-                    border: OutlineInputBorder(),
-                  ),
-                  items:
-                      [
-                            'OPERARIO',
-                            'ENCARGADO',
-                            'JEFE_DE_OBRA',
-                            'GESTION',
-                            'ADMINISTRACION',
-                          ]
-                          .map(
-                            (r) => DropdownMenuItem(value: r, child: Text(r)),
-                          )
-                          .toList(),
-                  onChanged: (v) => setState(() => rolSeleccionado = v!),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCELAR'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                try {
-                  await ref.read(apiServiceProvider).crearUsuario({
-                    'email': emailCtrl.text.trim(),
-                    'password': passCtrl.text.trim(),
-                    'name': nameCtrl.text.trim(),
-                    'rol': rolSeleccionado,
-                  });
-                  ref.invalidate(usuariosProvider);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              },
-              child: const Text('CREAR'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _mostrarDialogoEditar(BuildContext context, WidgetRef ref, Map u) {
-    final nameCtrl = TextEditingController(text: u['name'] ?? '');
-    String rolSeleccionado = u['rol'] ?? 'OPERARIO';
-    bool activo = u['activo'] ?? true;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Editar usuario'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: rolSeleccionado,
-                  decoration: const InputDecoration(
-                    labelText: 'Rol',
-                    border: OutlineInputBorder(),
-                  ),
-                  items:
-                      [
-                            'OPERARIO',
-                            'ENCARGADO',
-                            'JEFE_DE_OBRA',
-                            'GESTION',
-                            'ADMINISTRACION',
-                          ]
-                          .map(
-                            (r) => DropdownMenuItem(value: r, child: Text(r)),
-                          )
-                          .toList(),
-                  onChanged: (v) => setState(() => rolSeleccionado = v!),
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  title: const Text('Activo'),
-                  value: activo,
-                  onChanged: (v) => setState(() => activo = v),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCELAR'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                try {
-                  await ref.read(apiServiceProvider).editarUsuario(u['id'], {
-                    'name': nameCtrl.text.trim(),
-                    'rol': rolSeleccionado,
-                    'activo': activo,
-                  });
-                  ref.invalidate(usuariosProvider);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                  }
-                }
-              },
-              child: const Text('GUARDAR'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _mostrarDialogoAsignarJefe(
-    BuildContext context,
-    WidgetRef ref,
-    Map usuario,
-    List usuarios,
-  ) {
-    String? jefeSeleccionado;
-    final posiblesJefes = usuarios
-        .where(
-          (u) =>
-              u['id'] != usuario['id'] &&
-              [
-                'ENCARGADO',
-                'JEFE_DE_OBRA',
-                'GESTION',
-                'ADMINISTRACION',
-              ].contains(u['rol']),
-        )
-        .toList();
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text('Asignar jefe a ${usuario['name']}'),
-          content: DropdownButtonFormField<String>(
-            decoration: const InputDecoration(
-              labelText: 'Jefe directo',
-              border: OutlineInputBorder(),
-            ),
-            items: posiblesJefes
-                .map(
-                  (u) => DropdownMenuItem<String>(
-                    value: u['id'],
-                    child: Text('${u['name']} (${u['rol']})'),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) => setState(() => jefeSeleccionado = v),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCELAR'),
-            ),
-            ElevatedButton(
-              onPressed: jefeSeleccionado == null
-                  ? null
-                  : () async {
-                      Navigator.pop(context);
-                      try {
-                        await ref
-                            .read(apiServiceProvider)
-                            .asignarJefe(usuario['id'], jefeSeleccionado!);
-                        ref.invalidate(usuariosProvider);
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                        }
-                      }
-                    },
-              child: const Text('ASIGNAR'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _confirmarEliminar(BuildContext context, WidgetRef ref, String id) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('¿Eliminar usuario?'),
-        content: const Text('Esta acción no se puede deshacer.'),
+        content: const Text(
+          'Esta acción no se puede deshacer y afectará a las asignaciones actuales.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

@@ -25,7 +25,7 @@ class ParteTrabajo {
     operarioNombre: json['perfil']?['name'] ?? 'Sin nombre',
     fecha: DateTime.parse(json['fecha']),
     horasNormales: (json['horas_normales'] ?? 8.0).toDouble(),
-    descripcion: json['descripcion_tareas'] ?? '',
+    descripcion: json['descripcion'] ?? '',
     firmado: json['firmado'] ?? false,
     especialidad: json['especialidad'],
   );

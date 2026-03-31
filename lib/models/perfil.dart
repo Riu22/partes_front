@@ -4,6 +4,7 @@ class Perfil {
   final String nombreCompleto;
   final String rol;
   final bool activo;
+  final String especialidad;
 
   Perfil({
     required this.id,
@@ -11,6 +12,7 @@ class Perfil {
     required this.nombreCompleto,
     required this.rol,
     required this.activo,
+    required this.especialidad,
   });
 
   factory Perfil.fromJson(Map<String, dynamic> json) => Perfil(
@@ -19,6 +21,7 @@ class Perfil {
     nombreCompleto: json['name'] ?? '',
     rol: json['rol'] ?? 'OPERARIO',
     activo: json['activo'] ?? true,
+    especialidad: json['especialidad'] ?? 'SIN ESPECIALIDAD',
   );
 
   // --- Identificación de Roles ---

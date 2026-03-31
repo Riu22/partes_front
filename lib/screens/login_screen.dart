@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -20,12 +21,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _loading = true;
       _error = null;
     });
+
+    final resultado = await Connectivity().checkConnectivity();
+    final hayRed = resultado.any((r) => r != ConnectivityResult.none);
+
     final ok = await ref
         .read(authProvider.notifier)
         .login(_emailController.text.trim(), _passwordController.text.trim());
+
     if (!ok && mounted) {
       setState(() {
-        _error = 'Email o contraseña incorrectos';
+        _error = hayRed
+            ? 'Email o contraseña incorrectos'
+            : 'Sin conexión. Debes haber iniciado sesión antes al menos una vez.';
         _loading = false;
       });
     }

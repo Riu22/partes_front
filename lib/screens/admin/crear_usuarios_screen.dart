@@ -1,0 +1,161 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../providers/admin_provider.dart';
+import '../../providers/auth_provider.dart';
+
+class CrearUsuarioScreen extends ConsumerStatefulWidget {
+  const CrearUsuarioScreen({super.key});
+
+  @override
+  ConsumerState<CrearUsuarioScreen> createState() => _CrearUsuarioScreenState();
+}
+
+class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController();
+  final _codigoCtrl = TextEditingController();
+  String _rol = 'OPERARIO';
+  bool _enviando = false;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _nameCtrl.dispose();
+    _codigoCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Nuevo usuario')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre completo',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                ),
+                validator: (v) =>
+                    v!.isEmpty ? 'El nombre es obligatorio' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _codigoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Código',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.badge),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email),
+                ),
+                validator: (v) => v!.isEmpty ? 'El email es obligatorio' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Contraseña',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                ),
+                validator: (v) => v!.length < 6 ? 'Mínimo 6 caracteres' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _rol,
+                decoration: const InputDecoration(
+                  labelText: 'Rol',
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'OPERARIO', child: Text('Operario')),
+                  DropdownMenuItem(
+                    value: 'ENCARGADO',
+                    child: Text('Encargado'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'JEFE_DE_OBRA',
+                    child: Text('Jefe de obra'),
+                  ),
+                  DropdownMenuItem(value: 'GESTION', child: Text('Gestión')),
+                  DropdownMenuItem(
+                    value: 'ADMINISTRACION',
+                    child: Text('Administración'),
+                  ),
+                ],
+                onChanged: (v) => setState(() => _rol = v!),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  onPressed: _enviando ? null : _crear,
+                  child: _enviando
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'CREAR USUARIO',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _crear() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _enviando = true);
+    try {
+      await ref.read(apiServiceProvider).crearUsuario({
+        'email': _emailCtrl.text.trim(),
+        'password': _passCtrl.text.trim(),
+        'name': _nameCtrl.text.trim(),
+        'codigo': _codigoCtrl.text.trim(),
+        'rol': _rol,
+      });
+      ref.invalidate(usuariosProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario creado correctamente')),
+        );
+        context.go('/usuarios');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+}

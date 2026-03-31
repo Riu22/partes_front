@@ -66,9 +66,34 @@ class ApiService {
     await _dio.delete('/user/delete_user/$id', options: await _authHeaders());
   }
 
-  Future<void> asignarJefe(String subordinadoId, String jefeId) async {
+  Future<List<dynamic>> getSubordinadosDe(String jefeId) async {
+    final response = await _dio.get(
+      '/asignaciones/$jefeId/subordinados', // Coincide con el nuevo GetMapping
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  Future<void> asignarJefe(
+    String usuarioId,
+    String jefeId,
+    String rolJefe,
+  ) async {
+    // Si el rol del que seleccionamos en la lista (el jefe) es JEFE_DE_OBRA,
+    // usamos el endpoint de asignar_encargado.
+    String endpoint = (rolJefe == 'JEFE_DE_OBRA')
+        ? 'asignar_encargado'
+        : 'asignar_operario';
+
     await _dio.put(
-      '/asignaciones/asignar_encargado/$subordinadoId/$jefeId',
+      '/asignaciones/$endpoint/$usuarioId/$jefeId',
+      options: await _authHeaders(),
+    );
+  }
+
+  Future<void> quitarSubordinado(String usuarioId) async {
+    await _dio.delete(
+      '/asignaciones/quitar_subordinado/$usuarioId',
       options: await _authHeaders(),
     );
   }
