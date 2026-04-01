@@ -42,7 +42,7 @@ class _BuscadorOperarioState extends State<BuscadorOperario> {
               : null,
         ),
         onChanged: (value) {
-          setState(() {}); // Actualiza para mostrar/ocultar la 'X'
+          setState(() {});
           if (value.isEmpty) widget.onLimpiar();
           widget.onBuscar(value);
         },

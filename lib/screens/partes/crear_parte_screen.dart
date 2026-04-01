@@ -8,14 +8,20 @@ import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
 
 class CrearParteScreen extends ConsumerWidget {
-  const CrearParteScreen({super.key});
+  final bool esPostVenta;
+
+  const CrearParteScreen({super.key, this.esPostVenta = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(authProvider).valueOrNull;
     if (perfil == null)
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
     if (perfil.esJefeObra) return const _FormularioParteJefe();
+
+    if (esPostVenta) return const _FormularioPostVenta();
+
     return const _FormularioParteNormal();
   }
 }
@@ -35,10 +41,9 @@ class _FormularioParteNormalState
   final _formKey = GlobalKey<FormState>();
   final _obraSearchCtrl = TextEditingController();
   DateTime _fecha = DateTime.now();
-  double _horasNormales = 8.0;
+  double _horasNormales = 0;
   String _descripcion = '';
   int? _idObraSeleccionada;
-  String? _especialidad;
   bool _enviando = false;
   final DateTime _fechaMinima = DateTime.now().subtract(
     const Duration(days: 14),
@@ -58,6 +63,10 @@ class _FormularioParteNormalState
         title: const Text('Nuevo Parte'),
         backgroundColor: Colors.orange[800],
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.go('/partes'),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -117,7 +126,6 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 12),
               TextFormField(
-                initialValue: '8',
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -126,36 +134,6 @@ class _FormularioParteNormalState
                   suffixText: 'horas',
                 ),
                 onChanged: (v) => _horasNormales = double.tryParse(v) ?? 8.0,
-              ),
-              const SizedBox(height: 25),
-              const Text(
-                'Especialidad',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _BotonEspecialidad(
-                      label: 'Electricidad',
-                      icono: Icons.electrical_services,
-                      color: Colors.amber[700]!,
-                      seleccionado: _especialidad == 'ELECTRICIDAD',
-                      onTap: () =>
-                          setState(() => _especialidad = 'ELECTRICIDAD'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _BotonEspecialidad(
-                      label: 'Fontanería',
-                      icono: Icons.plumbing,
-                      color: Colors.blue[700]!,
-                      seleccionado: _especialidad == 'FONTANERIA',
-                      onTap: () => setState(() => _especialidad = 'FONTANERIA'),
-                    ),
-                  ),
-                ],
               ),
               const SizedBox(height: 25),
               const Text(
@@ -221,7 +199,6 @@ class _FormularioParteNormalState
       'id_perfil': perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales': _horasNormales,
-      'especialidad': _especialidad,
       'descripcion': _descripcion,
     };
 
@@ -271,7 +248,265 @@ class _FormularioParteNormalState
       if (mounted) setState(() => _enviando = false);
     }
   }
-} // ← cierre _FormularioParteNormalState
+}
+
+// ─────────────────────────────────────────
+// Formulario POST VENTA
+// ─────────────────────────────────────────
+class _FormularioPostVenta extends ConsumerStatefulWidget {
+  const _FormularioPostVenta();
+  @override
+  ConsumerState<_FormularioPostVenta> createState() =>
+      _FormularioPostVentaState();
+}
+
+class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
+  final _formKey = GlobalKey<FormState>();
+  final _obraSearchCtrl = TextEditingController();
+  DateTime _fecha = DateTime.now();
+  double _horasNormales = 0;
+  String _descripcion = '';
+  int? _idObraSeleccionada;
+  String? _especialidad;
+  bool _enviando = false;
+  final DateTime _fechaMinima = DateTime.now().subtract(
+    const Duration(days: 14),
+  );
+
+  @override
+  void dispose() {
+    _obraSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final obrasAsync = ref.watch(obrasProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Nuevo Parte Post Venta'),
+        backgroundColor: Colors.purple[700],
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.go('/partes'),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Obra',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              obrasAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Error: $e'),
+                data: (obras) => TextFormField(
+                  controller: _obraSearchCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Seleccionar obra',
+                    hintText: 'Toca para buscar...',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onTap: () => _abrirBuscadorGeneral(context, obras, (o) {
+                    setState(() {
+                      _idObraSeleccionada = o.id;
+                      _obraSearchCtrl.text = o.nombre;
+                    });
+                  }),
+                  validator: (v) => _idObraSeleccionada == null
+                      ? 'Selecciona una obra'
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  side: const BorderSide(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                leading: const Icon(Icons.calendar_today),
+                title: Text(
+                  'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
+                ),
+                subtitle: Text(
+                  'Mínimo: ${DateFormat('dd/MM/yyyy').format(_fechaMinima)}',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                onTap: _pickDate,
+              ),
+              const SizedBox(height: 25),
+              const Text(
+                'Horas normales',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  suffixText: 'horas',
+                ),
+                onChanged: (v) => _horasNormales = double.tryParse(v) ?? 8.0,
+              ),
+              const SizedBox(height: 25),
+              const Text(
+                'Especialidad',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _BotonEspecialidad(
+                      label: 'Electricidad',
+                      icono: Icons.electrical_services,
+                      color: Colors.amber[700]!,
+                      seleccionado: _especialidad == 'ELECTRICIDAD',
+                      onTap: () =>
+                          setState(() => _especialidad = 'ELECTRICIDAD'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _BotonEspecialidad(
+                      label: 'Fontanería',
+                      icono: Icons.plumbing,
+                      color: Colors.blue[700]!,
+                      seleccionado: _especialidad == 'FONTANERIA',
+                      onTap: () => setState(() => _especialidad = 'FONTANERIA'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 25),
+              const Text(
+                'Tareas realizadas',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: 'Descripción del trabajo...',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
+                onChanged: (v) => _descripcion = v,
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple[700],
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: _enviando ? null : _enviarParte,
+                  child: _enviando
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'ENVIAR PARTE',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fecha,
+      firstDate: _fechaMinima,
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _fecha = picked);
+  }
+
+  Future<void> _enviarParte() async {
+    if (!_formKey.currentState!.validate()) return;
+    final perfil = ref.read(authProvider).valueOrNull;
+    if (perfil == null) return;
+    setState(() => _enviando = true);
+
+    final data = {
+      'id_obra': _idObraSeleccionada,
+      'id_perfil': perfil.id,
+      'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
+      'horas_normales': _horasNormales,
+      'especialidad': _especialidad,
+      'descripcion': _descripcion,
+      'es_post_venta': true,
+    };
+
+    try {
+      final resultado = await Connectivity().checkConnectivity();
+      final hayRed = resultado.any((r) => r != ConnectivityResult.none);
+
+      if (!hayRed) {
+        await ref.read(offlineQueueProvider).guardarParteOffline(data);
+        ref.invalidate(pendientesOfflineProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Sin conexión — parte guardado, se enviará automáticamente',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          context.go('/partes');
+        }
+        return;
+      }
+
+      await ref.read(apiServiceProvider).crearParte(data);
+      ref.invalidate(partesProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Parte post venta enviado correctamente'),
+          ),
+        );
+        context.go('/partes');
+      }
+    } catch (e) {
+      await ref.read(offlineQueueProvider).guardarParteOffline(data);
+      ref.invalidate(pendientesOfflineProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error de conexión — parte guardado localmente'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        context.go('/partes');
+      }
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+}
 
 // ─────────────────────────────────────────
 // Formulario JEFE DE OBRA
@@ -305,6 +540,10 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
         title: const Text('Parte Jefe de Obra'),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.go('/partes'),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -520,7 +759,7 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
       if (mounted) setState(() => _enviando = false);
     }
   }
-} // ← cierre _FormularioParteJefeState
+}
 
 // ─────────────────────────────────────────
 // BUSCADOR GENERAL

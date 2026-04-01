@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import '../config/env.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -17,25 +18,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _error;
 
   Future<void> _login() async {
+    print('🔵 BOTÓN PULSADO: Iniciando proceso...');
+
     setState(() {
       _loading = true;
       _error = null;
     });
 
-    final resultado = await Connectivity().checkConnectivity();
-    final hayRed = resultado.any((r) => r != ConnectivityResult.none);
+    try {
+      print('🌐 Intentando conectar a: ${Env.apiUrl}');
 
-    final ok = await ref
-        .read(authProvider.notifier)
-        .login(_emailController.text.trim(), _passwordController.text.trim());
+      final ok = await ref
+          .read(authProvider.notifier)
+          .login(_emailController.text.trim(), _passwordController.text.trim());
 
-    if (!ok && mounted) {
-      setState(() {
-        _error = hayRed
-            ? 'Email o contraseña incorrectos'
-            : 'Sin conexión. Debes haber iniciado sesión antes al menos una vez.';
-        _loading = false;
-      });
+      print('✅ Respuesta del servidor recibida. ¿Éxito?: $ok');
+
+      if (!ok && mounted) {
+        setState(() {
+          _error = 'Email o contraseña incorrectos';
+          _loading = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      // ESTO ES LO MÁS IMPORTANTE: Captura cualquier error de red o código
+      print('❌ ERROR CRÍTICO EN LOGIN: $e');
+      print('📂 STACKTRACE: $stackTrace');
+
+      if (mounted) {
+        setState(() {
+          _error = 'Error de conexión: $e';
+          _loading = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

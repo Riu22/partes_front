@@ -11,6 +11,8 @@ class AuthService {
 
   Future<String?> login(String email, String password) async {
     try {
+      print('DEBUG: Enviando login a ${Env.supabaseUrl}');
+
       final response = await _dio.post(
         '${Env.supabaseUrl}/auth/v1/token?grant_type=password',
         data: {'email': email, 'password': password},
@@ -18,10 +20,22 @@ class AuthService {
           headers: {'apikey': _anonKey, 'Content-Type': 'application/json'},
         ),
       );
+
       final token = response.data['access_token'];
       await _storage.write(key: 'jwt', value: token);
+      print('DEBUG: Login exitoso, token guardado.');
       return token;
+    } on DioException catch (e) {
+      print('❌ ERROR DE DIO: ${e.type}');
+      if (e.response != null) {
+        print('❌ CÓDIGO SERVIDOR: ${e.response?.statusCode}');
+        print('❌ MENSAJE SERVIDOR: ${e.response?.data}');
+      } else {
+        print('❌ ERROR SIN RESPUESTA (Red/Firewall): ${e.message}');
+      }
+      return null;
     } catch (e) {
+      print('❌ ERROR INESPERADO: $e');
       return null;
     }
   }

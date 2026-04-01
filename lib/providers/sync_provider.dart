@@ -4,74 +4,80 @@ import '../services/offline_queue_service.dart';
 import 'auth_provider.dart';
 import 'partes_provider.dart';
 
+// 1. Acceso al servicio de persistencia (SharedPreferences/SQLite)
 final offlineQueueProvider = Provider((ref) => OfflineQueueService());
 
-// Estado de conectividad
+// 2. Monitor de conectividad en tiempo real
 final conectividadProvider = StreamProvider<bool>((ref) {
   return Connectivity().onConnectivityChanged.map(
     (results) => results.any((r) => r != ConnectivityResult.none),
   );
 });
 
-// Cantidad de partes pendientes offline
+// 3. Contador de partes que están "atrapados" en el móvil
 final pendientesOfflineProvider = FutureProvider<int>((ref) async {
-  final queue = ref.read(offlineQueueProvider);
+  final queue = ref.watch(offlineQueueProvider);
   return await queue.totalPendientes();
 });
 
-// Sincronizador — se activa cuando vuelve la conexión
+// 4. EL MOTOR DE SINCRONIZACIÓN (Corregido)
 final syncProvider = Provider((ref) {
-  ref.listen<AsyncValue<bool>>(conectividadProvider, (prev, next) async {
+  // Escucha cambios de red (de No hay -> a Sí hay)
+  ref.listen<AsyncValue<bool>>(conectividadProvider, (prev, next) {
     final tieneConexion = next.valueOrNull ?? false;
-    final prevConexion = prev?.valueOrNull ?? false;
+    final veniaDeSinConexion = !(prev?.valueOrNull ?? true);
 
-    // Solo sincronizar cuando RECUPERA la conexión
-    if (tieneConexion && !prevConexion) {
-      await _sincronizar(ref);
+    if (tieneConexion && veniaDeSinConexion) {
+      _sincronizar(ref);
     }
   });
+
+  // Disparo inicial: Si abres la app y ya hay red, intenta vaciar la cola
+  final tieneRedAhora = ref.read(conectividadProvider).valueOrNull ?? false;
+  if (tieneRedAhora) {
+    _sincronizar(ref);
+  }
+
   return null;
 });
 
+// 5. LÓGICA DE ENVÍO SEGURO (Uno a uno)
 Future<void> _sincronizar(Ref ref) async {
   final queue = ref.read(offlineQueueProvider);
   final api = ref.read(apiServiceProvider);
 
-  // Sincronizar partes normales
+  // --- Procesar Partes Normales ---
   final partes = await queue.getPartesOffline();
   if (partes.isNotEmpty) {
-    bool todoOk = true;
-    for (final parte in partes) {
+    // IMPORTANTE: Los enviamos de uno en uno
+    for (final parte in List.from(partes)) {
       try {
         await api.crearParte(parte);
-      } catch (_) {
-        todoOk = false;
+        // Si el servidor responde OK, lo borramos de la memoria del móvil
+        await queue.borrarParteNormal(parte);
+      } catch (e) {
+        // Si falla este envío (ej: se volvió a caer la red), paramos el bucle
         break;
       }
     }
-    if (todoOk) {
-      await queue.limpiarPartesOffline();
-      ref.invalidate(partesProvider);
-    }
+    ref.invalidate(partesProvider);
   }
 
-  // Sincronizar partes de jefe
+  // --- Procesar Partes de Jefe ---
   final partesJefe = await queue.getPartesJefeOffline();
   if (partesJefe.isNotEmpty) {
-    bool todoOk = true;
-    for (final parte in partesJefe) {
+    for (final parteJefe in List.from(partesJefe)) {
       try {
-        await api.crearParteJefe(parte);
-      } catch (_) {
-        todoOk = false;
+        await api.crearParteJefe(parteJefe);
+        // Borrado inmediato tras éxito
+        await queue.borrarParteJefe(parteJefe);
+      } catch (e) {
         break;
       }
     }
-    if (todoOk) {
-      await queue.limpiarPartesJefeOffline();
-      ref.invalidate(partesJefeProvider);
-    }
+    ref.invalidate(partesJefeProvider);
   }
 
+  // Actualizamos el contador de la interfaz
   ref.invalidate(pendientesOfflineProvider);
 }

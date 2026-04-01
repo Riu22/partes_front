@@ -20,24 +20,41 @@ class OfflineQueueService {
     await prefs.setStringList(_keyPartesJefe, lista);
   }
 
-  // ── LEER ─────────────────────────────────
+  // ── LEER (Decodificando el JSON) ──────────
   Future<List<Map<String, dynamic>>> getPartesOffline() async {
     final prefs = await SharedPreferences.getInstance();
-    return _getLista(
-      prefs,
-      _keyPartes,
-    ).map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
+    final lista = _getLista(prefs, _keyPartes);
+    return lista.map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
   }
 
   Future<List<Map<String, dynamic>>> getPartesJefeOffline() async {
     final prefs = await SharedPreferences.getInstance();
-    return _getLista(
-      prefs,
-      _keyPartesJefe,
-    ).map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
+    final lista = _getLista(prefs, _keyPartesJefe);
+    return lista.map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
   }
 
-  // ── LIMPIAR ───────────────────────────────
+  // ── BORRADO INDIVIDUAL (Evita duplicados) ──
+  // Estos métodos buscan el parte exacto que acabamos de enviar y lo quitan
+
+  Future<void> borrarParteNormal(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = _getLista(prefs, _keyPartes);
+    final dataString = jsonEncode(data);
+
+    lista.remove(dataString); // Quita solo esta entrada
+    await prefs.setStringList(_keyPartes, lista);
+  }
+
+  Future<void> borrarParteJefe(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = _getLista(prefs, _keyPartesJefe);
+    final dataString = jsonEncode(data);
+
+    lista.remove(dataString);
+    await prefs.setStringList(_keyPartesJefe, lista);
+  }
+
+  // ── LIMPIAR TODO (Opcional) ───────────────
   Future<void> limpiarPartesOffline() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyPartes);
@@ -48,10 +65,12 @@ class OfflineQueueService {
     await prefs.remove(_keyPartesJefe);
   }
 
+  // ── UTILIDADES ────────────────────────────
   Future<int> totalPendientes() async {
-    final partes = await getPartesOffline();
-    final jefe = await getPartesJefeOffline();
-    return partes.length + jefe.length;
+    final prefs = await SharedPreferences.getInstance();
+    final p = _getLista(prefs, _keyPartes).length;
+    final j = _getLista(prefs, _keyPartesJefe).length;
+    return p + j;
   }
 
   List<String> _getLista(SharedPreferences prefs, String key) {

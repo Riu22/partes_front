@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/perfil.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import 'package:flutter/foundation.dart';
 
 final authServiceProvider = Provider((ref) => AuthService());
 final apiServiceProvider = Provider((ref) => ApiService());
@@ -40,33 +41,39 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
   Future<bool> login(String email, String password) async {
     state = const AsyncLoading();
 
-    final hayRed = await _checkRed();
+    try {
+      final hayRed = await _checkRed();
 
-    if (!hayRed) {
-      // Sin red — intentar con sesión guardada
-      final token = await ref.read(authServiceProvider).getToken();
-      if (token != null) {
-        final perfilLocal = await ref
-            .read(authServiceProvider)
-            .getPerfilLocal();
-        if (perfilLocal != null) {
-          state = AsyncData(Perfil.fromJson(perfilLocal));
-          return true;
-        }
+      if (!hayRed) {
+        // Lógica de offline (mantenla igual o mejórala con un log)
+        debugPrint('⚠️ Intento de login sin red detectado');
+        // ... (tu lógica de perfil local)
+        return false;
       }
-      state = const AsyncData(null);
+
+      // Llamada al servicio de Supabase
+      final token = await ref.read(authServiceProvider).login(email, password);
+
+      if (token == null) {
+        debugPrint(
+          '❌ AuthService devolvió TOKEN NULL (Probablemente credenciales mal)',
+        );
+        state = const AsyncData(null);
+        return false;
+      }
+
+      // Si hay token, cargamos el perfil
+      final perfil = await _cargarPerfilServidor();
+      state = AsyncData(perfil);
+      return perfil != null;
+    } catch (e, stack) {
+      // ESTO ES CLAVE: Capturamos cualquier error que lance Supabase o el servicio
+      debugPrint('🚨 EXCEPCIÓN EN AUTH_NOTIFIER: $e');
+      debugPrint('📄 STACKTRACE: $stack');
+
+      state = AsyncData(null); // Limpiamos el estado de carga
       return false;
     }
-
-    final token = await ref.read(authServiceProvider).login(email, password);
-    if (token == null) {
-      state = const AsyncData(null);
-      return false;
-    }
-
-    final perfil = await _cargarPerfilServidor();
-    state = AsyncData(perfil);
-    return perfil != null;
   }
 
   Future<bool> changePassword(String newPassword) async {

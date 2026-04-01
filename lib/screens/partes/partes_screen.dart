@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../providers/partes_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/parte_trabajo.dart';
+import '../../providers/sync_provider.dart';
 
 class PartesScreen extends ConsumerStatefulWidget {
   const PartesScreen({super.key});
@@ -32,7 +33,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
     setState(() => _buscando = true);
     try {
-      // Importante: asegúrate de tener este método en tu apiServiceProvider
       final r = await ref
           .read(apiServiceProvider)
           .buscarPartes(
@@ -52,6 +52,28 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
   }
 
+  Future<void> _refrescarTodo(WidgetRef ref) async {
+    try {
+      // Forzamos el reinicio de la sincronización y de los listados
+      ref.invalidate(syncProvider);
+      ref.invalidate(partesProvider);
+      ref.invalidate(partesJefeProvider);
+      ref.invalidate(pendientesOfflineProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Actualizando y sincronizando...')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al refrescar: $e')));
+      }
+    }
+  }
+
   void _limpiarBusqueda() {
     _obraCtrl.clear();
     _operarioCtrl.clear();
@@ -63,21 +85,75 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. ACTIVAR EL MOTOR DE SINCRONIZACIÓN (Vigila la red)
+    ref.watch(syncProvider);
+
+    // 2. ESCUCHAR PARTES PENDIENTES Y ESTADO DE RED
+    final pendientesAsync = ref.watch(pendientesOfflineProvider);
+    final totalPendientes = pendientesAsync.valueOrNull ?? 0;
+    final conexionAsync = ref.watch(conectividadProvider);
+
     final perfil = ref.watch(authProvider).valueOrNull;
-    if (perfil == null)
+    if (perfil == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Partes de Trabajo'),
+        actions: [
+          // Badge naranja si hay datos pendientes en el Doogee
+          if (totalPendientes > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8),
+              child: Badge(
+                label: Text('$totalPendientes'),
+                backgroundColor: Colors.orange,
+                child: const Icon(Icons.cloud_off),
+              ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Sincronizar y refrescar',
+            onPressed: () => _refrescarTodo(ref),
+          ),
+        ],
+      ),
       body: Column(
         children: [
-          // Buscador superior
           _buildBuscador(perfil),
+
+          // BANNER DE ESTADO DE CONEXIÓN
+          conexionAsync.when(
+            data: (online) => online
+                ? const SizedBox.shrink()
+                : Container(
+                    width: double.infinity,
+                    color: Colors.red.shade100,
+                    padding: const EdgeInsets.all(6),
+                    child: const Text(
+                      'Sin conexión - Los partes se guardarán en el móvil',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+            error: (_, __) => const SizedBox.shrink(),
+            loading: () => const SizedBox.shrink(),
+          ),
+
           Expanded(
-            child: _resultadosBusqueda != null
-                ? _listaDesdeJson(_resultadosBusqueda!, !perfil.esOperario)
-                : (perfil.esJefeObra
-                      ? const _PartesJefeView()
-                      : _PartesNormalesView(perfil: perfil)),
+            child: RefreshIndicator(
+              onRefresh: () => _refrescarTodo(ref),
+              child: _resultadosBusqueda != null
+                  ? _listaDesdeJson(_resultadosBusqueda!, !perfil.esOperario)
+                  : (perfil.esJefeObra
+                        ? const _PartesJefeView()
+                        : _PartesNormalesView(perfil: perfil)),
+            ),
           ),
         ],
       ),
@@ -89,8 +165,9 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
+  // --- MÉTODOS DE UI (BUSCADOR Y LISTA JSON) ---
+
   Widget _buildBuscador(dynamic perfil) {
-    // Si es operario, quizás no quieres que busque partes de otros
     if (perfil.esOperario) return const SizedBox.shrink();
 
     return Container(
@@ -183,16 +260,16 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8),
       itemCount: partes.length,
       itemBuilder: (context, index) {
-        final p = partes[index];
-        return _CardGenericaBusqueda(p: p, puedeValidar: puedeValidar);
+        return _CardGenericaBusqueda(
+          p: partes[index],
+          puedeValidar: puedeValidar,
+        );
       },
     );
   }
 }
 
-// ─────────────────────────────────────────
-// Vistas de Datos (Riverpod)
-// ─────────────────────────────────────────
+// --- CLASES DE SOPORTE (TARJETAS Y VISTAS) ---
 
 class _PartesNormalesView extends ConsumerWidget {
   final dynamic perfil;
@@ -242,10 +319,6 @@ class _PartesJefeView extends ConsumerWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────
-// Componentes de Tarjetas (Tus diseños originales)
-// ─────────────────────────────────────────
 
 class _CardParteNormal extends StatelessWidget {
   final ParteTrabajo parte;
@@ -382,7 +455,6 @@ class _CardParteJefe extends StatelessWidget {
   }
 }
 
-// Card genérica para cuando los resultados vienen de la búsqueda (JSON)
 class _CardGenericaBusqueda extends ConsumerWidget {
   final dynamic p;
   final bool puedeValidar;
@@ -425,9 +497,7 @@ class _CardGenericaBusqueda extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────
-// Pequeños Widgets de apoyo para limpiar el código
-// ─────────────────────────────────────────
+// --- WIDGETS DE APOYO ---
 
 Widget _chipEspecialidad(String especialidad) {
   final esElectricidad = especialidad == 'ELECTRICIDAD';

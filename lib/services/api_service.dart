@@ -1,8 +1,16 @@
 import 'package:dio/dio.dart';
 import 'auth_service.dart';
+import '../config/env.dart';
 
 class ApiService {
-  final Dio _dio = Dio(BaseOptions(baseUrl: 'http://localhost:8081/api/v1'));
+  final Dio _dio = Dio(
+    BaseOptions(
+      baseUrl: Env.apiUrl,
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 5),
+      sendTimeout: const Duration(seconds: 5),
+    ),
+  );
   final AuthService _authService = AuthService();
 
   Future<Options> _authHeaders() async {
@@ -68,7 +76,7 @@ class ApiService {
 
   Future<List<dynamic>> getSubordinadosDe(String jefeId) async {
     final response = await _dio.get(
-      '/asignaciones/$jefeId/subordinados', // Coincide con el nuevo GetMapping
+      '/asignaciones/$jefeId/subordinados',
       options: await _authHeaders(),
     );
     return response.data;
@@ -79,8 +87,6 @@ class ApiService {
     String jefeId,
     String rolJefe,
   ) async {
-    // Si el rol del que seleccionamos en la lista (el jefe) es JEFE_DE_OBRA,
-    // usamos el endpoint de asignar_encargado.
     String endpoint = (rolJefe == 'JEFE_DE_OBRA')
         ? 'asignar_encargado'
         : 'asignar_operario';
