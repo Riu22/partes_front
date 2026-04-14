@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'auth_service.dart';
 import '../config/env.dart';
+import '../models/parte_trabajo.dart';
 
 class ApiService {
   final Dio _dio = Dio(
@@ -44,8 +45,16 @@ class ApiService {
     return response.data;
   }
 
-  Future<void> validarParte(int parteId) async {
-    await _dio.put('/partes/validar/$parteId', options: await _authHeaders());
+  Future<ParteTrabajo> updateParte(
+    int parteId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _dio.put(
+      '/partes/update/$parteId',
+      data: data,
+      options: await _authHeaders(),
+    );
+    return ParteTrabajo.fromJson(response.data);
   }
 
   // USUARIOS
@@ -167,13 +176,6 @@ class ApiService {
     return response.data;
   }
 
-  Future<void> validarParteJefe(int parteId) async {
-    await _dio.put(
-      '/partes/validar_jefe/$parteId',
-      options: await _authHeaders(),
-    );
-  }
-
   Future<List<dynamic>> buscarPartes({
     String? obra,
     String? operario,
@@ -190,5 +192,34 @@ class ApiService {
       options: await _authHeaders(),
     );
     return response.data;
+  }
+
+  Future<List<dynamic>> getQuincena(String desde, String hasta) async {
+    final response = await _dio.get(
+      '/quincena',
+      queryParameters: {'desde': desde, 'hasta': hasta},
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  Future<void> exportarQuincena(String desde, String hasta) async {
+    final response = await _dio.get(
+      '/quincena/exportar',
+      queryParameters: {'desde': desde, 'hasta': hasta},
+      options: Options(
+        headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+        responseType: ResponseType.bytes,
+      ),
+    );
+    /*
+    // En web descargamos el archivo directamente
+    final blob = html.Blob([response.data], 'text/csv');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute('download', 'quincena_$desde\_$hasta.csv')
+      ..click();
+    html.Url.revokeObjectUrl(url);
+    */
   }
 }

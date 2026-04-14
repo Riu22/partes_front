@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/partes_provider.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/obras_provider.dart';
 
 class ObrasScreen extends ConsumerWidget {
   const ObrasScreen({super.key});

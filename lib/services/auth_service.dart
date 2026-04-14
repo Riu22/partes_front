@@ -50,13 +50,17 @@ class AuthService {
     return jsonDecode(raw) as Map<String, dynamic>;
   }
 
-  Future<void> logout() async {
-    await _storage.delete(key: 'jwt');
-    await _storage.delete(key: 'perfil');
-  }
-
   Future<String?> getToken() async {
     return await _storage.read(key: 'jwt');
+  }
+
+  Future<void> guardarToken(String token) async {
+    await _storage.write(key: 'jwt', value: token);
+  }
+
+  Future<void> logout() async {
+    await _storage.deleteAll();
+    print("DEBUG: Almacenamiento seguro vaciado por completo.");
   }
 
   Future<void> cambiarPassword(String nuevaPassword) async {

@@ -71,6 +71,15 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/usuarios');
               },
             ),
+          if (perfil.esGestion || perfil.esAdmin)
+            ListTile(
+              leading: const Icon(Icons.calculate),
+              title: const Text('Quincena'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/quincena');
+              },
+            ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),

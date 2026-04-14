@@ -19,18 +19,13 @@ final obrasProvider = FutureProvider<List<Obra>>((ref) async {
     // 3. Devolvemos la lista fresca
     return data.map((e) => Obra.fromJson(e)).toList();
   } catch (e) {
-    // 4. SI HAY ERROR (porque no hay internet o el servidor no responde):
     final cacheGuardada = prefs.getString(cacheKey);
-
     if (cacheGuardada != null) {
-      // 5. ¡Rescate! Cargamos lo que guardamos la última vez que hubo red
-      final List<dynamic> listaDecodificada = jsonDecode(cacheGuardada);
-      return listaDecodificada.map((e) => Obra.fromJson(e)).toList();
+      final List<dynamic> lista = jsonDecode(cacheGuardada);
+      // Devolvemos la lista en lugar de hacer un 'throw'
+      // Esto hace que el Provider pase a estado 'Data' con datos viejos, no a estado 'Error'
+      return lista.map((e) => Obra.fromJson(e)).toList();
     }
-
-    // 6. Si es la primera vez que usa la app y no hay ni red ni caché, lanzamos el error
-    throw Exception(
-      "No hay conexión y no existen datos locales. Conéctate una vez para descargar las obras.",
-    );
+    return []; // Si no hay nada, lista vacía para que la UI no explote
   }
 });

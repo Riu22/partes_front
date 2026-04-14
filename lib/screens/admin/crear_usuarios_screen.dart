@@ -18,7 +18,10 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
   final _nameCtrl = TextEditingController();
   final _codigoCtrl = TextEditingController();
   String _rol = 'OPERARIO';
+  bool _postventa = false;
   bool _enviando = false;
+
+  bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'ENCARGADO';
 
   @override
   void dispose() {
@@ -121,16 +124,33 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                       child: Text('Administración'),
                     ),
                   ],
-                  onChanged: (v) => setState(() => _rol = v!),
+                  onChanged: (v) => setState(() {
+                    _rol = v!;
+                    // Si cambia a un rol que no puede ser postventa, resetear
+                    if (!_puedeSerPostventa) _postventa = false;
+                  }),
                 ),
+                // Solo mostrar si el rol puede ser postventa
+                if (_puedeSerPostventa) ...[
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Operario de postventa'),
+                    subtitle: Text(
+                      _postventa
+                          ? 'Verá el formulario de especialidad'
+                          : 'Formulario estándar',
+                    ),
+                    value: _postventa,
+                    onChanged: (v) => setState(() => _postventa = v),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          Colors.blueAccent, // Color opcional para diferenciar
+                      backgroundColor: Colors.blueAccent,
                       foregroundColor: Colors.white,
                     ),
                     onPressed: _enviando ? null : _crear,
@@ -163,6 +183,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
         'name': _nameCtrl.text.trim(),
         'codigo': _codigoCtrl.text.trim(),
         'rol': _rol,
+        'postventa': _postventa,
       });
       ref.invalidate(usuariosProvider);
       if (mounted) {

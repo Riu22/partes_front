@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class OfflineQueueService {
   static const _keyPartes = 'offline_partes';
   static const _keyPartesJefe = 'offline_partes_jefe';
+  static const _keyUpdates = 'offline_updates';
 
   // ── GUARDAR ──────────────────────────────
   Future<void> guardarParteOffline(Map<String, dynamic> data) async {
@@ -54,6 +55,29 @@ class OfflineQueueService {
     await prefs.setStringList(_keyPartesJefe, lista);
   }
 
+  // ── UPDATES OFFLINE ──────────────────────────
+  /// Encola una edición de parte para sincronizar cuando haya red.
+  /// [data] debe incluir la clave 'id' con el parteId.
+  Future<void> guardarUpdateOffline(int parteId, Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = _getLista(prefs, _keyUpdates);
+    lista.add(jsonEncode({'parteId': parteId, ...data}));
+    await prefs.setStringList(_keyUpdates, lista);
+  }
+
+  Future<List<Map<String, dynamic>>> getUpdatesOffline() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = _getLista(prefs, _keyUpdates);
+    return lista.map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
+  }
+
+  Future<void> borrarUpdate(Map<String, dynamic> data) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = _getLista(prefs, _keyUpdates);
+    lista.remove(jsonEncode(data));
+    await prefs.setStringList(_keyUpdates, lista);
+  }
+
   // ── LIMPIAR TODO (Opcional) ───────────────
   Future<void> limpiarPartesOffline() async {
     final prefs = await SharedPreferences.getInstance();
@@ -70,7 +94,8 @@ class OfflineQueueService {
     final prefs = await SharedPreferences.getInstance();
     final p = _getLista(prefs, _keyPartes).length;
     final j = _getLista(prefs, _keyPartesJefe).length;
-    return p + j;
+    final u = _getLista(prefs, _keyUpdates).length;
+    return p + j + u;
   }
 
   List<String> _getLista(SharedPreferences prefs, String key) {

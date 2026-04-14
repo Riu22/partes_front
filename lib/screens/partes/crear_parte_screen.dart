@@ -6,11 +6,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../providers/partes_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
+import '../../providers/obras_provider.dart';
 
 class CrearParteScreen extends ConsumerWidget {
-  final bool esPostVenta;
-
-  const CrearParteScreen({super.key, this.esPostVenta = false});
+  const CrearParteScreen({super.key}); // ← sin esPostVenta
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,9 +18,7 @@ class CrearParteScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     if (perfil.esJefeObra) return const _FormularioParteJefe();
-
-    if (esPostVenta) return const _FormularioPostVenta();
-
+    if (perfil.postventa) return const _FormularioPostVenta();
     return const _FormularioParteNormal();
   }
 }

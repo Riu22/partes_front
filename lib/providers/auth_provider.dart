@@ -30,10 +30,10 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
       final data = await ref.read(apiServiceProvider).getMyProfile();
       await ref.read(authServiceProvider).guardarPerfilLocal(data);
       return Perfil.fromJson(data);
-    } catch (_) {
-      // Si falla el servidor usar perfil local
+    } catch (e) {
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
+
       return null;
     }
   }
@@ -45,33 +45,47 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
       final hayRed = await _checkRed();
 
       if (!hayRed) {
-        // Lógica de offline (mantenla igual o mejórala con un log)
-        debugPrint('⚠️ Intento de login sin red detectado');
-        // ... (tu lógica de perfil local)
-        return false;
-      }
+        // --- LÓGICA OFFLINE ---
+        debugPrint('⚠️ Intento de login sin red. Buscando perfil local...');
+        final perfilLocal = await ref
+            .read(authServiceProvider)
+            .getPerfilLocal();
 
-      // Llamada al servicio de Supabase
-      final token = await ref.read(authServiceProvider).login(email, password);
+        if (perfilLocal != null) {
+          state = AsyncData(Perfil.fromJson(perfilLocal));
+          return true; // Permitimos entrar con lo que hay en caché
+        }
 
-      if (token == null) {
-        debugPrint(
-          '❌ AuthService devolvió TOKEN NULL (Probablemente credenciales mal)',
-        );
         state = const AsyncData(null);
         return false;
       }
 
-      // Si hay token, cargamos el perfil
-      final perfil = await _cargarPerfilServidor();
-      state = AsyncData(perfil);
-      return perfil != null;
-    } catch (e, stack) {
-      // ESTO ES CLAVE: Capturamos cualquier error que lance Supabase o el servicio
-      debugPrint('🚨 EXCEPCIÓN EN AUTH_NOTIFIER: $e');
-      debugPrint('📄 STACKTRACE: $stack');
+      // --- LÓGICA ONLINE (Aquí va el código que preguntaste) ---
 
-      state = AsyncData(null); // Limpiamos el estado de carga
+      // 1. Intentamos el login en Supabase
+      final token = await ref.read(authServiceProvider).login(email, password);
+
+      if (token != null) {
+        // 2. ¡CLAVE!: Borramos el perfil local antiguo para que no haya rastro del rol anterior
+        await ref
+            .read(authServiceProvider)
+            .logout(); // Borra JWT y Perfil viejo de la caché
+
+        // 3. Volvemos a guardar el token recién obtenido (porque el logout lo borró)
+        await ref.read(authServiceProvider).guardarToken(token);
+
+        // 4. Forzamos la descarga del perfil fresco desde el servidor (/user/me)
+        final perfil = await _cargarPerfilServidor();
+
+        state = AsyncData(perfil);
+        return perfil != null;
+      }
+
+      state = const AsyncData(null);
+      return false;
+    } catch (e) {
+      debugPrint('🚨 Error en login: $e');
+      state = const AsyncData(null);
       return false;
     }
   }

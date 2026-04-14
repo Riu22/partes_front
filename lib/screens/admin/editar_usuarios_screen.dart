@@ -18,7 +18,10 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   late final TextEditingController _codigoCtrl;
   late String _rol;
   late bool _activo;
+  late bool _postventa;
   bool _enviando = false;
+
+  bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'ENCARGADO';
 
   @override
   void initState() {
@@ -27,6 +30,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     _codigoCtrl = TextEditingController(text: widget.usuario['codigo'] ?? '');
     _rol = widget.usuario['rol'] ?? 'OPERARIO';
     _activo = widget.usuario['activo'] ?? true;
+    _postventa = widget.usuario['postventa'] ?? false;
   }
 
   @override
@@ -82,7 +86,10 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                   child: Text('Administración'),
                 ),
               ],
-              onChanged: (v) => setState(() => _rol = v!),
+              onChanged: (v) => setState(() {
+                _rol = v!;
+                if (!_puedeSerPostventa) _postventa = false;
+              }),
             ),
             const SizedBox(height: 16),
             SwitchListTile(
@@ -91,6 +98,18 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
               value: _activo,
               onChanged: (v) => setState(() => _activo = v),
             ),
+            // Solo mostrar si el rol puede ser postventa
+            if (_puedeSerPostventa)
+              SwitchListTile(
+                title: const Text('Operario de postventa'),
+                subtitle: Text(
+                  _postventa
+                      ? 'Verá el formulario de especialidad'
+                      : 'Formulario estándar',
+                ),
+                value: _postventa,
+                onChanged: (v) => setState(() => _postventa = v),
+              ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -122,6 +141,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
         'codigo': _codigoCtrl.text.trim(),
         'rol': _rol,
         'activo': _activo,
+        'postventa': _postventa,
       });
       ref.invalidate(usuariosProvider);
       if (mounted) {

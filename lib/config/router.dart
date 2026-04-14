@@ -5,13 +5,16 @@ import '../providers/auth_provider.dart';
 import '../screens/login_screen.dart';
 import '../screens/partes/partes_screen.dart';
 import '../screens/partes/crear_parte_screen.dart';
+import '../screens/partes/editar_partes_screen.dart';
 import '../screens/obras/obras_screen.dart';
 import '../screens/admin/usuarios_screen.dart';
-import '../screens/configurarion_screen.dart';
-import '../screens/NuevaPasswordScreen.dart';
 import '../screens/admin/crear_usuarios_screen.dart';
 import '../screens/admin/editar_usuarios_screen.dart';
 import '../screens/admin/asignar_jefe_screen.dart';
+import '../screens/admin/quincena_screen.dart';
+import '../screens/configurarion_screen.dart';
+import '../screens/NuevaPasswordScreen.dart';
+import '../models/parte_trabajo.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -35,11 +38,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/partes';
       }
 
+      if (location == '/quincena' &&
+          perfil != null &&
+          !perfil.esGestion &&
+          !perfil.esAdmin) {
+        return '/partes';
+      }
+
       return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-
       GoRoute(
         path: '/nueva-password',
         builder: (context, state) => const NuevaPasswordScreen(),
@@ -73,11 +82,27 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/quincena',
+                builder: (context, state) => const QuincenaScreen(),
+              ),
+            ],
+          ),
         ],
       ),
+
       GoRoute(
         path: '/partes/nuevo',
         builder: (context, state) => const CrearParteScreen(),
+      ),
+      GoRoute(
+        path: '/partes/editar',
+        builder: (context, state) {
+          final parte = state.extra as ParteTrabajo;
+          return EditarParteScreen(parte: parte);
+        },
       ),
       GoRoute(
         path: '/configuracion',

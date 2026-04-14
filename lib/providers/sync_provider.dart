@@ -8,8 +8,14 @@ import 'partes_provider.dart';
 final offlineQueueProvider = Provider((ref) => OfflineQueueService());
 
 // 2. Monitor de conectividad en tiempo real
-final conectividadProvider = StreamProvider<bool>((ref) {
-  return Connectivity().onConnectivityChanged.map(
+final conectividadProvider = StreamProvider<bool>((ref) async* {
+  final connectivity = Connectivity();
+
+  // Fix #5: emitir el estado real ANTES de escuchar cambios
+  final initial = await connectivity.checkConnectivity();
+  yield initial.any((r) => r != ConnectivityResult.none);
+
+  yield* connectivity.onConnectivityChanged.map(
     (results) => results.any((r) => r != ConnectivityResult.none),
   );
 });
@@ -20,7 +26,7 @@ final pendientesOfflineProvider = FutureProvider<int>((ref) async {
   return await queue.totalPendientes();
 });
 
-// 4. EL MOTOR DE SINCRONIZACIÓN (Corregido)
+// 4. EL MOTOR DE SINCRONIZACIÓN
 final syncProvider = Provider((ref) {
   // Escucha cambios de red (de No hay -> a Sí hay)
   ref.listen<AsyncValue<bool>>(conectividadProvider, (prev, next) {
@@ -49,14 +55,13 @@ Future<void> _sincronizar(Ref ref) async {
   // --- Procesar Partes Normales ---
   final partes = await queue.getPartesOffline();
   if (partes.isNotEmpty) {
-    // IMPORTANTE: Los enviamos de uno en uno
     for (final parte in List.from(partes)) {
       try {
         await api.crearParte(parte);
-        // Si el servidor responde OK, lo borramos de la memoria del móvil
         await queue.borrarParteNormal(parte);
+        // Fix #4: invalidar contador tras cada borrado, no solo al final
+        ref.invalidate(pendientesOfflineProvider);
       } catch (e) {
-        // Si falla este envío (ej: se volvió a caer la red), paramos el bucle
         break;
       }
     }
@@ -69,8 +74,9 @@ Future<void> _sincronizar(Ref ref) async {
     for (final parteJefe in List.from(partesJefe)) {
       try {
         await api.crearParteJefe(parteJefe);
-        // Borrado inmediato tras éxito
         await queue.borrarParteJefe(parteJefe);
+        // Fix #4: invalidar contador tras cada borrado
+        ref.invalidate(pendientesOfflineProvider);
       } catch (e) {
         break;
       }
@@ -78,6 +84,20 @@ Future<void> _sincronizar(Ref ref) async {
     ref.invalidate(partesJefeProvider);
   }
 
-  // Actualizamos el contador de la interfaz
-  ref.invalidate(pendientesOfflineProvider);
+  // --- Procesar Updates (ediciones offline) ---
+  final updates = await queue.getUpdatesOffline();
+  if (updates.isNotEmpty) {
+    for (final update in List.from(updates)) {
+      try {
+        final parteId = update['parteId'] as int;
+        final data = Map<String, dynamic>.from(update)..remove('parteId');
+        await api.updateParte(parteId, data);
+        await queue.borrarUpdate(update);
+        ref.invalidate(pendientesOfflineProvider);
+      } catch (e) {
+        break;
+      }
+    }
+    ref.invalidate(partesProvider);
+  }
 }
