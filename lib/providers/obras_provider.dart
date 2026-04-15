@@ -1,4 +1,4 @@
-import 'dart:convert'; // Necesario para jsonEncode/jsonDecode
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/obra.dart';

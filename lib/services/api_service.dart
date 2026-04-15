@@ -115,7 +115,18 @@ class ApiService {
 
   // OBRAS
   Future<void> crearObra(Map<String, dynamic> data) async {
-    await _dio.post('/obra', data: data, options: await _authHeaders());
+    try {
+      await _dio.post('/obra', data: data, options: await _authHeaders());
+    } on DioException catch (e) {
+      // Si hay respuesta del servidor (como el 409 CONFLICT)
+      if (e.response != null) {
+        // Importante: Si el body es un String simple, e.response?.data ya es el error.
+        // Si el error persiste, usa e.response?.data.toString()
+        throw e.response?.data.toString() ?? "Error en el servidor";
+      }
+    } catch (e) {
+      throw "Error de conexión inesperado";
+    }
   }
 
   Future<void> editarObra(int id, Map<String, dynamic> data) async {

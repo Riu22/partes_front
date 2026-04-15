@@ -3,6 +3,7 @@ class Obra {
   final String nombre;
   final String ubicacion;
   final String municipio;
+  final String codigo;
   final bool activa;
 
   Obra({
@@ -10,6 +11,7 @@ class Obra {
     required this.nombre,
     required this.ubicacion,
     required this.municipio,
+    required this.codigo,
     required this.activa,
   });
 
@@ -18,6 +20,7 @@ class Obra {
     nombre: json['nombre'],
     ubicacion: json['ubicacion'] ?? '',
     municipio: json['municipio'] ?? '',
+    codigo: json['codigo'] ?? '',
     activa: json['activa'] ?? true,
   );
 }

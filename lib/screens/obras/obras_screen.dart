@@ -126,6 +126,7 @@ class _ObrasAdminView extends ConsumerWidget {
     final direccionCtrl = TextEditingController();
     final municipioCtrl = TextEditingController();
     final poblacionCtrl = TextEditingController();
+    final codigoCtrl = TextEditingController();
 
     showDialog(
       context: context,
@@ -142,6 +143,8 @@ class _ObrasAdminView extends ConsumerWidget {
               _buildTextField(municipioCtrl, 'Municipio'),
               const SizedBox(height: 12),
               _buildTextField(poblacionCtrl, 'Población'),
+              const SizedBox(height: 12),
+              _buildTextField(codigoCtrl, 'Código'),
             ],
           ),
         ),
@@ -158,11 +161,12 @@ class _ObrasAdminView extends ConsumerWidget {
                   'direccion': direccionCtrl.text.trim(),
                   'municipio': municipioCtrl.text.trim(),
                   'poblacion': poblacionCtrl.text.trim(),
+                  'codigo': codigoCtrl.text.trim(),
                 });
                 ref.invalidate(obrasProvider);
                 if (context.mounted) Navigator.pop(context);
               } catch (e) {
-                _mostrarError(context, e);
+                _mostrarError(context, e.toString());
               }
             },
             child: const Text('CREAR'),
@@ -211,7 +215,7 @@ class _ObrasAdminView extends ConsumerWidget {
                 ref.invalidate(obrasProvider);
                 if (context.mounted) Navigator.pop(context);
               } catch (e) {
-                _mostrarError(context, e);
+                _mostrarError(context, e.toString());
               }
             },
             child: const Text('GUARDAR'),
@@ -275,7 +279,7 @@ class _ObrasAdminView extends ConsumerWidget {
                         ref.invalidate(asignacionesObraProvider(obraId));
                         if (context.mounted) Navigator.pop(context);
                       } catch (e) {
-                        _mostrarError(context, e);
+                        _mostrarError(context, e.toString());
                       }
                     },
               child: const Text('ASIGNAR'),
@@ -308,7 +312,7 @@ class _ObrasAdminView extends ConsumerWidget {
                 ref.invalidate(obrasProvider);
                 if (context.mounted) Navigator.pop(context);
               } catch (e) {
-                _mostrarError(context, e);
+                _mostrarError(context, e.toString());
               }
             },
             child: const Text('ELIMINAR'),
@@ -328,10 +332,15 @@ class _ObrasAdminView extends ConsumerWidget {
     );
   }
 
-  void _mostrarError(BuildContext context, Object e) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+  void _mostrarError(BuildContext context, String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 }
 

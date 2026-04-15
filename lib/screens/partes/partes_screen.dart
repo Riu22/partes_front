@@ -84,13 +84,34 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       appBar: AppBar(
         title: const Text('Partes de Trabajo'),
         actions: [
+          // --- BOTÓN DE SINCRONIZACIÓN (SOLO SI HAY PENDIENTES) ---
           if (totalPendientes > 0)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8),
-              child: Badge(
-                label: Text('$totalPendientes'),
-                backgroundColor: Colors.orange,
-                child: const Icon(Icons.cloud_off),
+              padding: const EdgeInsets.only(right: 8.0),
+              child: IconButton(
+                tooltip: 'Sincronizar partes pendientes',
+                onPressed: () {
+                  // Forzamos al syncProvider a re-ejecutar su lógica inicial
+                  ref.invalidate(syncProvider);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Intentando enviar $totalPendientes parte(s)...',
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                icon: Badge(
+                  label: Text('$totalPendientes'),
+                  backgroundColor: Colors.orange,
+                  child: const Icon(
+                    Icons.cloud_off,
+                    color: Colors.orange,
+                    size: 28,
+                  ),
+                ),
               ),
             ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _refrescar),
