@@ -21,6 +21,19 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   final _fmt = DateFormat('dd/MM/yyyy');
   final _fmtApi = DateFormat('yyyy-MM-dd');
 
+  // Lógica para agrupar los datos que vienen de la API por el nombre de la obra
+  Map<String, List<dynamic>> _agruparPorObra() {
+    final Map<String, List<dynamic>> grupos = {};
+    for (var d in _datos) {
+      final obra = d['obra'] ?? 'Sin Obra';
+      if (!grupos.containsKey(obra)) {
+        grupos[obra] = [];
+      }
+      grupos[obra]!.add(d);
+    }
+    return grupos;
+  }
+
   Future<void> _buscar() async {
     if (_desde == null || _hasta == null) return;
     setState(() {
@@ -77,7 +90,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   @override
   Widget build(BuildContext context) {
     final hayDatos = _datos.isNotEmpty;
-    final totalHoras = _datos.fold<double>(
+    final totalHorasGeneral = _datos.fold<double>(
       0,
       (sum, d) => sum + ((d['total_horas'] as num?)?.toDouble() ?? 0),
     );
@@ -85,197 +98,214 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Selector de fechas
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SelectorFecha(
-                        label: 'Desde',
-                        fecha: _desde,
-                        formato: _fmt,
-                        onTap: () => _pickFecha(true),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _SelectorFecha(
-                        label: 'Hasta',
-                        fecha: _hasta,
-                        formato: _fmt,
-                        onTap: () => _pickFecha(false),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            (_desde == null || _hasta == null || _cargando)
-                            ? null
-                            : _buscar,
-                        icon: _cargando
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.search),
-                        label: const Text('Calcular quincena'),
-                      ),
-                    ),
-                    if (hayDatos) ...[
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: _exportando ? null : _exportar,
-                        icon: _exportando
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.download),
-                        label: const Text('Exportar CSV'),
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
+          _buildSelectorFechas(),
+          if (_error != null) _buildError(),
 
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
-            ),
-
-          // Resumen total
-          if (hayDatos)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${_datos.length} trabajadores',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Total: ${totalHoras.toStringAsFixed(1)}h',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          // Resumen General
+          if (hayDatos) _buildResumenTotal(totalHorasGeneral),
 
           const SizedBox(height: 8),
 
-          // Tabla de datos
+          // Listado Agrupado por Obra
           if (hayDatos)
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _datos.length,
-                itemBuilder: (context, index) {
-                  final d = _datos[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blueGrey,
-                        child: Text(
-                          (d['nombre'] ?? '?')[0].toUpperCase(),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      title: Text(
-                        d['nombre'] ?? '',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (d['codigo'] != null)
-                            Text(
-                              'Código: ${d['codigo']}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          Text(
-                            d['obra'] ?? '',
-                            style: const TextStyle(color: Colors.grey),
+              child: Builder(
+                builder: (context) {
+                  final grupos = _agruparPorObra();
+                  final nombresObras = grupos.keys.toList();
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: nombresObras.length,
+                    itemBuilder: (context, index) {
+                      final nombreObra = nombresObras[index];
+                      final operarios = grupos[nombreObra]!;
+                      final totalObra = operarios.fold<double>(
+                        0,
+                        (s, t) => s + (t['total_horas'] as num).toDouble(),
+                      );
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        clipBehavior: Clip.antiAlias,
+                        child: ExpansionTile(
+                          backgroundColor: Colors.white,
+                          title: Text(
+                            nombreObra,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        ],
-                      ),
-                      isThreeLine: d['codigo'] != null,
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.blue.withOpacity(0.3),
+                          subtitle: Text(
+                            '${operarios.length} trabajadores en esta obra',
+                            style: const TextStyle(fontSize: 12),
                           ),
-                        ),
-                        child: Text(
-                          '${(d['total_horas'] as num?)?.toStringAsFixed(1) ?? '0'}h',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${totalObra.toStringAsFixed(1)}h',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const Text(
+                                'TOTAL OBRA',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
                           ),
+                          children: operarios
+                              .map(
+                                (t) => ListTile(
+                                  dense: true,
+                                  leading: const Icon(
+                                    Icons.person_outline,
+                                    size: 20,
+                                  ),
+                                  title: Text(t['nombre'] ?? ''),
+                                  subtitle: Text(
+                                    'Cód. Operario: ${t['codigo'] ?? 'N/A'}',
+                                  ),
+                                  trailing: Text(
+                                    '${(t['total_horas'] as num).toStringAsFixed(1)}h',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   );
                 },
               ),
             ),
 
-          if (!hayDatos && !_cargando)
-            const Expanded(
-              child: Center(
-                child: Text(
-                  'Selecciona un rango de fechas\ny pulsa Calcular',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-            ),
+          if (!hayDatos && !_cargando) _buildEmptyState(),
         ],
       ),
     );
   }
+
+  // --- Widgets de apoyo para limpiar el build ---
+
+  Widget _buildSelectorFechas() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _SelectorFecha(
+                  label: 'Desde',
+                  fecha: _desde,
+                  formato: _fmt,
+                  onTap: () => _pickFecha(true),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _SelectorFecha(
+                  label: 'Hasta',
+                  fecha: _hasta,
+                  formato: _fmt,
+                  onTap: () => _pickFecha(false),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: (_desde == null || _hasta == null || _cargando)
+                      ? null
+                      : _buscar,
+                  icon: _cargando ? _miniLoader() : const Icon(Icons.search),
+                  label: const Text('Calcular quincena'),
+                ),
+              ),
+              if (_datos.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: _exportando ? null : _exportar,
+                  icon: _exportando
+                      ? _miniLoader()
+                      : const Icon(Icons.download),
+                  label: const Text('CSV'),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResumenTotal(double total) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'TOTAL GENERAL QUINCENA',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text(
+            '${total.toStringAsFixed(1)}h',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniLoader() => const SizedBox(
+    width: 16,
+    height: 16,
+    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+  );
+
+  Widget _buildError() => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Text(_error!, style: const TextStyle(color: Colors.red)),
+  );
+
+  Widget _buildEmptyState() => const Expanded(
+    child: Center(
+      child: Text(
+        'Selecciona fechas para ver el desglose por obras',
+        style: TextStyle(color: Colors.grey),
+      ),
+    ),
+  );
 }
 
+// Widget auxiliar para los selectores de fecha
 class _SelectorFecha extends StatelessWidget {
   final String label;
   final DateTime? fecha;
@@ -312,11 +342,8 @@ class _SelectorFecha extends StatelessWidget {
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
                 Text(
-                  fecha != null ? formato.format(fecha!) : 'Seleccionar',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: fecha != null ? Colors.black : Colors.grey,
-                  ),
+                  fecha != null ? formato.format(fecha!) : 'Elegir',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),

@@ -5,6 +5,7 @@ class Perfil {
   final String rol;
   final bool activo;
   final bool postventa;
+  final String especialidad;
 
   Perfil({
     required this.id,
@@ -13,6 +14,7 @@ class Perfil {
     required this.rol,
     required this.activo,
     this.postventa = false,
+    this.especialidad = "",
   });
 
   factory Perfil.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class Perfil {
       rol: json['rol'] ?? 'OPERARIO',
       activo: json['activo'] ?? true,
       postventa: json['postventa'] ?? false,
+      especialidad: json['especialidad'] ?? 'ELECTRICIDAD',
     );
   }
 

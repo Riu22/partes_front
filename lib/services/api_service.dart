@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'auth_service.dart';
 import '../config/env.dart';
 import '../models/parte_trabajo.dart';
+import 'dart:typed_data';
+import '../helpers/download_helper.dart';
 
 class ApiService {
   final Dio _dio = Dio(
@@ -223,14 +225,12 @@ class ApiService {
         responseType: ResponseType.bytes,
       ),
     );
-    /*
-    // En web descargamos el archivo directamente
-    final blob = html.Blob([response.data], 'text/csv');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute('download', 'quincena_$desde\_$hasta.csv')
-      ..click();
-    html.Url.revokeObjectUrl(url);
-    */
+
+    if (response.data != null) {
+      saveAndLaunchFile(
+        Uint8List.fromList(response.data),
+        'quincena_$desde\_$hasta.csv',
+      );
+    }
   }
 }

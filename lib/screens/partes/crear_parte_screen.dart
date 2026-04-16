@@ -9,7 +9,7 @@ import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
 
 class CrearParteScreen extends ConsumerWidget {
-  const CrearParteScreen({super.key}); // ← sin esPostVenta
+  const CrearParteScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -197,6 +197,7 @@ class _FormularioParteNormalState
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales': _horasNormales,
       'descripcion': _descripcion,
+      if (perfil.especialidad.isNotEmpty) 'especialidad': perfil.especialidad,
     };
 
     try {

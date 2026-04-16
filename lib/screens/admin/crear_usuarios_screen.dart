@@ -20,8 +20,9 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
   String _rol = 'OPERARIO';
   bool _postventa = false;
   bool _enviando = false;
+  String _especialidad = 'ELECTRICIDAD';
 
-  bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'ENCARGADO';
+  bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'JEFE_DE_OBRA';
 
   @override
   void dispose() {
@@ -144,6 +145,31 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                     onChanged: (v) => setState(() => _postventa = v),
                   ),
                 ],
+                DropdownButtonFormField<String>(
+                  value: _especialidad,
+                  decoration: const InputDecoration(
+                    labelText: 'Especialidad',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.build), // Un icono ayuda a la UI
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'ELECTRICIDAD',
+                      child: Text('ELECTRICIDAD'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'FONTANERIA',
+                      child: Text('FONTANERIA'),
+                    ),
+                  ],
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _especialidad = newValue!;
+                    });
+                  },
+                  validator: (value) =>
+                      value == null ? 'Selecciona una especialidad' : null,
+                ),
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
@@ -184,6 +210,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
         'codigo': _codigoCtrl.text.trim(),
         'rol': _rol,
         'postventa': _postventa,
+        'especialidad': _especialidad,
       });
       ref.invalidate(usuariosProvider);
       if (mounted) {
