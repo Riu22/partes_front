@@ -11,7 +11,7 @@ class QuincenaScreen extends ConsumerStatefulWidget {
 }
 
 class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
-  DateTimeRange? _rangoSeleccionado; // ← sustituye _desde y _hasta
+  DateTimeRange? _rangoSeleccionado;
   List<dynamic> _datos = [];
   bool _cargando = false;
   bool _exportando = false;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb; // Necesario para detectar la Web
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../providers/auth_provider.dart';
 import '../config/env.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -17,16 +19,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   String? _error;
 
-  // --- FUNCIÓN PARA DESCARGAR EL ZIP ---
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  // --- FUNCIÓN PARA DESCARGAR EL ZIP (Solo se llama desde Web) ---
   Future<void> _descargarApp() async {
     final String path =
         '${Env.supabaseUrl}/storage/v1/object/public/app/app-release.zip';
     final Uri url = Uri.parse(path);
 
     try {
-      print('intentando descargar desde: $url'); // Para debug
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        throw Exception('No se pudo abrir la URL');
+        throw Exception('No se pudo abrir la URL de descarga');
       }
     } catch (e) {
       if (mounted) {
@@ -38,6 +46,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      setState(() => _error = 'Por favor, rellena todos los campos');
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
@@ -51,14 +64,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!ok && mounted) {
         setState(() {
           _error = 'Email o contraseña incorrectos';
-          _loading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _error = 'Error de conexión: $e';
-          _loading = false;
         });
       }
     } finally {
@@ -66,7 +77,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  // (Tu función _mostrarDialogoRecuperacion se mantiene igual...)
   Future<void> _mostrarDialogoRecuperacion() async {
     final recoverEmailController = TextEditingController();
     showDialog(
@@ -93,8 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.pop(context), // Simplificado para el ejemplo
+            onPressed: () => Navigator.pop(context),
             child: const Text('Enviar enlace'),
           ),
         ],
@@ -109,7 +118,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
           child: SingleChildScrollView(
-            // Añadido para evitar error de píxeles en pantallas pequeñas
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -123,6 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 32),
                 TextField(
                   controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     border: OutlineInputBorder(),
@@ -170,24 +179,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                 ),
 
-                // --- SECCIÓN DE DESCARGA APK ---
-                const SizedBox(height: 40),
-                const Divider(),
-                const SizedBox(height: 20),
-                const Text(
-                  '¿Eres operario y no tienes la App?',
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _descargarApp,
-                  icon: const Icon(Icons.android, color: Colors.green),
-                  label: const Text('Descargar App Android (ZIP)'),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.green),
-                    foregroundColor: Colors.green,
+                // --- SECCIÓN DE DESCARGA APK (SOLO VISIBLE SI ES WEB) ---
+                if (kIsWeb) ...[
+                  const SizedBox(height: 40),
+                  const Divider(),
+                  const SizedBox(height: 20),
+                  const Text(
+                    '¿Eres operario y no tienes la App?',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _descargarApp,
+                    icon: const Icon(Icons.android, color: Colors.green),
+                    label: const Text('Descargar App Android (ZIP)'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.green),
+                      foregroundColor: Colors.green,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
