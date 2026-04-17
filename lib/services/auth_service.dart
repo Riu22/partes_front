@@ -6,13 +6,15 @@ import '../config/env.dart';
 class AuthService {
   final Dio _dio = Dio();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  // ✅ Cache en memoria — evita ir a SecureStorage en cada petición
+  String? _tokenCache;
+
   final String _anonKey =
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
 
   Future<String?> login(String email, String password) async {
     try {
-      print('DEBUG: Enviando login a ${Env.supabaseUrl}');
-
       final response = await _dio.post(
         '${Env.supabaseUrl}/auth/v1/token?grant_type=password',
         data: {'email': email, 'password': password},
@@ -22,22 +24,35 @@ class AuthService {
       );
 
       final token = response.data['access_token'];
+      _tokenCache = token; // ✅ Guardar en memoria primero
       await _storage.write(key: 'jwt', value: token);
-      print('DEBUG: Login exitoso, token guardado.');
       return token;
     } on DioException catch (e) {
-      print('❌ ERROR DE DIO: ${e.type}');
       if (e.response != null) {
         print('❌ CÓDIGO SERVIDOR: ${e.response?.statusCode}');
         print('❌ MENSAJE SERVIDOR: ${e.response?.data}');
       } else {
-        print('❌ ERROR SIN RESPUESTA (Red/Firewall): ${e.message}');
+        print('❌ ERROR SIN RESPUESTA: ${e.message}');
       }
       return null;
     } catch (e) {
       print('❌ ERROR INESPERADO: $e');
       return null;
     }
+  }
+
+  Future<String?> getToken() async {
+    // ✅ Si ya está en memoria, devolver inmediatamente sin tocar SecureStorage
+    if (_tokenCache != null) return _tokenCache;
+
+    // Solo ir a SecureStorage si no hay cache (primer arranque de la app)
+    _tokenCache = await _storage.read(key: 'jwt');
+    return _tokenCache;
+  }
+
+  Future<void> guardarToken(String token) async {
+    _tokenCache = token; // ✅ Actualizar cache también
+    await _storage.write(key: 'jwt', value: token);
   }
 
   Future<void> guardarPerfilLocal(Map<String, dynamic> perfil) async {
@@ -50,17 +65,9 @@ class AuthService {
     return jsonDecode(raw) as Map<String, dynamic>;
   }
 
-  Future<String?> getToken() async {
-    return await _storage.read(key: 'jwt');
-  }
-
-  Future<void> guardarToken(String token) async {
-    await _storage.write(key: 'jwt', value: token);
-  }
-
   Future<void> logout() async {
+    _tokenCache = null; // ✅ Limpiar cache al cerrar sesión
     await _storage.deleteAll();
-    print("DEBUG: Almacenamiento seguro vaciado por completo.");
   }
 
   Future<void> cambiarPassword(String nuevaPassword) async {

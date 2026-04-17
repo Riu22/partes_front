@@ -27,6 +27,15 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       _operarioCtrl.text.isNotEmpty ||
       _especialidadFiltro != null;
 
+  @override
+  void initState() {
+    super.initState();
+    // Precarga obras en background nada más abrir la pantalla
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(obrasProvider);
+    });
+  }
+
   Future<void> _buscar() async {
     if (!_hayFiltros) {
       setState(() => _resultadosBusqueda = null);
@@ -80,20 +89,18 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     if (perfil == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Partes de Trabajo'),
         actions: [
-          // --- BOTÓN DE SINCRONIZACIÓN (SOLO SI HAY PENDIENTES) ---
           if (totalPendientes > 0)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: IconButton(
                 tooltip: 'Sincronizar partes pendientes',
                 onPressed: () {
-                  // Forzamos al syncProvider a re-ejecutar su lógica inicial
                   ref.invalidate(syncProvider);
-
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -119,7 +126,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       ),
       body: Column(
         children: [
-          // Buscador solo para roles que ven partes de otros
           if (!perfil.esOperario) _buildBuscador(),
           conexionAsync.when(
             data: (online) => online
@@ -358,7 +364,6 @@ class _CardParte extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 5),
-                // Descripción precargada del parte
                 Text(
                   parte.descripcion.isNotEmpty
                       ? parte.descripcion
