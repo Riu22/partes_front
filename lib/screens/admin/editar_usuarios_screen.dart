@@ -15,6 +15,7 @@ class EditarUsuarioScreen extends ConsumerStatefulWidget {
 
 class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   late final TextEditingController _nameCtrl;
+  late final TextEditingController _lastNameCtrl;
   late final TextEditingController _codigoCtrl;
   late String _rol;
   late bool _activo;
@@ -27,6 +28,9 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.usuario['name'] ?? '');
+    _lastNameCtrl = TextEditingController(
+      text: widget.usuario['apellidos'] ?? '',
+    );
     _codigoCtrl = TextEditingController(text: widget.usuario['codigo'] ?? '');
     _rol = widget.usuario['rol'] ?? 'OPERARIO';
     _activo = widget.usuario['activo'] ?? true;
@@ -36,6 +40,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _lastNameCtrl.dispose();
     _codigoCtrl.dispose();
     super.dispose();
   }
@@ -43,19 +48,34 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Editar — ${widget.usuario['name'] ?? ''}')),
+      appBar: AppBar(title: Text('Editar — ${_nameCtrl.text}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Nombre',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _lastNameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Apellidos',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -91,22 +111,14 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 if (!_puedeSerPostventa) _postventa = false;
               }),
             ),
-            const SizedBox(height: 16),
             SwitchListTile(
               title: const Text('Usuario activo'),
-              subtitle: Text(_activo ? 'Activo' : 'Inactivo'),
               value: _activo,
               onChanged: (v) => setState(() => _activo = v),
             ),
-            // Solo mostrar si el rol puede ser postventa
             if (_puedeSerPostventa)
               SwitchListTile(
                 title: const Text('Operario de postventa'),
-                subtitle: Text(
-                  _postventa
-                      ? 'Verá el formulario de especialidad'
-                      : 'Formulario estándar',
-                ),
                 value: _postventa,
                 onChanged: (v) => setState(() => _postventa = v),
               ),
@@ -115,16 +127,14 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
               width: double.infinity,
               height: 55,
               child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: _enviando ? null : _guardar,
                 child: _enviando
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'GUARDAR CAMBIOS',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    : const Text('GUARDAR CAMBIOS'),
               ),
             ),
           ],
@@ -138,6 +148,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     try {
       await ref.read(apiServiceProvider).editarUsuario(widget.usuario['id'], {
         'name': _nameCtrl.text.trim(),
+        'apellidos': _lastNameCtrl.text.trim(),
         'codigo': _codigoCtrl.text.trim(),
         'rol': _rol,
         'activo': _activo,
@@ -145,17 +156,13 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
       });
       ref.invalidate(usuariosProvider);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Usuario actualizado')));
         context.go('/usuarios');
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
     } finally {
       if (mounted) setState(() => _enviando = false);
     }

@@ -18,11 +18,30 @@ dependencies:
   shared_preferences: ^2.2.3
   intl: ^0.19.0
   connectivity_plus: ^7.0.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Paquete para generar los iconos automáticamente
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+  # Asegúrate de declarar la carpeta de assets para que Flutter encuentre el logo
+  assets:
+    - assets/LUM_LOGO.png
+
+# Configuración de iconos por plataforma
+flutter_launcher_icons:
+  image_path: "assets/LUM_LOGO.png"
+  android: true
+  ios: false
+  web:
+    generate: true
+    image_path: "assets/LUM_LOGO.png"
+  windows:
+    generate: true
+    image_path: "assets/LUM_LOGO.png"
+    icon_size: 48 # Tamaño estándar para iconos de Windows

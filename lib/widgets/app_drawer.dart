@@ -80,6 +80,15 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/quincena');
               },
             ),
+          if (perfil.esGestion || perfil.esAdmin)
+            ListTile(
+              leading: const Icon(Icons.analytics),
+              title: const Text('Contabilidad Detallada'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/contabilidad-detalle');
+              },
+            ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),

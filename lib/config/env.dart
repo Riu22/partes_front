@@ -9,12 +9,12 @@ class Env {
   }
 
   static String get supabaseUrl {
-    if (kIsWeb) return 'http://localhost:8000';
+    if (kIsWeb) return 'http://$_pcIp:8000';
     return 'http://$_pcIp:8000';
   }
 
   static String get appUrl {
-    if (kIsWeb) return 'http://localhost:3000';
+    if (kIsWeb) return 'http://$_pcIp:3000';
     return 'http://$_pcIp:3000';
   }
 }

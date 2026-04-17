@@ -15,6 +15,7 @@ import '../screens/admin/quincena_screen.dart';
 import '../screens/configurarion_screen.dart';
 import '../screens/NuevaPasswordScreen.dart';
 import '../models/parte_trabajo.dart';
+import '../screens/admin/dias_quincena_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -127,6 +128,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             usuario: extra['usuario'] as Map<String, dynamic>,
             todos: extra['todos'] as List<dynamic>,
           );
+        },
+      ),
+      GoRoute(
+        path: '/contabilidad-detalle',
+        builder: (context, state) => const ContabilidadScreen(),
+        redirect: (context, state) {
+          // Protección extra de ruta
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
+            return '/partes';
+          }
+          return null;
         },
       ),
     ],

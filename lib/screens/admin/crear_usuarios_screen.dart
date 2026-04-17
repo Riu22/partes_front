@@ -16,6 +16,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
   final _codigoCtrl = TextEditingController();
   String _rol = 'OPERARIO';
   bool _postventa = false;
@@ -29,6 +30,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
     _emailCtrl.dispose();
     _passCtrl.dispose();
     _nameCtrl.dispose();
+    _lastNameCtrl.dispose();
     _codigoCtrl.dispose();
     super.dispose();
   }
@@ -56,15 +58,31 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextFormField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre completo',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
-                  ),
-                  validator: (v) =>
-                      v!.isEmpty ? 'El nombre es obligatorio' : null,
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        validator: (v) => v!.isEmpty ? 'Obligatorio' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _lastNameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Apellidos',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => v!.isEmpty ? 'Obligatorio' : null,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -150,7 +168,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Especialidad',
                     border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.build), // Un icono ayuda a la UI
+                    prefixIcon: Icon(Icons.build),
                   ),
                   items: const [
                     DropdownMenuItem(

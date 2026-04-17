@@ -1,7 +1,8 @@
 class Perfil {
   final String id;
   final String email;
-  final String nombreCompleto;
+  final String nombre;
+  final String apellidos;
   final String rol;
   final bool activo;
   final bool postventa;
@@ -10,18 +11,22 @@ class Perfil {
   Perfil({
     required this.id,
     required this.email,
-    required this.nombreCompleto,
+    required this.nombre,
+    required this.apellidos,
     required this.rol,
     required this.activo,
     this.postventa = false,
     this.especialidad = "",
   });
 
+  String get nombreCompleto => '$nombre $apellidos'.trim();
+
   factory Perfil.fromJson(Map<String, dynamic> json) {
     return Perfil(
       id: json['id'] ?? '',
       email: json['email'] ?? '',
-      nombreCompleto: json['name'] ?? '',
+      nombre: json['name'] ?? '',
+      apellidos: json['apellidos'] ?? '',
       rol: json['rol'] ?? 'OPERARIO',
       activo: json['activo'] ?? true,
       postventa: json['postventa'] ?? false,

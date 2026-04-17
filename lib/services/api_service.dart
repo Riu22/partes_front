@@ -4,6 +4,7 @@ import '../config/env.dart';
 import '../models/parte_trabajo.dart';
 import 'dart:typed_data';
 import '../helpers/download_helper.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ApiService {
   final Dio _dio = Dio(
@@ -231,6 +232,54 @@ class ApiService {
         Uint8List.fromList(response.data),
         'quincena_$desde\_$hasta.csv',
       );
+    }
+  }
+
+  Future<List<dynamic>> getContabilidadDetalleJson(
+    DateTime desde,
+    DateTime hasta,
+  ) async {
+    String desdeStr =
+        "${desde.year}-${desde.month.toString().padLeft(2, '0')}-${desde.day.toString().padLeft(2, '0')}";
+    String hastaStr =
+        "${hasta.year}-${hasta.month.toString().padLeft(2, '0')}-${hasta.day.toString().padLeft(2, '0')}";
+
+    final response = await _dio.get(
+      '/quincena/contabilidad-detalle-json',
+      queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  /// Descarga el archivo CSV procesado
+  Future<void> exportarContabilidadDetalleCsv(
+    DateTime desde,
+    DateTime hasta,
+  ) async {
+    String desdeStr =
+        "${desde.year}-${desde.month.toString().padLeft(2, '0')}-${desde.day.toString().padLeft(2, '0')}";
+    String hastaStr =
+        "${hasta.year}-${hasta.month.toString().padLeft(2, '0')}-${hasta.day.toString().padLeft(2, '0')}";
+
+    try {
+      final response = await _dio.get(
+        '/quincena/exportar-detalle-csv',
+        queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
+        options: Options(
+          headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+          responseType: ResponseType.bytes, // IMPORTANTE para archivos
+        ),
+      );
+
+      if (response.data != null) {
+        saveAndLaunchFile(
+          Uint8List.fromList(response.data),
+          'detalle_contabilidad_$desdeStr\_$hastaStr.csv',
+        );
+      }
+    } catch (e) {
+      throw "Error al exportar CSV detallado: $e";
     }
   }
 }
