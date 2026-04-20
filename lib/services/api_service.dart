@@ -17,8 +17,8 @@ class ApiService {
   );
   final AuthService _authService;
 
-  ApiService(this._authService);
-
+  ApiService([AuthService? authService])
+    : _authService = authService ?? AuthService();
   Future<Options> _authHeaders() async {
     final token = await _authService.getToken();
     return Options(headers: {'Authorization': 'Bearer $token'});
