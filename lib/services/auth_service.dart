@@ -6,9 +6,11 @@ import '../config/env.dart';
 class AuthService {
   final Dio _dio = Dio();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  // ✅ Cache en memoria
   String? _tokenCache;
 
-  // ✅ Ahora pedimos la llave a Env (que mirará primero el .env)
+  // ✅ Obtiene la key desde Env (prioriza el .env)
   String get _anonKey => Env.supabaseAnonKey;
 
   Future<String?> login(String email, String password) async {
@@ -22,8 +24,7 @@ class AuthService {
       );
 
       final token = response.data['access_token'];
-      _tokenCache = token;
-      await _storage.write(key: 'jwt', value: token);
+      await guardarToken(token); // ✅ Usamos el método interno
       return token;
     } on DioException catch (e) {
       _handleError(e);
@@ -34,13 +35,45 @@ class AuthService {
     }
   }
 
-  // --- MÉTODOS DE APOYO ---
+  // --- MÉTODOS QUE FALTABAN ---
+
+  Future<void> guardarToken(String token) async {
+    _tokenCache = token;
+    await _storage.write(key: 'jwt', value: token);
+  }
 
   Future<String?> getToken() async {
     if (_tokenCache != null) return _tokenCache;
     _tokenCache = await _storage.read(key: 'jwt');
     return _tokenCache;
   }
+
+  Future<void> guardarPerfilLocal(Map<String, dynamic> perfil) async {
+    await _storage.write(key: 'perfil', value: jsonEncode(perfil));
+  }
+
+  Future<Map<String, dynamic>?> getPerfilLocal() async {
+    final raw = await _storage.read(key: 'perfil');
+    if (raw == null) return null;
+    return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  Future<void> cambiarEmail(String nuevoEmail) async {
+    final token = await getToken();
+    await _dio.put(
+      '${Env.supabaseUrl}/auth/v1/user',
+      data: {'email': nuevoEmail},
+      options: Options(
+        headers: {
+          'apikey': _anonKey,
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ),
+    );
+  }
+
+  // --- RESTO DE MÉTODOS ---
 
   Future<void> logout() async {
     _tokenCache = null;
