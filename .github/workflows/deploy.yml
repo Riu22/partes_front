@@ -21,14 +21,23 @@ jobs:
         with:
           channel: 'stable'
 
-      # 2. Compilar APK y Web
+      # 2. CREAR EL ARCHIVO .ENV (PASO CRUCIAL)
+      # Esto genera el archivo que Flutter exige para compilar
+      - name: Create .env file
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+          echo "API_URL=${{ secrets.API_URL }}" >> .env
+          echo "APP_URL=${{ secrets.APP_URL }}" >> .env
+
+      # 3. Compilar APK y Web
       - name: Build APK & Web
         run: |
           flutter pub get
           flutter build apk --release
           flutter build web --release
 
-      # 3. Subir APK a Supabase Storage
+      # 4. Subir APK a Supabase Storage
       - name: Upload APK to Supabase
         run: |
           curl -X POST \
@@ -38,7 +47,7 @@ jobs:
             --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
             "${{ secrets.SUPABASE_URL }}/storage/v1/object/instaladores/app-release.apk"
 
-      # 4. Login en Docker Hub y subir imagen Web
+      # 5. Login en Docker Hub y subir imagen Web
       - name: Docker Login & Push
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
