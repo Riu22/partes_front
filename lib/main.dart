@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config/router.dart';
-import 'providers/sync_provider.dart'; // Tu archivo de lógica de sincronización
+import 'providers/sync_provider.dart';
 import 'providers/obras_provider.dart';
 
 void main() async {
-  // 1. Garantizar que Flutter esté listo
+  // Garantizar que Flutter esté listo
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 2. Cargar variables de entorno antes de runApp
+  // Si no encuentra el archivo .env, usará los valores por defecto que pusimos en Env
+  try {
+    await dotenv.load(fileName: ".env");
+    print("✅ Configuración cargada desde .env");
+  } catch (e) {
+    print("ℹ️ Usando configuración por defecto (No se encontró .env)");
+  }
 
   runApp(const ProviderScope(child: MyApp()));
 }
@@ -21,16 +31,11 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
-    // --- MOTOR DE SINCRONIZACIÓN ---
-    // Al hacer watch aquí, el "ref.listen" dentro de tu syncProvider
-    // se activa y se mantiene escuchando cambios de red en todo momento.
+    // --- MOTOR DE SINCRONIZACIÓN Y DATOS ---
     ref.watch(syncProvider);
-
-    // Precarga de datos esenciales
     ref.watch(obrasProvider);
 
-    // Escuchamos el contador de pendientes por si quieres mostrar un log
-    // o debug en consola de cuántos quedan por subir
+    // Escuchamos el contador de pendientes para debug
     ref.listen(pendientesOfflineProvider, (prev, next) {
       if (next.hasValue) {
         print(
@@ -52,7 +57,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         useMaterial3: true,
       ),
       routerConfig: router,
-      // Opcional: Builder para mostrar un banner si no hay conexión
+      // Builder para el banner de conexión
       builder: (context, child) {
         return Stack(children: [child!, const _NoConnectionBanner()]);
       },
@@ -60,12 +65,12 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 }
 
-/// Widget opcional para avisar visualmente que no hay internet
 class _NoConnectionBanner extends ConsumerWidget {
   const _NoConnectionBanner();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Nota: Asegúrate de tener definido este provider de conectividad
     final tieneConexion = ref.watch(conectividadProvider).valueOrNull ?? true;
 
     if (tieneConexion) return const SizedBox.shrink();
@@ -79,9 +84,13 @@ class _NoConnectionBanner extends ConsumerWidget {
         child: const Padding(
           padding: EdgeInsets.symmetric(vertical: 4),
           child: Text(
-            'Sin conexión - Los partes se guardarán en el móvil',
+            'Sin conexión - Modo Offline activo',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white, fontSize: 12),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),
