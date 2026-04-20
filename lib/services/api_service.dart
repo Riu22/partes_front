@@ -15,7 +15,9 @@ class ApiService {
       sendTimeout: const Duration(seconds: 5),
     ),
   );
-  final AuthService _authService = AuthService();
+  final AuthService _authService;
+
+  ApiService(this._authService);
 
   Future<Options> _authHeaders() async {
     final token = await _authService.getToken();

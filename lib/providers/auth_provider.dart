@@ -6,7 +6,10 @@ import '../services/api_service.dart';
 import 'package:flutter/foundation.dart';
 
 final authServiceProvider = Provider((ref) => AuthService());
-final apiServiceProvider = Provider((ref) => ApiService());
+final apiServiceProvider = Provider((ref) {
+  final authService = ref.read(authServiceProvider);
+  return ApiService(authService);
+});
 
 class AuthNotifier extends AsyncNotifier<Perfil?> {
   @override
