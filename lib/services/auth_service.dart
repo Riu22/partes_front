@@ -29,8 +29,9 @@ class AuthService {
     } on DioException catch (e) {
       _handleError(e);
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ ERROR INESPERADO: $e');
+      print('📍 STACK TRACE: $stackTrace');
       return null;
     }
   }

@@ -33,10 +33,11 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
       final data = await ref.read(apiServiceProvider).getMyProfile();
       await ref.read(authServiceProvider).guardarPerfilLocal(data);
       return Perfil.fromJson(data);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error cargando perfil: $e');
+      debugPrint('📍 STACK TRACE: $stackTrace');
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
-
       return null;
     }
   }
@@ -86,8 +87,9 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
 
       state = const AsyncData(null);
       return false;
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('🚨 Error en login: $e');
+      debugPrint('📍 STACK TRACE: $stackTrace');
       state = const AsyncData(null);
       return false;
     }
