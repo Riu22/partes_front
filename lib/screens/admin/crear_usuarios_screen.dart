@@ -22,6 +22,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
   bool _postventa = false;
   bool _enviando = false;
   String _especialidad = 'ELECTRICIDAD';
+  final _grupoProfesionalCtrl = TextEditingController();
 
   bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'JEFE_DE_OBRA';
 
@@ -32,6 +33,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
     _nameCtrl.dispose();
     _lastNameCtrl.dispose();
     _codigoCtrl.dispose();
+    _grupoProfesionalCtrl.dispose();
     super.dispose();
   }
 
@@ -188,6 +190,15 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                   validator: (value) =>
                       value == null ? 'Selecciona una especialidad' : null,
                 ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _grupoProfesionalCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Grupo Profesional',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.work),
+                  ),
+                ),
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
@@ -225,10 +236,12 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
         'email': _emailCtrl.text.trim(),
         'password': _passCtrl.text.trim(),
         'name': _nameCtrl.text.trim(),
+        'apellidos': _lastNameCtrl.text.trim(),
         'codigo': _codigoCtrl.text.trim(),
         'rol': _rol,
         'postventa': _postventa,
         'especialidad': _especialidad,
+        'grupo_profesional': _grupoProfesionalCtrl.text.trim(),
       });
       ref.invalidate(usuariosProvider);
       if (mounted) {
