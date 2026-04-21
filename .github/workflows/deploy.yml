@@ -27,12 +27,22 @@ jobs:
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
           echo "API_URL=${{ secrets.API_URL }}" >> .env
           echo "APP_URL=${{ secrets.APP_URL }}" >> .env
+          echo "APK_URL=${{ secrets.APK_URL }}" >> .env
 
       - name: Build APK & Web
         run: |
           flutter pub get
           flutter build apk --release
           flutter build web --release --dart-define-from-file=.env
+
+      - name: Upload APK to Supabase Storage
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
+            "${{ secrets.SUPABASE_URL }}/storage/v1/object/instaladores/app-release.apk"
 
       - name: Upload APK to GitHub Artifacts
         uses: actions/upload-artifact@v4
@@ -46,12 +56,3 @@ jobs:
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/flutter-front:latest .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/flutter-front:latest
-      # 5. COMENTADO: Subida a Supabase (No funciona por puertos cerrados)
-      # - name: Upload APK to Supabase
-      #   run: |
-      #     curl -X POST \
-      #       -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-      #       -H "Content-Type: application/vnd.android.package-archive" \
-      #       -H "x-upsert: true" \
-      #       --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
-      #       "${{ secrets.SUPABASE_URL }}/storage/v1/object/instaladores/app-release.apk"

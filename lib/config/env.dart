@@ -38,4 +38,11 @@ class Env {
     final ipDefecto = kReleaseMode ? _serverIp : _localIp;
     return _get('APP_URL', 'http://$ipDefecto:3000');
   }
+
+  static String get apkUrl {
+    return _get(
+      'APK_URL',
+      'http://$_serverIp:8000/storage/v1/object/public/instaladores/app-release.apk',
+    );
+  }
 }

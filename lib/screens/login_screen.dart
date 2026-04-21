@@ -28,9 +28,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   // --- FUNCIÓN PARA DESCARGAR EL ZIP (Solo se llama desde Web) ---
   Future<void> _descargarApp() async {
-    final String path =
-        '${Env.supabaseUrl}/storage/v1/object/public/app/app-release.zip';
-    final Uri url = Uri.parse(path);
+    final Uri url = Uri.parse(Env.apkUrl);
 
     try {
       if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
