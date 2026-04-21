@@ -1,4 +1,5 @@
 name: CI/CD Flutter - APK a Artifacts y Web a Docker
+
 on:
   push:
     branches: [ main ]
@@ -9,7 +10,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Configurar Entorno
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
@@ -21,30 +21,44 @@ jobs:
         with:
           channel: 'stable'
 
-      # 2. CREAR EL ARCHIVO .ENV
       - name: Create .env file
         run: |
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
           echo "API_URL=${{ secrets.API_URL }}" >> .env
           echo "APP_URL=${{ secrets.APP_URL }}" >> .env
+          echo "✅ .env creado:"
+          cat .env
 
-      # 3. Compilar APK y Web
       - name: Build APK & Web
         run: |
           flutter pub get
           flutter build apk --release
-          flutter build web --release
+          flutter build web --release --dart-define-from-file=.env
 
-      # 4. SUBIR APK A GITHUB (PLAN B por puertos cerrados)
-      # En lugar de intentar conectar con tu IP, guardamos el archivo en GitHub
       - name: Upload APK to GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: instalador-apk-release # Nombre del paquete que descargarás
+          name: instalador-apk-release
           path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 7 # Se guardará durante 7 días
+          retention-days: 7
 
+      - name: Docker Login & Push
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/flutter-front:latest .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/flutter-front:latest
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ~/partes/front
+            docker compose pull
+            docker compose up -d
       # 5. COMENTADO: Subida a Supabase (No funciona por puertos cerrados)
       # - name: Upload APK to Supabase
       #   run: |
@@ -54,11 +68,3 @@ jobs:
       #       -H "x-upsert: true" \
       #       --data-binary "@build/app/outputs/flutter-apk/app-release.apk" \
       #       "${{ secrets.SUPABASE_URL }}/storage/v1/object/instaladores/app-release.apk"
-
-      # 6. Login en Docker Hub y subir imagen Web
-      # Esto sí funcionará porque GitHub sube a Docker Hub, no a tu IP
-      - name: Docker Login & Push
-        run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/flutter-front:latest .
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/flutter-front:latest
