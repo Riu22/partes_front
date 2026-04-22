@@ -184,43 +184,58 @@ class _ObrasAdminView extends ConsumerWidget {
     final nombreCtrl = TextEditingController(text: obra.nombre);
     final direccionCtrl = TextEditingController(text: obra.ubicacion);
     final municipioCtrl = TextEditingController(text: obra.municipio);
+    bool activa = obra.activa; // <-- nuevo
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Editar obra'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTextField(nombreCtrl, 'Nombre'),
-            const SizedBox(height: 12),
-            _buildTextField(direccionCtrl, 'Dirección'),
-            const SizedBox(height: 12),
-            _buildTextField(municipioCtrl, 'Municipio'),
+      builder: (context) => StatefulBuilder(
+        // <-- cambiar a StatefulBuilder
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Editar obra'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(nombreCtrl, 'Nombre'),
+              const SizedBox(height: 12),
+              _buildTextField(direccionCtrl, 'Dirección'),
+              const SizedBox(height: 12),
+              _buildTextField(municipioCtrl, 'Municipio'),
+              const SizedBox(height: 12),
+              // ---- nuevo bloque ----
+              SwitchListTile(
+                title: const Text('Obra activa'),
+                subtitle: Text(activa ? 'Activa' : 'Inactiva'),
+                value: activa,
+                onChanged: (v) => setState(() => activa = v),
+                activeColor: Colors.green,
+              ),
+              // ----------------------
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCELAR'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await ref.read(apiServiceProvider).editarObra(obra.id, {
+                    'nombre': nombreCtrl.text.trim(),
+                    'direccion': direccionCtrl.text.trim(),
+                    'municipio': municipioCtrl.text.trim(),
+                    'activa': activa,
+                  });
+                  ref.invalidate(obrasProvider);
+                  if (context.mounted) Navigator.pop(context);
+                } catch (e) {
+                  _mostrarError(context, e.toString());
+                }
+              },
+              child: const Text('GUARDAR'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCELAR'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await ref.read(apiServiceProvider).editarObra(obra.id, {
-                  'nombre': nombreCtrl.text.trim(),
-                  'direccion': direccionCtrl.text.trim(),
-                  'municipio': municipioCtrl.text.trim(),
-                });
-                ref.invalidate(obrasProvider);
-                if (context.mounted) Navigator.pop(context);
-              } catch (e) {
-                _mostrarError(context, e.toString());
-              }
-            },
-            child: const Text('GUARDAR'),
-          ),
-        ],
       ),
     );
   }

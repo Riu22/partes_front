@@ -38,11 +38,34 @@ class ApiService {
   }
 
   Future<void> crearParte(Map<String, dynamic> data) async {
-    await _dio.post(
-      '/partes/new_parte',
-      data: data,
-      options: await _authHeaders(),
-    );
+    try {
+      await _dio.post(
+        '/partes/new_parte',
+        data: data,
+        options: await _authHeaders(),
+      );
+    } on DioException catch (e) {
+      if (e.response != null) {
+        // Error del servidor (400, 403, etc.) — NO es error de red
+        throw e.response?.data?.toString() ?? 'Error del servidor';
+      }
+      rethrow; // Error de red real → lo captura el catch de la pantalla
+    }
+  }
+
+  Future<void> crearParteJefe(Map<String, dynamic> data) async {
+    try {
+      await _dio.post(
+        '/partes/new_parte_jefe',
+        data: data,
+        options: await _authHeaders(),
+      );
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data?.toString() ?? 'Error del servidor';
+      }
+      rethrow;
+    }
   }
 
   Future<List<dynamic>> getObras() async {
@@ -174,14 +197,6 @@ class ApiService {
       options: await _authHeaders(),
     );
     return response.data;
-  }
-
-  Future<void> crearParteJefe(Map<String, dynamic> data) async {
-    await _dio.post(
-      '/partes/new_parte_jefe',
-      data: data,
-      options: await _authHeaders(),
-    );
   }
 
   Future<List<dynamic>> getPartesJefe() async {
