@@ -24,7 +24,7 @@ class AuthService {
       );
 
       final token = response.data['access_token'];
-      await guardarToken(token); // ✅ Usamos el método interno
+      await guardarToken(token);
       return token;
     } on DioException catch (e) {
       _handleError(e);
