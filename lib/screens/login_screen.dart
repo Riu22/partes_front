@@ -164,7 +164,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const Icon(Icons.engineering, size: 72, color: Colors.blue),
                 const SizedBox(height: 16),
                 const Text(
-                  'Gestión de Partes',
+                  'Gestión de Partes patata',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 32),
