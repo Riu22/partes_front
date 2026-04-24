@@ -9,15 +9,23 @@ class UpdateService {
   Future<Map<String, String>?> hayActualizacion() async {
     try {
       final info = await PackageInfo.fromPlatform();
+      print('Versión instalada: ${info.version}');
+
       final response = await _dio.get('/api/v1/version');
+      print('Respuesta servidor: ${response.data}');
+
       final versionServidor = response.data['version'] as String;
       final url = response.data['url'] as String;
+      print('Versión servidor: $versionServidor');
 
       if (versionServidor != info.version) {
+        print('Hay actualización disponible');
         return {'version': versionServidor, 'url': url};
       }
+      print('Ya está actualizado');
       return null;
-    } catch (_) {
+    } catch (e) {
+      print('Error en hayActualizacion: $e');
       return null;
     }
   }
