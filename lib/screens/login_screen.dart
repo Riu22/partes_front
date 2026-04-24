@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../config/env.dart';
+import '../services/update_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -18,12 +19,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
+  bool _verPassword = false;
+  final _updateService = UpdateService();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkUpdate());
+    }
+  }
+
+  Future<void> _checkUpdate() async {
+    final update = await _updateService.hayActualizacion();
+    if (update != null && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Nueva versión disponible'),
+          content: Text(
+            'Hay una actualización a la versión ${update['version']}.\n\n'
+            'Descárgala para tener las últimas mejoras.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Ahora no'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _updateService.abrirDescarga(update['url']!);
+              },
+              child: const Text('Descargar'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   // --- FUNCIÓN PARA DESCARGAR EL ZIP (Solo se llama desde Web) ---
@@ -139,11 +180,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
+                  obscureText: !_verPassword, // ← cambiado
+                  decoration: InputDecoration(
                     labelText: 'Contraseña',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      // ← nuevo
+                      icon: Icon(
+                        _verPassword ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () =>
+                          setState(() => _verPassword = !_verPassword),
+                    ),
                   ),
                   onSubmitted: (_) => _login(),
                 ),

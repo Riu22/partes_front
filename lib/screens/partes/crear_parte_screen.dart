@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -230,7 +231,8 @@ class _FormularioParteNormalState
         );
         context.go('/partes');
       }
-    } catch (e) {
+    } on DioException catch (_) {
+      // Error de red real → guardar offline
       await ref.read(offlineQueueProvider).guardarParteOffline(data);
       ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
@@ -241,6 +243,17 @@ class _FormularioParteNormalState
           ),
         );
         context.go('/partes');
+      }
+    } catch (e) {
+      // Error del servidor (obra inactiva, validación, etc.) → mostrar y NO guardar offline
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
@@ -488,7 +501,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
         );
         context.go('/partes');
       }
-    } catch (e) {
+    } on DioException catch (_) {
       await ref.read(offlineQueueProvider).guardarParteOffline(data);
       ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
@@ -499,6 +512,16 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
           ),
         );
         context.go('/partes');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
@@ -741,7 +764,7 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
         );
         context.go('/partes');
       }
-    } catch (e) {
+    } on DioException catch (_) {
       await ref.read(offlineQueueProvider).guardarParteJefeOffline(data);
       ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
@@ -752,6 +775,16 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
           ),
         );
         context.go('/partes');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
