@@ -11,7 +11,7 @@ class UpdateService {
       final info = await PackageInfo.fromPlatform();
       print('Versión instalada: ${info.version}');
 
-      final response = await _dio.get('/api/v1/version');
+      final response = await _dio.get('/version');
       print('Respuesta servidor: ${response.data}');
 
       final versionServidor = response.data['version'] as String;
