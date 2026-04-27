@@ -7,18 +7,52 @@ import '../helpers/download_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ApiService {
-  final Dio _dio = Dio(
-    BaseOptions(
-      baseUrl: Env.apiUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
-      sendTimeout: const Duration(seconds: 5),
-    ),
-  );
+  late final Dio _dio;
   final AuthService _authService;
+  bool _refrescando = false;
 
   ApiService([AuthService? authService])
-    : _authService = authService ?? AuthService();
+    : _authService = authService ?? AuthService() {
+    _dio = Dio(
+      BaseOptions(
+        baseUrl: Env.apiUrl,
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: const Duration(seconds: 5),
+        sendTimeout: const Duration(seconds: 5),
+      ),
+    );
+
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (DioException error, ErrorInterceptorHandler handler) async {
+          final is401 = error.response?.statusCode == 401;
+          final yaReintentado = error.requestOptions.extra['retried'] == true;
+
+          if (is401 && !yaReintentado && !_refrescando) {
+            _refrescando = true;
+            final nuevoToken = await _authService.refrescarToken();
+            _refrescando = false;
+
+            if (nuevoToken != null) {
+              final opts = error.requestOptions
+                ..headers['Authorization'] = 'Bearer $nuevoToken'
+                ..extra['retried'] = true;
+
+              try {
+                final response = await _dio.fetch(opts);
+                return handler.resolve(response);
+              } catch (e) {
+                return handler.next(error);
+              }
+            }
+          }
+
+          handler.next(error);
+        },
+      ),
+    );
+  }
+
   Future<Options> _authHeaders() async {
     final token = await _authService.getToken();
     return Options(headers: {'Authorization': 'Bearer $token'});
@@ -46,10 +80,9 @@ class ApiService {
       );
     } on DioException catch (e) {
       if (e.response != null) {
-        // Error del servidor (400, 403, etc.) — NO es error de red
         throw e.response?.data?.toString() ?? 'Error del servidor';
       }
-      rethrow; // Error de red real → lo captura el catch de la pantalla
+      rethrow;
     }
   }
 
@@ -85,7 +118,6 @@ class ApiService {
     return ParteTrabajo.fromJson(response.data);
   }
 
-  // USUARIOS
   Future<List<dynamic>> getUsuarios() async {
     final response = await _dio.get('/user/all', options: await _authHeaders());
     return response.data;
@@ -141,15 +173,11 @@ class ApiService {
     );
   }
 
-  // OBRAS
   Future<void> crearObra(Map<String, dynamic> data) async {
     try {
       await _dio.post('/obra', data: data, options: await _authHeaders());
     } on DioException catch (e) {
-      // Si hay respuesta del servidor (como el 409 CONFLICT)
       if (e.response != null) {
-        // Importante: Si el body es un String simple, e.response?.data ya es el error.
-        // Si el error persiste, usa e.response?.data.toString()
         throw e.response?.data.toString() ?? "Error en el servidor";
       }
     } catch (e) {
@@ -269,7 +297,6 @@ class ApiService {
     return response.data;
   }
 
-  /// Descarga el archivo CSV procesado
   Future<void> exportarContabilidadDetalleCsv(
     DateTime desde,
     DateTime hasta,
@@ -285,7 +312,7 @@ class ApiService {
         queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
         options: Options(
           headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
-          responseType: ResponseType.bytes, // IMPORTANTE para archivos
+          responseType: ResponseType.bytes,
         ),
       );
 

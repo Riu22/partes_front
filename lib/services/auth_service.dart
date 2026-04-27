@@ -7,10 +7,8 @@ class AuthService {
   final Dio _dio = Dio();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-  // ✅ Cache en memoria
   String? _tokenCache;
 
-  // ✅ Obtiene la key desde Env (prioriza el .env)
   String get _anonKey => Env.supabaseAnonKey;
 
   Future<String?> login(String email, String password) async {
@@ -23,9 +21,8 @@ class AuthService {
         ),
       );
 
-      final token = response.data['access_token'];
-      await guardarToken(token);
-      return token;
+      await _guardarSesion(response.data);
+      return response.data['access_token'];
     } on DioException catch (e) {
       _handleError(e);
       return null;
@@ -36,7 +33,58 @@ class AuthService {
     }
   }
 
-  // --- MÉTODOS QUE FALTABAN ---
+  Future<void> _guardarSesion(Map<String, dynamic> data) async {
+    final accessToken = data['access_token'] as String;
+    final refreshToken = data['refresh_token'] as String?;
+
+    _tokenCache = accessToken;
+    await _storage.write(key: 'jwt', value: accessToken);
+    if (refreshToken != null) {
+      await _storage.write(key: 'refresh_token', value: refreshToken);
+    }
+  }
+
+  Future<String?> refrescarToken() async {
+    final refreshToken = await _storage.read(key: 'refresh_token');
+    if (refreshToken == null) return null;
+
+    try {
+      final response = await _dio.post(
+        '${Env.supabaseUrl}/auth/v1/token?grant_type=refresh_token',
+        data: {'refresh_token': refreshToken},
+        options: Options(
+          headers: {'apikey': _anonKey, 'Content-Type': 'application/json'},
+        ),
+      );
+
+      await _guardarSesion(response.data);
+      return response.data['access_token'];
+    } catch (e) {
+      await logout();
+      return null;
+    }
+  }
+
+  bool tokenExpirado(String jwt) {
+    try {
+      final parts = jwt.split('.');
+      if (parts.length != 3) return true;
+
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final decoded = jsonDecode(utf8.decode(base64Url.decode(normalized)));
+
+      final exp = decoded['exp'] as int?;
+      if (exp == null) return true;
+
+      final expDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      return DateTime.now().isAfter(
+        expDate.subtract(const Duration(seconds: 30)),
+      );
+    } catch (_) {
+      return true;
+    }
+  }
 
   Future<void> guardarToken(String token) async {
     _tokenCache = token;
@@ -73,8 +121,6 @@ class AuthService {
       ),
     );
   }
-
-  // --- RESTO DE MÉTODOS ---
 
   Future<void> logout() async {
     _tokenCache = null;

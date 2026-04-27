@@ -20,11 +20,14 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
     final hayRed = await _checkRed();
 
     if (!hayRed) {
+      // Sin red: entra con perfil local sin tocar el token
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
       return null;
     }
 
+    // Con red: intenta cargar perfil. El interceptor 401 del ApiService
+    // refresca el token automáticamente si hace falta.
     return await _cargarPerfilServidor();
   }
 
@@ -36,6 +39,8 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
     } catch (e, stackTrace) {
       debugPrint('❌ Error cargando perfil: $e');
       debugPrint('📍 STACK TRACE: $stackTrace');
+      // Si el refresh también falló, AuthService ya hizo logout()
+      // y getToken() devolverá null la próxima vez → pantalla de login
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
       return null;
@@ -49,7 +54,6 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
       final hayRed = await _checkRed();
 
       if (!hayRed) {
-        // --- LÓGICA OFFLINE ---
         debugPrint('⚠️ Intento de login sin red. Buscando perfil local...');
         final perfilLocal = await ref
             .read(authServiceProvider)
@@ -57,30 +61,22 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
 
         if (perfilLocal != null) {
           state = AsyncData(Perfil.fromJson(perfilLocal));
-          return true; // Permitimos entrar con lo que hay en caché
+          return true;
         }
 
         state = const AsyncData(null);
         return false;
       }
 
-      // --- LÓGICA ONLINE (Aquí va el código que preguntaste) ---
-
-      // 1. Intentamos el login en Supabase
       final token = await ref.read(authServiceProvider).login(email, password);
 
       if (token != null) {
-        // 2. ¡CLAVE!: Borramos el perfil local antiguo para que no haya rastro del rol anterior
-        await ref
-            .read(authServiceProvider)
-            .logout(); // Borra JWT y Perfil viejo de la caché
-
-        // 3. Volvemos a guardar el token recién obtenido (porque el logout lo borró)
+        // Borramos perfil viejo (por si cambió el rol)
+        await ref.read(authServiceProvider).logout();
+        // Volvemos a guardar el token recién obtenido
         await ref.read(authServiceProvider).guardarToken(token);
 
-        // 4. Forzamos la descarga del perfil fresco desde el servidor (/user/me)
         final perfil = await _cargarPerfilServidor();
-
         state = AsyncData(perfil);
         return perfil != null;
       }
