@@ -20,14 +20,11 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
     final hayRed = await _checkRed();
 
     if (!hayRed) {
-      // Sin red: entra con perfil local sin tocar el token
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
       return null;
     }
 
-    // Con red: intenta cargar perfil. El interceptor 401 del ApiService
-    // refresca el token automáticamente si hace falta.
     return await _cargarPerfilServidor();
   }
 
@@ -39,8 +36,6 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
     } catch (e, stackTrace) {
       debugPrint('❌ Error cargando perfil: $e');
       debugPrint('📍 STACK TRACE: $stackTrace');
-      // Si el refresh también falló, AuthService ya hizo logout()
-      // y getToken() devolverá null la próxima vez → pantalla de login
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
       return null;
@@ -68,14 +63,10 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
         return false;
       }
 
+      // login() ya guarda jwt + refresh_token internamente via _guardarSesion()
       final token = await ref.read(authServiceProvider).login(email, password);
 
       if (token != null) {
-        // Borramos perfil viejo (por si cambió el rol)
-        await ref.read(authServiceProvider).logout();
-        // Volvemos a guardar el token recién obtenido
-        await ref.read(authServiceProvider).guardarToken(token);
-
         final perfil = await _cargarPerfilServidor();
         state = AsyncData(perfil);
         return perfil != null;
