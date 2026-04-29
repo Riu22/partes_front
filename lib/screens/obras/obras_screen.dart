@@ -28,12 +28,57 @@ class ObrasScreen extends ConsumerWidget {
   }
 }
 
-class _ObrasAdminView extends ConsumerWidget {
+// ─────────────────────────────────────────
+// Vista admin — ahora con buscador
+// ─────────────────────────────────────────
+class _ObrasAdminView extends ConsumerStatefulWidget {
   final bool esAdmin;
   const _ObrasAdminView({required this.esAdmin});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ObrasAdminView> createState() => _ObrasAdminViewState();
+}
+
+class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
+  final _nombreCtrl = TextEditingController();
+  final _municipioCtrl = TextEditingController();
+  bool? _activaFiltro; // null = todas, true = activas, false = inactivas
+
+  bool get _hayFiltros =>
+      _nombreCtrl.text.isNotEmpty ||
+      _municipioCtrl.text.isNotEmpty ||
+      _activaFiltro != null;
+
+  List<dynamic> _filtrar(List<dynamic> obras) {
+    return obras.where((o) {
+      final nombre = o.nombre.toString().toLowerCase();
+      final municipio = o.municipio.toString().toLowerCase();
+      final matchNombre =
+          _nombreCtrl.text.isEmpty ||
+          nombre.contains(_nombreCtrl.text.toLowerCase());
+      final matchMunicipio =
+          _municipioCtrl.text.isEmpty ||
+          municipio.contains(_municipioCtrl.text.toLowerCase());
+      final matchActiva = _activaFiltro == null || o.activa == _activaFiltro;
+      return matchNombre && matchMunicipio && matchActiva;
+    }).toList();
+  }
+
+  void _limpiarBusqueda() {
+    _nombreCtrl.clear();
+    _municipioCtrl.clear();
+    setState(() => _activaFiltro = null);
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _municipioCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasProvider);
 
     return Scaffold(
@@ -51,75 +96,147 @@ class _ObrasAdminView extends ConsumerWidget {
         onPressed: () => _mostrarDialogoCrear(context, ref),
         child: const Icon(Icons.add_business),
       ),
-      body: obrasAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (obras) => obras.isEmpty
-            ? const Center(child: Text('No hay obras registradas'))
-            : ListView.builder(
-                itemCount: obras.length,
-                padding: const EdgeInsets.only(
-                  bottom: 80,
-                  top: 8,
-                  left: 8,
-                  right: 8,
-                ),
-                itemBuilder: (context, index) {
-                  final o = obras[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: ExpansionTile(
-                      leading: Icon(
-                        Icons.business,
-                        color: o.activa ? Colors.blue : Colors.grey,
-                      ),
-                      title: Text(
-                        o.nombre,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text('${o.municipio} • ${o.ubicacion}'),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (accion) {
-                          if (accion == 'editar') {
-                            _mostrarDialogoEditar(context, ref, o);
-                          }
-                          if (accion == 'asignar') {
-                            _mostrarDialogoAsignar(context, ref, o.id);
-                          }
-                          if (accion == 'eliminar') {
-                            _confirmarEliminar(context, ref, o.id);
-                          }
-                        },
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(
-                            value: 'editar',
-                            child: Text('Editar'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'asignar',
-                            child: Text('Asignar persona'),
-                          ),
-                          if (esAdmin)
-                            const PopupMenuItem(
-                              value: 'eliminar',
-                              child: Text(
-                                'Eliminar',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                        ],
-                      ),
-                      children: [_AsignacionesObraWidget(obraId: o.id)],
-                    ),
+      body: Column(
+        children: [
+          _buildBuscador(),
+          Expanded(
+            child: obrasAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (obras) {
+                final filtradas = _filtrar(obras);
+                if (filtradas.isEmpty) {
+                  return const Center(
+                    child: Text('No hay obras que coincidan'),
                   );
-                },
-              ),
+                }
+                return ListView.builder(
+                  itemCount: filtradas.length,
+                  padding: const EdgeInsets.only(
+                    bottom: 80,
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                  ),
+                  itemBuilder: (context, index) {
+                    final o = filtradas[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: ExpansionTile(
+                        leading: Icon(
+                          Icons.business,
+                          color: o.activa ? Colors.blue : Colors.grey,
+                        ),
+                        title: Text(
+                          o.nombre,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text('${o.municipio} • ${o.ubicacion}'),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (accion) {
+                            if (accion == 'editar') {
+                              _mostrarDialogoEditar(context, ref, o);
+                            }
+                            if (accion == 'asignar') {
+                              _mostrarDialogoAsignar(context, ref, o.id);
+                            }
+                            if (accion == 'eliminar') {
+                              _confirmarEliminar(context, ref, o.id);
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(
+                              value: 'editar',
+                              child: Text('Editar'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'asignar',
+                              child: Text('Asignar persona'),
+                            ),
+                            if (widget.esAdmin)
+                              const PopupMenuItem(
+                                value: 'eliminar',
+                                child: Text(
+                                  'Eliminar',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                          ],
+                        ),
+                        children: [_AsignacionesObraWidget(obraId: o.id)],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _buildBuscador() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      color: Colors.grey[50],
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _nombreCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre de obra',
+                    prefixIcon: Icon(Icons.business),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<bool?>(
+                  value: _activaFiltro,
+                  decoration: const InputDecoration(
+                    labelText: 'Estado',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todas')),
+                    DropdownMenuItem(value: true, child: Text('Activas')),
+                    DropdownMenuItem(value: false, child: Text('Inactivas')),
+                  ],
+                  onChanged: (v) => setState(() => _activaFiltro = v),
+                ),
+              ),
+              if (_hayFiltros) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  tooltip: 'Limpiar filtros',
+                  onPressed: _limpiarBusqueda,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Dialogs (sin cambios) ──────────────────────────────────────
 
   void _mostrarDialogoCrear(BuildContext context, WidgetRef ref) {
     final nombreCtrl = TextEditingController();
@@ -200,7 +317,6 @@ class _ObrasAdminView extends ConsumerWidget {
               const SizedBox(height: 12),
               _buildTextField(municipioCtrl, 'Municipio'),
               const SizedBox(height: 12),
-              // ---- nuevo bloque ----
               SwitchListTile(
                 title: const Text('Obra activa'),
                 subtitle: Text(activa ? 'Activa' : 'Inactiva'),
@@ -357,6 +473,9 @@ class _ObrasAdminView extends ConsumerWidget {
   }
 }
 
+// ─────────────────────────────────────────
+// Vista operario/encargado — sin cambios
+// ─────────────────────────────────────────
 class _MisObrasView extends ConsumerWidget {
   const _MisObrasView();
 
@@ -418,6 +537,9 @@ class _MisObrasView extends ConsumerWidget {
   }
 }
 
+// ─────────────────────────────────────────
+// Widget asignaciones — sin cambios
+// ─────────────────────────────────────────
 class _AsignacionesObraWidget extends ConsumerWidget {
   final int obraId;
   const _AsignacionesObraWidget({required this.obraId});

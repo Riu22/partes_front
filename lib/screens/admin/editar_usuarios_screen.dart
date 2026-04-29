@@ -184,11 +184,11 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
             DropdownButtonFormField<String>(
               value: _grupoProfesionalSeleccionado,
               decoration: const InputDecoration(
-                labelText: 'Grupo Profesional',
+                labelText: 'Categoria Profesional',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.work),
               ),
-              hint: const Text('Seleccionar grupo'),
+              hint: const Text('Seleccionar categoria'),
               items: _gruposOpciones.map((grupo) {
                 final esOtro = grupo == 'Otro (escribir a mano)';
                 return DropdownMenuItem(
@@ -218,7 +218,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 controller: _grupoProfesionalCtrl,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  labelText: 'Escribe el grupo profesional',
+                  labelText: 'Escribe la categoria profesional',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.edit),
                   hintText: 'Ej: OF 4ª - Climatización',

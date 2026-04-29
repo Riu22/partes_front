@@ -232,11 +232,11 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                 DropdownButtonFormField<String>(
                   value: _grupoProfesionalSeleccionado,
                   decoration: const InputDecoration(
-                    labelText: 'Grupo Profesional',
+                    labelText: 'Categoría Profesional',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.work),
                   ),
-                  hint: const Text('Seleccionar grupo'),
+                  hint: const Text('Seleccionar categoría profesional'),
                   items: _gruposOpciones.map((grupo) {
                     final esOtro = grupo == 'Otro (escribir a mano)';
                     return DropdownMenuItem(
