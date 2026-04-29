@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../models/parte_trabajo.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
+import '../../services/update_service.dart';
 
 class PartesScreen extends ConsumerStatefulWidget {
   const PartesScreen({super.key});
@@ -21,6 +23,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   String? _especialidadFiltro;
   bool _buscando = false;
   List<dynamic>? _resultadosBusqueda;
+  final _updateService = UpdateService();
 
   bool get _hayFiltros =>
       _obraCtrl.text.isNotEmpty ||
@@ -30,10 +33,40 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   @override
   void initState() {
     super.initState();
-    // Precarga obras en background nada más abrir la pantalla
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(obrasProvider);
+      if (!kIsWeb) _checkUpdate();
     });
+  }
+
+  Future<void> _checkUpdate() async {
+    final update = await _updateService.hayActualizacion();
+    if (update != null && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Nueva versión disponible'),
+          content: Text(
+            'Hay una actualización a la versión ${update['version']}.\n\n'
+            'Descárgala para tener las últimas mejoras.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Ahora no'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _updateService.abrirDescarga(update['url']!);
+              },
+              child: const Text('Descargar'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _buscar() async {
