@@ -17,12 +17,39 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _lastNameCtrl;
   late final TextEditingController _codigoCtrl;
+  late final TextEditingController _grupoProfesionalCtrl;
   late String _rol;
   late bool _activo;
   late bool _postventa;
+  String? _grupoProfesionalSeleccionado;
+  bool _grupoPersonalizado = false;
   bool _enviando = false;
 
+  static const List<String> _gruposOpciones = [
+    'OF 1ª - Electricidad',
+    'OF 2ª - Electricidad',
+    'OF 3ª - Electricidad',
+    'Peón - Electricidad',
+    'OF 1ª - Fontanería',
+    'OF 2ª - Fontanería',
+    'OF 3ª - Fontanería',
+    'Peón - Fontanería',
+    'OF 1ª - Climatización',
+    'OF 2ª - Climatización',
+    'OF 3ª - Climatización',
+    'Peón - Climatización',
+    'Peón - Almacén',
+    'Jefe de Obra',
+    'Encargado',
+    'Otro (escribir a mano)',
+  ];
+
   bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'ENCARGADO';
+
+  String get _grupoFinal {
+    if (_grupoPersonalizado) return _grupoProfesionalCtrl.text.trim();
+    return _grupoProfesionalSeleccionado ?? '';
+  }
 
   @override
   void initState() {
@@ -35,6 +62,23 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     _rol = widget.usuario['rol'] ?? 'OPERARIO';
     _activo = widget.usuario['activo'] ?? true;
     _postventa = widget.usuario['postventa'] ?? false;
+
+    // Inicializar grupo profesional: ver si el valor actual está en la lista
+    final grupoActual = widget.usuario['grupo_profesional']?.toString() ?? '';
+    if (grupoActual.isEmpty) {
+      _grupoProfesionalSeleccionado = null;
+      _grupoPersonalizado = false;
+    } else if (_gruposOpciones.contains(grupoActual)) {
+      _grupoProfesionalSeleccionado = grupoActual;
+      _grupoPersonalizado = false;
+    } else {
+      // Valor personalizado que no está en la lista
+      _grupoProfesionalSeleccionado = 'Otro (escribir a mano)';
+      _grupoPersonalizado = true;
+    }
+    _grupoProfesionalCtrl = TextEditingController(
+      text: _grupoPersonalizado ? grupoActual : '',
+    );
   }
 
   @override
@@ -42,6 +86,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     _nameCtrl.dispose();
     _lastNameCtrl.dispose();
     _codigoCtrl.dispose();
+    _grupoProfesionalCtrl.dispose();
     super.dispose();
   }
 
@@ -53,6 +98,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
+            // Nombre y apellidos
             Row(
               children: [
                 Expanded(
@@ -78,6 +124,8 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
               ],
             ),
             const SizedBox(height: 16),
+
+            // Código
             TextFormField(
               controller: _codigoCtrl,
               decoration: const InputDecoration(
@@ -87,6 +135,8 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Rol
             DropdownButtonFormField<String>(
               value: _rol,
               decoration: const InputDecoration(
@@ -111,18 +161,74 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 if (!_puedeSerPostventa) _postventa = false;
               }),
             ),
+            const SizedBox(height: 8),
+
+            // Activo
             SwitchListTile(
               title: const Text('Usuario activo'),
               value: _activo,
               onChanged: (v) => setState(() => _activo = v),
             ),
+
+            // Postventa
             if (_puedeSerPostventa)
               SwitchListTile(
                 title: const Text('Operario de postventa'),
                 value: _postventa,
                 onChanged: (v) => setState(() => _postventa = v),
               ),
+
+            const SizedBox(height: 16),
+
+            // Grupo profesional — desplegable
+            DropdownButtonFormField<String>(
+              value: _grupoProfesionalSeleccionado,
+              decoration: const InputDecoration(
+                labelText: 'Grupo Profesional',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.work),
+              ),
+              hint: const Text('Seleccionar grupo'),
+              items: _gruposOpciones.map((grupo) {
+                final esOtro = grupo == 'Otro (escribir a mano)';
+                return DropdownMenuItem(
+                  value: grupo,
+                  child: Text(
+                    grupo,
+                    style: TextStyle(
+                      color: esOtro ? Colors.blueAccent : null,
+                      fontStyle: esOtro ? FontStyle.italic : null,
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (v) {
+                setState(() {
+                  _grupoProfesionalSeleccionado = v;
+                  _grupoPersonalizado = v == 'Otro (escribir a mano)';
+                  if (!_grupoPersonalizado) _grupoProfesionalCtrl.clear();
+                });
+              },
+            ),
+
+            // Campo libre si elige "Otro"
+            if (_grupoPersonalizado) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _grupoProfesionalCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Escribe el grupo profesional',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.edit),
+                  hintText: 'Ej: OF 4ª - Climatización',
+                ),
+              ),
+            ],
+
             const SizedBox(height: 32),
+
+            // Botón guardar
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -153,16 +259,16 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
         'rol': _rol,
         'activo': _activo,
         'postventa': _postventa,
+        'grupo_profesional': _grupoFinal, // <-- añadido
       });
       ref.invalidate(usuariosProvider);
-      if (mounted) {
-        context.go('/usuarios');
-      }
+      if (mounted) context.go('/usuarios');
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
       if (mounted) setState(() => _enviando = false);
     }

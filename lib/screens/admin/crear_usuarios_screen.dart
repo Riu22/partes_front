@@ -18,13 +18,40 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
   final _nameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _codigoCtrl = TextEditingController();
+  final _grupoProfesionalCtrl = TextEditingController();
+
   String _rol = 'OPERARIO';
   bool _postventa = false;
   bool _enviando = false;
   String _especialidad = 'ELECTRICIDAD';
-  final _grupoProfesionalCtrl = TextEditingController();
+  String? _grupoProfesionalSeleccionado;
+  bool _grupoPersonalizado = false;
+
+  static const List<String> _gruposOpciones = [
+    'OF 1ª - Electricidad',
+    'OF 2ª - Electricidad',
+    'OF 3ª - Electricidad',
+    'Peón - Electricidad',
+    'OF 1ª - Fontanería',
+    'OF 2ª - Fontanería',
+    'OF 3ª - Fontanería',
+    'Peón - Fontanería',
+    'OF 1ª - Climatización',
+    'OF 2ª - Climatización',
+    'OF 3ª - Climatización',
+    'Peón - Climatización',
+    'Peón - Almacén',
+    'Jefe de Obra',
+    'Encargado',
+    'Otro (escribir a mano)',
+  ];
 
   bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'JEFE_DE_OBRA';
+
+  String get _grupoFinal {
+    if (_grupoPersonalizado) return _grupoProfesionalCtrl.text.trim();
+    return _grupoProfesionalSeleccionado ?? '';
+  }
 
   @override
   void dispose() {
@@ -60,6 +87,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Nombre y apellidos
                 Row(
                   children: [
                     Expanded(
@@ -87,6 +115,8 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                // Código
                 TextFormField(
                   controller: _codigoCtrl,
                   decoration: const InputDecoration(
@@ -96,6 +126,8 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // Email
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
@@ -108,6 +140,8 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                       v!.isEmpty ? 'El email es obligatorio' : null,
                 ),
                 const SizedBox(height: 16),
+
+                // Contraseña
                 TextFormField(
                   controller: _passCtrl,
                   obscureText: true,
@@ -120,6 +154,8 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                       v!.length < 6 ? 'Mínimo 6 caracteres' : null,
                 ),
                 const SizedBox(height: 16),
+
+                // Rol
                 DropdownButtonFormField<String>(
                   value: _rol,
                   decoration: const InputDecoration(
@@ -147,11 +183,11 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                   ],
                   onChanged: (v) => setState(() {
                     _rol = v!;
-                    // Si cambia a un rol que no puede ser postventa, resetear
                     if (!_puedeSerPostventa) _postventa = false;
                   }),
                 ),
-                // Solo mostrar si el rol puede ser postventa
+
+                // Postventa
                 if (_puedeSerPostventa) ...[
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -165,6 +201,10 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                     onChanged: (v) => setState(() => _postventa = v),
                   ),
                 ],
+
+                const SizedBox(height: 16),
+
+                // Especialidad
                 DropdownButtonFormField<String>(
                   value: _especialidad,
                   decoration: const InputDecoration(
@@ -182,24 +222,68 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                       child: Text('FONTANERIA'),
                     ),
                   ],
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _especialidad = newValue!;
-                    });
-                  },
-                  validator: (value) =>
-                      value == null ? 'Selecciona una especialidad' : null,
+                  onChanged: (v) => setState(() => _especialidad = v!),
+                  validator: (v) =>
+                      v == null ? 'Selecciona una especialidad' : null,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _grupoProfesionalCtrl,
+
+                // Grupo profesional — desplegable
+                DropdownButtonFormField<String>(
+                  value: _grupoProfesionalSeleccionado,
                   decoration: const InputDecoration(
                     labelText: 'Grupo Profesional',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.work),
                   ),
+                  hint: const Text('Seleccionar grupo'),
+                  items: _gruposOpciones.map((grupo) {
+                    final esOtro = grupo == 'Otro (escribir a mano)';
+                    return DropdownMenuItem(
+                      value: grupo,
+                      child: Text(
+                        grupo,
+                        style: TextStyle(
+                          color: esOtro ? Colors.blueAccent : null,
+                          fontStyle: esOtro ? FontStyle.italic : null,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      _grupoProfesionalSeleccionado = v;
+                      _grupoPersonalizado = v == 'Otro (escribir a mano)';
+                      if (!_grupoPersonalizado) _grupoProfesionalCtrl.clear();
+                    });
+                  },
                 ),
+
+                // Campo libre si elige "Otro"
+                if (_grupoPersonalizado) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _grupoProfesionalCtrl,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Escribe el grupo profesional',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.edit),
+                      hintText: 'Ej: OF 4ª - Climatización',
+                    ),
+                    validator: (v) {
+                      if (_grupoPersonalizado &&
+                          (v == null || v.trim().isEmpty)) {
+                        return 'Escribe el grupo profesional';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+
                 const SizedBox(height: 32),
+
+                // Botón crear
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -241,7 +325,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
         'rol': _rol,
         'postventa': _postventa,
         'especialidad': _especialidad,
-        'grupo_profesional': _grupoProfesionalCtrl.text.trim(),
+        'grupo_profesional': _grupoFinal,
       });
       ref.invalidate(usuariosProvider);
       if (mounted) {
