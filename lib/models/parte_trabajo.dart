@@ -7,6 +7,7 @@ class ParteTrabajo {
   final double horasNormales;
   final String descripcion;
   final String? especialidad;
+  final String? operarioId;
 
   ParteTrabajo({
     required this.id,
@@ -17,6 +18,7 @@ class ParteTrabajo {
     required this.horasNormales,
     required this.descripcion,
     this.especialidad,
+    this.operarioId,
   });
 
   factory ParteTrabajo.fromJson(Map<String, dynamic> json) => ParteTrabajo(
@@ -28,7 +30,13 @@ class ParteTrabajo {
     horasNormales: (json['horas_normales'] ?? 8.0).toDouble(),
     descripcion: json['descripcion'] ?? '',
     especialidad: json['especialidad'],
+    operarioId: json['perfil']?['id'],
   );
 
-  bool get puedeEditarse => DateTime.now().difference(fecha).inDays <= 14;
+  bool get puedeEditarse {
+    final hoy = DateTime.now();
+    return fecha.year == hoy.year &&
+        fecha.month == hoy.month &&
+        fecha.day == hoy.day;
+  }
 }

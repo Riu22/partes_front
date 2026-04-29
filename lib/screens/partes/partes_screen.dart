@@ -401,7 +401,11 @@ class _CardParteJefe extends StatelessWidget {
     final fechaStr = parte['fecha'] ?? '';
     final fecha = DateTime.tryParse(fechaStr) ?? DateTime.now();
     final obras = (parte['obras'] as List?) ?? [];
-    final puedeEditar = DateTime.now().difference(fecha).inDays <= 14;
+    final hoy = DateTime.now();
+    final puedeEditar =
+        fecha.year == hoy.year &&
+        fecha.month == hoy.month &&
+        fecha.day == hoy.day;
     final descripcion =
         (parte['descripcion'] != null &&
             parte['descripcion'].toString().isNotEmpty)

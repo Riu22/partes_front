@@ -8,6 +8,7 @@ import '../../providers/partes_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
+import '../../providers/perfiles_provider.dart';
 
 class CrearParteScreen extends ConsumerWidget {
   const CrearParteScreen({super.key});
@@ -15,8 +16,9 @@ class CrearParteScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(authProvider).valueOrNull;
-    if (perfil == null)
+    if (perfil == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     if (perfil.esJefeObra) return const _FormularioParteJefe();
     if (perfil.postventa) return const _FormularioPostVenta();
@@ -42,10 +44,11 @@ class _FormularioParteNormalState
   double _horasNormales = 0;
   String _descripcion = '';
   int? _idObraSeleccionada;
+  String? _idPerfilSeleccionado;
   bool _enviando = false;
-  final DateTime _fechaMinima = DateTime.now().subtract(
-    const Duration(days: 14),
-  );
+
+  // PRUEBAS: límite 2 semanas comentado, actualmente solo se permite el mismo día
+  // final DateTime _fechaMinima = DateTime.now().subtract(const Duration(days: 14));
 
   @override
   void dispose() {
@@ -56,6 +59,10 @@ class _FormularioParteNormalState
   @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasProvider);
+    final perfilesAsync = ref.watch(perfilesProvider);
+    final perfil = ref.watch(authProvider).valueOrNull;
+    final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nuevo Parte'),
@@ -73,6 +80,41 @@ class _FormularioParteNormalState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Selector de operario (solo admin/gestión) ──
+              if (esGestor) ...[
+                const Text(
+                  'Operario',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                perfilesAsync.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('Error cargando perfiles: $e'),
+                  data: (perfiles) => DropdownButtonFormField<String>(
+                    value: _idPerfilSeleccionado,
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar operario',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    items: perfiles
+                        .where((p) => p.activo)
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p.id,
+                            child: Text(p.nombreCompleto),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _idPerfilSeleccionado = v),
+                    validator: (v) =>
+                        v == null ? 'Selecciona un operario' : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Obra ──
               const Text(
                 'Obra',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -102,22 +144,25 @@ class _FormularioParteNormalState
                 ),
               ),
               const SizedBox(height: 20),
+
+              // ── Fecha — solo lectura ──
+              // PRUEBAS: fecha fija a hoy, antes tenía date picker con límite 2 semanas
               ListTile(
                 shape: RoundedRectangleBorder(
                   side: const BorderSide(color: Colors.grey),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                leading: const Icon(Icons.calendar_today),
+                leading: const Icon(Icons.calendar_today, color: Colors.grey),
                 title: Text(
                   'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
+                  style: const TextStyle(color: Colors.grey),
                 ),
-                subtitle: Text(
-                  'Mínimo: ${DateFormat('dd/MM/yyyy').format(_fechaMinima)}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-                onTap: _pickDate,
+                // PRUEBAS: date picker comentado, antes permitía elegir fecha hasta _fechaMinima
+                // onTap: _pickDate,
               ),
               const SizedBox(height: 25),
+
+              // ── Horas ──
               const Text(
                 'Horas normales',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -134,6 +179,8 @@ class _FormularioParteNormalState
                 onChanged: (v) => _horasNormales = double.tryParse(v) ?? 8.0,
               ),
               const SizedBox(height: 25),
+
+              // ── Descripción ──
               const Text(
                 'Tareas realizadas',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -149,6 +196,7 @@ class _FormularioParteNormalState
                 onChanged: (v) => _descripcion = v,
               ),
               const SizedBox(height: 30),
+
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -176,15 +224,16 @@ class _FormularioParteNormalState
     );
   }
 
-  void _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _fecha,
-      firstDate: _fechaMinima,
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _fecha = picked);
-  }
+  // PRUEBAS: _pickDate comentado, antes permitía elegir fecha con límite 2 semanas
+  // void _pickDate() async {
+  //   final picked = await showDatePicker(
+  //     context: context,
+  //     initialDate: _fecha,
+  //     firstDate: _fechaMinima,
+  //     lastDate: DateTime.now(),
+  //   );
+  //   if (picked != null) setState(() => _fecha = picked);
+  // }
 
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
@@ -192,9 +241,11 @@ class _FormularioParteNormalState
     if (perfil == null) return;
     setState(() => _enviando = true);
 
+    final esGestor = perfil.esAdmin || perfil.esGestion;
+
     final data = {
       'id_obra': _idObraSeleccionada,
-      'id_perfil': perfil.id,
+      'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales': _horasNormales,
       'descripcion': _descripcion,
@@ -232,7 +283,6 @@ class _FormularioParteNormalState
         context.go('/partes');
       }
     } on DioException catch (_) {
-      // Error de red real → guardar offline
       await ref.read(offlineQueueProvider).guardarParteOffline(data);
       ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
@@ -245,7 +295,6 @@ class _FormularioParteNormalState
         context.go('/partes');
       }
     } catch (e) {
-      // Error del servidor (obra inactiva, validación, etc.) → mostrar y NO guardar offline
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -279,10 +328,11 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   String _descripcion = '';
   int? _idObraSeleccionada;
   String? _especialidad;
+  String? _idPerfilSeleccionado;
   bool _enviando = false;
-  final DateTime _fechaMinima = DateTime.now().subtract(
-    const Duration(days: 14),
-  );
+
+  // PRUEBAS: límite 2 semanas comentado, actualmente solo se permite el mismo día
+  // final DateTime _fechaMinima = DateTime.now().subtract(const Duration(days: 14));
 
   @override
   void dispose() {
@@ -293,6 +343,10 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasProvider);
+    final perfilesAsync = ref.watch(perfilesProvider);
+    final perfil = ref.watch(authProvider).valueOrNull;
+    final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nuevo Parte Post Venta'),
@@ -310,6 +364,41 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Selector de operario (solo admin/gestión) ──
+              if (esGestor) ...[
+                const Text(
+                  'Operario',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                perfilesAsync.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('Error cargando perfiles: $e'),
+                  data: (perfiles) => DropdownButtonFormField<String>(
+                    value: _idPerfilSeleccionado,
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar operario',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    items: perfiles
+                        .where((p) => p.activo)
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p.id,
+                            child: Text(p.nombreCompleto),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _idPerfilSeleccionado = v),
+                    validator: (v) =>
+                        v == null ? 'Selecciona un operario' : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Obra ──
               const Text(
                 'Obra',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -339,22 +428,25 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // ── Fecha — solo lectura ──
+              // PRUEBAS: fecha fija a hoy, antes tenía date picker con límite 2 semanas
               ListTile(
                 shape: RoundedRectangleBorder(
                   side: const BorderSide(color: Colors.grey),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                leading: const Icon(Icons.calendar_today),
+                leading: const Icon(Icons.calendar_today, color: Colors.grey),
                 title: Text(
                   'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
+                  style: const TextStyle(color: Colors.grey),
                 ),
-                subtitle: Text(
-                  'Mínimo: ${DateFormat('dd/MM/yyyy').format(_fechaMinima)}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-                onTap: _pickDate,
+                // PRUEBAS: date picker comentado, antes permitía elegir fecha hasta _fechaMinima
+                // onTap: _pickDate,
               ),
               const SizedBox(height: 25),
+
+              // ── Horas ──
               const Text(
                 'Horas normales',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -371,6 +463,8 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                 onChanged: (v) => _horasNormales = double.tryParse(v) ?? 8.0,
               ),
               const SizedBox(height: 25),
+
+              // ── Especialidad ──
               const Text(
                 'Especialidad',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -401,6 +495,8 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                 ],
               ),
               const SizedBox(height: 25),
+
+              // ── Descripción ──
               const Text(
                 'Tareas realizadas',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -416,6 +512,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                 onChanged: (v) => _descripcion = v,
               ),
               const SizedBox(height: 30),
+
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -443,15 +540,16 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
     );
   }
 
-  void _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _fecha,
-      firstDate: _fechaMinima,
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _fecha = picked);
-  }
+  // PRUEBAS: _pickDate comentado, antes permitía elegir fecha con límite 2 semanas
+  // void _pickDate() async {
+  //   final picked = await showDatePicker(
+  //     context: context,
+  //     initialDate: _fecha,
+  //     firstDate: _fechaMinima,
+  //     lastDate: DateTime.now(),
+  //   );
+  //   if (picked != null) setState(() => _fecha = picked);
+  // }
 
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
@@ -459,9 +557,11 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
     if (perfil == null) return;
     setState(() => _enviando = true);
 
+    final esGestor = perfil.esAdmin || perfil.esGestion;
+
     final data = {
       'id_obra': _idObraSeleccionada,
-      'id_perfil': perfil.id,
+      'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales': _horasNormales,
       'especialidad': _especialidad,

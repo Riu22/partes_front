@@ -7,6 +7,7 @@ import '../../providers/partes_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
+import '../../providers/perfiles_provider.dart';
 
 class EditarParteScreen extends ConsumerStatefulWidget {
   final ParteTrabajo parte;
@@ -25,11 +26,11 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   late DateTime _fecha;
   late int? _idObraSeleccionada;
   late String? _especialidad;
+  late String? _idPerfilSeleccionado;
   bool _enviando = false;
 
-  final DateTime _fechaMinima = DateTime.now().subtract(
-    const Duration(days: 14),
-  );
+  // PRUEBAS: límite 2 semanas comentado, actualmente solo se permite editar el mismo día
+  // final DateTime _fechaMinima = DateTime.now().subtract(const Duration(days: 14));
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     _descripcionCtrl.text = widget.parte.descripcion;
     _horasCtrl.text = widget.parte.horasNormales.toString();
     _obraSearchCtrl.text = widget.parte.obraNombre;
+    _idPerfilSeleccionado = widget.parte.operarioId;
   }
 
   @override
@@ -53,8 +55,10 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasProvider);
+    final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esPostventa = perfil?.postventa ?? false;
+    final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -71,7 +75,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Info del parte
+              // ── Banner info ──
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -79,17 +83,16 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.orange.withOpacity(0.3)),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(Icons.info_outline, color: Colors.orange),
-                    const SizedBox(width: 8),
+                    Icon(Icons.info_outline, color: Colors.orange),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Puedes editar este parte hasta el ${DateFormat('dd/MM/yyyy').format(widget.parte.fecha.add(const Duration(days: 14)))}',
-                        style: const TextStyle(
-                          color: Colors.orange,
-                          fontSize: 12,
-                        ),
+                        // PRUEBAS: antes mostraba fecha límite de 14 días
+                        // 'Puedes editar este parte hasta el ${DateFormat('dd/MM/yyyy').format(widget.parte.fecha.add(const Duration(days: 14)))}',
+                        'Solo puedes editar partes del día de hoy',
+                        style: TextStyle(color: Colors.orange, fontSize: 12),
                       ),
                     ),
                   ],
@@ -97,7 +100,41 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Obra
+              // ── Selector de operario (solo admin/gestión) ──
+              if (esGestor) ...[
+                const Text(
+                  'Operario',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                perfilesAsync.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) => Text('Error cargando perfiles: $e'),
+                  data: (perfiles) => DropdownButtonFormField<String>(
+                    value: _idPerfilSeleccionado,
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar operario',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    items: perfiles
+                        .where((p) => p.activo)
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p.id,
+                            child: Text(p.nombreCompleto),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _idPerfilSeleccionado = v),
+                    validator: (v) =>
+                        v == null ? 'Selecciona un operario' : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // ── Obra ──
               const Text(
                 'Obra',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -122,7 +159,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Fecha
+              // ── Fecha — solo lectura ──
               const Text(
                 'Fecha',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -133,19 +170,18 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                   side: const BorderSide(color: Colors.grey),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                leading: const Icon(Icons.calendar_today),
+                leading: const Icon(Icons.calendar_today, color: Colors.grey),
                 title: Text(
                   'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
+                  style: const TextStyle(color: Colors.grey),
                 ),
-                subtitle: Text(
-                  'Mínimo: ${DateFormat('dd/MM/yyyy').format(_fechaMinima)}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-                onTap: _pickDate,
+                // PRUEBAS: date picker comentado, antes permitía cambiar fecha hasta _fechaMinima
+                // subtitle: Text('Mínimo: ${DateFormat('dd/MM/yyyy').format(_fechaMinima)}'),
+                // onTap: _pickDate,
               ),
               const SizedBox(height: 24),
 
-              // Horas
+              // ── Horas ──
               const Text(
                 'Horas normales',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -169,7 +205,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Especialidad — solo si es postventa
+              // ── Especialidad (solo postventa) ──
               if (esPostventa) ...[
                 const Text(
                   'Especialidad',
@@ -204,7 +240,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 const SizedBox(height: 24),
               ],
 
-              // Descripción
+              // ── Descripción ──
               const Text(
                 'Tareas realizadas',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -244,15 +280,16 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     );
   }
 
-  void _pickDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _fecha,
-      firstDate: _fechaMinima,
-      lastDate: DateTime.now(),
-    );
-    if (picked != null) setState(() => _fecha = picked);
-  }
+  // PRUEBAS: _pickDate comentado, antes permitía seleccionar fecha con límite de 2 semanas
+  // void _pickDate() async {
+  //   final picked = await showDatePicker(
+  //     context: context,
+  //     initialDate: _fecha,
+  //     firstDate: _fechaMinima,
+  //     lastDate: DateTime.now(),
+  //   );
+  //   if (picked != null) setState(() => _fecha = picked);
+  // }
 
   void _abrirBuscadorObras(BuildContext context, List obras) {
     showModalBottomSheet(
@@ -290,9 +327,11 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
 
     setState(() => _enviando = true);
 
+    final esGestor = perfil.esAdmin || perfil.esGestion;
+
     final payload = {
       'id_obra': _idObraSeleccionada,
-      'id_perfil': perfil.id,
+      'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales':
           double.tryParse(_horasCtrl.text) ?? widget.parte.horasNormales,
@@ -300,18 +339,18 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
       if (_especialidad != null) 'especialidad': _especialidad,
     };
 
-    // Comprobamos si hay conexión en este momento
     final online = ref.read(conectividadProvider).valueOrNull ?? false;
 
     if (!online) {
-      // Sin red: encolamos el update para sincronizar después
       final queue = ref.read(offlineQueueProvider);
       await queue.guardarUpdateOffline(widget.parte.id, payload);
       ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Sin conexión — el cambio se guardará al recuperar la red'),
+            content: Text(
+              'Sin conexión — el cambio se guardará al recuperar la red',
+            ),
             backgroundColor: Colors.orange,
           ),
         );

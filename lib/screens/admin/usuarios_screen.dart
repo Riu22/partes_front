@@ -28,23 +28,25 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
       ),
       body: Column(
         children: [
-          // INTEGRACIÓN DEL BUSCADOR
           BuscadorOperario(
             onBuscar: (texto) => setState(() => _filtro = texto),
             onLimpiar: () => setState(() => _filtro = ''),
           ),
-
           Expanded(
             child: usuariosAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (usuarios) {
-                // FILTRADO LOCAL
                 final listaFiltrada = usuarios.where((u) {
                   final nombre = (u['name'] ?? '').toString().toLowerCase();
+                  final apellidos = (u['apellidos'] ?? '')
+                      .toString()
+                      .toLowerCase();
                   final email = (u['email'] ?? '').toString().toLowerCase();
-                  return nombre.contains(_filtro.toLowerCase()) ||
-                      email.contains(_filtro.toLowerCase());
+                  final filtroLower = _filtro.toLowerCase();
+                  return nombre.contains(filtroLower) ||
+                      apellidos.contains(filtroLower) ||
+                      email.contains(filtroLower);
                 }).toList();
 
                 if (listaFiltrada.isEmpty) {
@@ -75,6 +77,23 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     );
   }
 
+  String _nombreCompleto(dynamic u) {
+    final apellidos = (u['apellidos'] ?? '').toString().trim();
+    final nombre = (u['name'] ?? '').toString().trim();
+    final completo = '$apellidos $nombre'.trim();
+    return completo.isEmpty ? 'Sin nombre' : completo;
+  }
+
+  String _inicial(dynamic u) {
+    final apellidos = (u['apellidos'] ?? '').toString().trim();
+    if (apellidos.isNotEmpty) return apellidos[0].toUpperCase();
+    final nombre = (u['name'] ?? '').toString().trim();
+    if (nombre.isNotEmpty) return nombre[0].toUpperCase();
+    final email = (u['email'] ?? '').toString().trim();
+    if (email.isNotEmpty) return email[0].toUpperCase();
+    return '?';
+  }
+
   Widget _buildUsuarioCard(
     BuildContext context,
     WidgetRef ref,
@@ -86,7 +105,6 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     final jefe = u['jefeDirecto'];
     final String rol = u['rol'] ?? 'OPERARIO';
 
-    // Determinamos si este usuario puede tener subordinados para cambiar el texto del menú
     final bool puedeTenerEquipo = [
       'JEFE_DE_OBRA',
       'ENCARGADO',
@@ -102,7 +120,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
         leading: CircleAvatar(
           backgroundColor: _colorRol(rol),
           child: Text(
-            (u['name'] ?? u['email'] ?? '?')[0].toUpperCase(),
+            _inicial(u),
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -110,7 +128,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
           ),
         ),
         title: Text(
-          u['name'] ?? 'Sin nombre',
+          _nombreCompleto(u),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Padding(
@@ -134,7 +152,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    'Jefe: ${jefe['name']}',
+                    'Jefe: ${_nombreCompleto(jefe)}',
                     style: const TextStyle(
                       color: Colors.blue,
                       fontSize: 11,

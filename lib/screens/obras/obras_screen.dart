@@ -184,12 +184,11 @@ class _ObrasAdminView extends ConsumerWidget {
     final nombreCtrl = TextEditingController(text: obra.nombre);
     final direccionCtrl = TextEditingController(text: obra.ubicacion);
     final municipioCtrl = TextEditingController(text: obra.municipio);
-    bool activa = obra.activa; // <-- nuevo
+    bool activa = obra.activa;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        // <-- cambiar a StatefulBuilder
         builder: (context, setState) => AlertDialog(
           title: const Text('Editar obra'),
           content: Column(
@@ -209,7 +208,6 @@ class _ObrasAdminView extends ConsumerWidget {
                 onChanged: (v) => setState(() => activa = v),
                 activeColor: Colors.green,
               ),
-              // ----------------------
             ],
           ),
           actions: [
