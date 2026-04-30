@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 
 class ConfiguracionScreen extends ConsumerWidget {
@@ -14,6 +15,15 @@ class ConfiguracionScreen extends ConsumerWidget {
     }
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Configuración del Perfil'),
+        backgroundColor: Colors.blue[800],
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => context.go('/partes'),
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
@@ -42,20 +52,19 @@ class ConfiguracionScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
           const Divider(),
-          ListTile(
-            leading: const Icon(Icons.email),
-            title: const Text('Correo electrónico'),
-            subtitle: Text(perfil.email),
-          ),
+
+          // Correo electrónico con opción de edición
           ListTile(
             leading: const Icon(Icons.email_outlined, color: Colors.blue),
             title: const Text('Correo electrónico'),
             subtitle: Text(perfil.email),
             trailing: const Icon(Icons.edit, size: 20),
-            onTap: () =>
-                _mostrarDialogoCambioEmail(context, ref), // Nueva función
+            onTap: () => _mostrarDialogoCambioEmail(context, ref),
           ),
+
           const Divider(),
+
+          // Seguridad y Cambio de Contraseña
           ListTile(
             leading: const Icon(Icons.lock_outline, color: Colors.orange),
             title: const Text('Seguridad'),
@@ -63,6 +72,8 @@ class ConfiguracionScreen extends ConsumerWidget {
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => _mostrarDialogoCambioPassword(context, ref),
           ),
+
+          // Estado de la cuenta
           ListTile(
             leading: Icon(
               perfil.activo ? Icons.check_circle : Icons.cancel,
@@ -71,14 +82,17 @@ class ConfiguracionScreen extends ConsumerWidget {
             title: const Text('Estado de la cuenta'),
             subtitle: Text(perfil.activo ? 'Activo' : 'Inactivo'),
           ),
+
           const Divider(),
+
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8.0),
+            padding: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
             child: Text(
               'Permisos y accesos',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
+
           ListTile(
             leading: const Icon(Icons.security),
             title: const Text('Nivel de acceso'),
@@ -88,6 +102,8 @@ class ConfiguracionScreen extends ConsumerWidget {
       ),
     );
   }
+
+  // --- MÉTODOS DE DIÁLOGOS ---
 
   void _mostrarDialogoCambioPassword(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();

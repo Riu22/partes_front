@@ -49,7 +49,9 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
           title: const Text('Nueva versión disponible'),
           content: Text(
             'Hay una actualización a la versión ${update['version']}.\n\n'
-            'Descárgala para tener las últimas mejoras.',
+            'Descárgala para tener las últimas mejoras.\n\n'
+            'Una vez descargado dale a abrir y selecciona actualizar.\n\n'
+            'En caso de que de un error desinstale la aplicacion y vuelva a instalarla con el instalador que acaba de descargar.',
           ),
           actions: [
             TextButton(

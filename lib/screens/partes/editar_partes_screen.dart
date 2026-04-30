@@ -54,7 +54,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final obrasAsync = ref.watch(obrasProvider);
+    final obrasAsync = ref.watch(obrasActivasProvider);
     final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esPostventa = perfil?.postventa ?? false;

@@ -34,6 +34,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     // --- MOTOR DE SINCRONIZACIÓN Y DATOS ---
     ref.watch(syncProvider);
     ref.watch(obrasProvider);
+    ref.watch(obrasActivasProvider);
 
     // Escuchamos el contador de pendientes para debug
     ref.listen(pendientesOfflineProvider, (prev, next) {

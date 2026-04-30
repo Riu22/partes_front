@@ -58,7 +58,7 @@ class _FormularioParteNormalState
 
   @override
   Widget build(BuildContext context) {
-    final obrasAsync = ref.watch(obrasProvider);
+    final obrasAsync = ref.watch(obrasActivasProvider);
     final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;

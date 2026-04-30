@@ -106,6 +106,14 @@ class ApiService {
     return response.data;
   }
 
+  Future<List<dynamic>> getObrasActivas() async {
+    final response = await _dio.get(
+      '/obra/activas',
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
   Future<ParteTrabajo> updateParte(
     int parteId,
     Map<String, dynamic> data,
