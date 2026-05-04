@@ -334,4 +334,54 @@ class ApiService {
       throw "Error al exportar CSV detallado: $e";
     }
   }
+
+  // ─────────────────────────────────────────
+  // Fecha libre
+  // ─────────────────────────────────────────
+
+  /// Comprueba si el usuario con [id] tiene permiso de fecha libre activo
+  Future<bool> getMiPermisoFechaLibre(String id) async {
+    try {
+      final response = await _dio.get(
+        '/config/fecha-libre/mi-permiso',
+        queryParameters: {'id': id},
+        options: await _authHeaders(),
+      );
+      return response.data == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Devuelve Map<id, hasta> de todos los usuarios con permiso activo
+  Future<Map<String, String>> getFechaLibreActivos() async {
+    final response = await _dio.get(
+      '/config/fecha-libre',
+      options: await _authHeaders(),
+    );
+    return Map<String, String>.from(
+      (response.data as Map).map(
+        (k, v) => MapEntry(k.toString(), v.toString()),
+      ),
+    );
+  }
+
+  /// Habilita fecha libre para [id] hasta [hasta]
+  Future<void> habilitarFechaLibre(String id, DateTime hasta) async {
+    final hastaStr =
+        '${hasta.year}-${hasta.month.toString().padLeft(2, '0')}-${hasta.day.toString().padLeft(2, '0')}';
+    await _dio.post(
+      '/config/fecha-libre/habilitar',
+      queryParameters: {'id': id, 'hasta': hastaStr},
+      options: await _authHeaders(),
+    );
+  }
+
+  /// Deshabilita fecha libre para [id]
+  Future<void> deshabilitarFechaLibre(String id) async {
+    await _dio.delete(
+      '/config/fecha-libre/deshabilitar/$id',
+      options: await _authHeaders(),
+    );
+  }
 }

@@ -263,7 +263,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                       partes: _resultadosBusqueda!
                           .map((p) => ParteTrabajo.fromJson(p))
                           .toList(),
-                      mostrarResumen: true,
                     )
                   : perfil.esJefeObra
                   ? const _PartesJefeView()
@@ -908,13 +907,20 @@ class _PartesNormalesView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final partesAsync = ref.watch(partesProvider);
+    final perfil = ref.watch(authProvider).valueOrNull;
+
+    // Resumen semanal solo para operario y encargado
+    final mostrarResumen =
+        perfil?.esOperario == true || perfil?.esEncargado == true;
+
     return partesAsync.when(
       loading: () =>
           const Center(child: CircularProgressIndicator(color: _blue)),
       error: (e, _) => Center(
         child: Text('Error: $e', style: const TextStyle(color: _textSecondary)),
       ),
-      data: (partes) => _ListaPartes(partes: partes, mostrarResumen: true),
+      data: (partes) =>
+          _ListaPartes(partes: partes, mostrarResumen: mostrarResumen),
     );
   }
 }
