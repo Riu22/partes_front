@@ -47,13 +47,21 @@ class _FormularioParteNormalState
   String? _idPerfilSeleccionado;
   bool _enviando = false;
 
-  // PRUEBAS: límite 2 semanas comentado, actualmente solo se permite el mismo día
-  // final DateTime _fechaMinima = DateTime.now().subtract(const Duration(days: 14));
-
   @override
   void dispose() {
     _obraSearchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate(bool esGestor) async {
+    if (!esGestor) return;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fecha,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _fecha = picked);
   }
 
   @override
@@ -145,20 +153,36 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 20),
 
-              // ── Fecha — solo lectura ──
-              // PRUEBAS: fecha fija a hoy, antes tenía date picker con límite 2 semanas
+              // ── Fecha ──
+              const Text(
+                'Fecha',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
               ListTile(
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Colors.grey),
+                  side: BorderSide(
+                    color: esGestor ? Colors.orange.shade300 : Colors.grey,
+                  ),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                leading: const Icon(Icons.calendar_today, color: Colors.grey),
+                leading: Icon(
+                  Icons.calendar_today,
+                  color: esGestor ? Colors.orange[800] : Colors.grey,
+                ),
                 title: Text(
                   'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
-                  style: const TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: esGestor ? Colors.black87 : Colors.grey,
+                  ),
                 ),
-                // PRUEBAS: date picker comentado, antes permitía elegir fecha hasta _fechaMinima
-                // onTap: _pickDate,
+                subtitle: esGestor
+                    ? const Text(
+                        'Toca para cambiar la fecha',
+                        style: TextStyle(fontSize: 11, color: Colors.orange),
+                      )
+                    : null,
+                onTap: esGestor ? () => _pickDate(esGestor) : null,
               ),
               const SizedBox(height: 25),
 
@@ -223,17 +247,6 @@ class _FormularioParteNormalState
       ),
     );
   }
-
-  // PRUEBAS: _pickDate comentado, antes permitía elegir fecha con límite 2 semanas
-  // void _pickDate() async {
-  //   final picked = await showDatePicker(
-  //     context: context,
-  //     initialDate: _fecha,
-  //     firstDate: _fechaMinima,
-  //     lastDate: DateTime.now(),
-  //   );
-  //   if (picked != null) setState(() => _fecha = picked);
-  // }
 
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
@@ -331,13 +344,21 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   String? _idPerfilSeleccionado;
   bool _enviando = false;
 
-  // PRUEBAS: límite 2 semanas comentado, actualmente solo se permite el mismo día
-  // final DateTime _fechaMinima = DateTime.now().subtract(const Duration(days: 14));
-
   @override
   void dispose() {
     _obraSearchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate(bool esGestor) async {
+    if (!esGestor) return;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fecha,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _fecha = picked);
   }
 
   @override
@@ -429,20 +450,36 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
               ),
               const SizedBox(height: 20),
 
-              // ── Fecha — solo lectura ──
-              // PRUEBAS: fecha fija a hoy, antes tenía date picker con límite 2 semanas
+              // ── Fecha ──
+              const Text(
+                'Fecha',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
               ListTile(
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Colors.grey),
+                  side: BorderSide(
+                    color: esGestor ? Colors.purple.shade300 : Colors.grey,
+                  ),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                leading: const Icon(Icons.calendar_today, color: Colors.grey),
+                leading: Icon(
+                  Icons.calendar_today,
+                  color: esGestor ? Colors.purple[700] : Colors.grey,
+                ),
                 title: Text(
                   'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
-                  style: const TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: esGestor ? Colors.black87 : Colors.grey,
+                  ),
                 ),
-                // PRUEBAS: date picker comentado, antes permitía elegir fecha hasta _fechaMinima
-                // onTap: _pickDate,
+                subtitle: esGestor
+                    ? const Text(
+                        'Toca para cambiar la fecha',
+                        style: TextStyle(fontSize: 11, color: Colors.purple),
+                      )
+                    : null,
+                onTap: esGestor ? () => _pickDate(esGestor) : null,
               ),
               const SizedBox(height: 25),
 
@@ -539,17 +576,6 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
       ),
     );
   }
-
-  // PRUEBAS: _pickDate comentado, antes permitía elegir fecha con límite 2 semanas
-  // void _pickDate() async {
-  //   final picked = await showDatePicker(
-  //     context: context,
-  //     initialDate: _fecha,
-  //     firstDate: _fechaMinima,
-  //     lastDate: DateTime.now(),
-  //   );
-  //   if (picked != null) setState(() => _fecha = picked);
-  // }
 
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;

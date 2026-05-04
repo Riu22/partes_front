@@ -33,8 +33,13 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(obrasProvider);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Refresca obras del servidor cada vez que se entra a la pantalla (si hay red)
+      final conectado = ref.read(conectividadProvider).valueOrNull ?? false;
+      if (conectado) {
+        ref.invalidate(obrasActivasProvider);
+        ref.invalidate(obrasProvider);
+      }
       if (!kIsWeb) _checkUpdate();
     });
   }
@@ -349,14 +354,20 @@ class _PartesJefeView extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────
-// Card unificada para todos los roles
+// Card unificada — ConsumerWidget para leer el rol
 // ─────────────────────────────────────────
-class _CardParte extends StatelessWidget {
+class _CardParte extends ConsumerWidget {
   final ParteTrabajo parte;
   const _CardParte({required this.parte});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final perfil = ref.watch(authProvider).valueOrNull;
+    final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
+
+    // Gestores pueden editar cualquier parte; el resto solo los de hoy
+    final puedeEditar = esGestor || parte.puedeEditarse;
+
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -364,7 +375,7 @@ class _CardParte extends StatelessWidget {
       child: ExpansionTile(
         leading: Icon(
           Icons.assignment,
-          color: parte.puedeEditarse ? Colors.orange : Colors.grey,
+          color: puedeEditar ? Colors.orange : Colors.grey,
           size: 30,
         ),
         title: Text(
@@ -405,7 +416,7 @@ class _CardParte extends StatelessWidget {
                       : 'Sin descripción',
                 ),
                 const SizedBox(height: 15),
-                if (parte.puedeEditarse)
+                if (puedeEditar)
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(

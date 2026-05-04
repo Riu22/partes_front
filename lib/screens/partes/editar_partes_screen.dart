@@ -29,9 +29,6 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   late String? _idPerfilSeleccionado;
   bool _enviando = false;
 
-  // PRUEBAS: límite 2 semanas comentado, actualmente solo se permite editar el mismo día
-  // final DateTime _fechaMinima = DateTime.now().subtract(const Duration(days: 14));
-
   @override
   void initState() {
     super.initState();
@@ -50,6 +47,16 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     _descripcionCtrl.dispose();
     _horasCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fecha,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _fecha = picked);
   }
 
   @override
@@ -83,16 +90,19 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.orange.withOpacity(0.3)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.orange),
-                    SizedBox(width: 8),
+                    const Icon(Icons.info_outline, color: Colors.orange),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        // PRUEBAS: antes mostraba fecha límite de 14 días
-                        // 'Puedes editar este parte hasta el ${DateFormat('dd/MM/yyyy').format(widget.parte.fecha.add(const Duration(days: 14)))}',
-                        'Solo puedes editar partes del día de hoy',
-                        style: TextStyle(color: Colors.orange, fontSize: 12),
+                        esGestor
+                            ? 'Como gestor puedes editar este parte sin restricciones de fecha'
+                            : 'Solo puedes editar partes del día de hoy',
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -159,7 +169,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Fecha — solo lectura ──
+              // ── Fecha ──
               const Text(
                 'Fecha',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -167,17 +177,28 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               const SizedBox(height: 12),
               ListTile(
                 shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: Colors.grey),
+                  side: BorderSide(
+                    color: esGestor ? Colors.orange.shade300 : Colors.grey,
+                  ),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                leading: const Icon(Icons.calendar_today, color: Colors.grey),
+                leading: Icon(
+                  Icons.calendar_today,
+                  color: esGestor ? Colors.orange : Colors.grey,
+                ),
                 title: Text(
                   'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
-                  style: const TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: esGestor ? Colors.black87 : Colors.grey,
+                  ),
                 ),
-                // PRUEBAS: date picker comentado, antes permitía cambiar fecha hasta _fechaMinima
-                // subtitle: Text('Mínimo: ${DateFormat('dd/MM/yyyy').format(_fechaMinima)}'),
-                // onTap: _pickDate,
+                subtitle: esGestor
+                    ? const Text(
+                        'Toca para cambiar la fecha',
+                        style: TextStyle(fontSize: 11, color: Colors.orange),
+                      )
+                    : null,
+                onTap: esGestor ? _pickDate : null,
               ),
               const SizedBox(height: 24),
 
@@ -279,17 +300,6 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
       ),
     );
   }
-
-  // PRUEBAS: _pickDate comentado, antes permitía seleccionar fecha con límite de 2 semanas
-  // void _pickDate() async {
-  //   final picked = await showDatePicker(
-  //     context: context,
-  //     initialDate: _fecha,
-  //     firstDate: _fechaMinima,
-  //     lastDate: DateTime.now(),
-  //   );
-  //   if (picked != null) setState(() => _fecha = picked);
-  // }
 
   void _abrirBuscadorObras(BuildContext context, List obras) {
     showModalBottomSheet(
