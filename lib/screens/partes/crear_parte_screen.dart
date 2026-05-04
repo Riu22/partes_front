@@ -967,11 +967,15 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
 
   @override
   Widget build(BuildContext context) {
+    final query = _filtro.toLowerCase().trim();
+
+    // ── CAMBIO 1: filtra por nombre, municipio Y ubicacion ──
     final filtradas = widget.obras
         .where(
           (o) =>
-              o.nombre.toLowerCase().contains(_filtro.toLowerCase()) ||
-              o.municipio.toLowerCase().contains(_filtro.toLowerCase()),
+              o.nombre.toLowerCase().contains(query) ||
+              o.municipio.toLowerCase().contains(query) ||
+              o.ubicacion.toLowerCase().contains(query),
         )
         .toList();
 
@@ -988,10 +992,11 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
         ),
         Padding(
           padding: const EdgeInsets.all(20),
+          // ── CAMBIO 2: hint text actualizado ──
           child: TextField(
             autofocus: true,
             decoration: InputDecoration(
-              hintText: 'Nombre de obra o municipio...',
+              hintText: 'Nombre, municipio o dirección...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1011,6 +1016,13 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final o = filtradas[index];
+
+                    // ── CAMBIO 3: muestra ubicacion en subtitle si difiere del nombre ──
+                    final subtitulo =
+                        o.ubicacion != o.municipio && o.ubicacion != o.nombre
+                        ? '${o.municipio} · ${o.ubicacion}'
+                        : o.municipio;
+
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -1024,7 +1036,7 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
                         o.nombre,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: Text(o.municipio),
+                      subtitle: Text(subtitulo),
                       onTap: () {
                         widget.alSeleccionar(o);
                         Navigator.pop(context);
@@ -1075,8 +1087,8 @@ class _BotonEspecialidad extends StatelessWidget {
               label,
               style: TextStyle(
                 color: seleccionado ? Colors.white : color,
-                fontWeight: FontWeight.bold,
                 fontSize: 12,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
