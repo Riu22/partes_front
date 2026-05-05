@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../providers/perfiles_provider.dart';
+import '../../models/perfil.dart';
 
 class CrearParteScreen extends ConsumerWidget {
   const CrearParteScreen({super.key});
@@ -45,7 +46,80 @@ class _FormularioParteNormalState
   String _descripcion = '';
   int? _idObraSeleccionada;
   String? _idPerfilSeleccionado;
+  Perfil? _perfilOperarioSeleccionado;
   bool _enviando = false;
+
+  List<DateTime> _fechasConParte = [];
+  bool _cargandoFechas = false;
+  List<DateTime> _fechasPermitidas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarMisFechas();
+    _cargarFechasPermitidas();
+  }
+
+  Future<void> _cargarMisFechas() async {
+    setState(() => _cargandoFechas = true);
+    try {
+      final fechas = await ref.read(apiServiceProvider).getMisFechasConParte();
+      if (mounted) setState(() => _fechasConParte = fechas);
+    } catch (e) {
+      debugPrint('>>> error cargarMisFechas: $e');
+    } finally {
+      if (mounted) setState(() => _cargandoFechas = false);
+    }
+  }
+
+  Future<void> _cargarFechasDeOperario(String id) async {
+    setState(() => _cargandoFechas = true);
+    try {
+      final fechas = await ref.read(apiServiceProvider).getFechasConParte(id);
+      if (mounted) setState(() => _fechasConParte = fechas);
+    } catch (e) {
+      debugPrint('>>> error cargarFechasDeOperario: $e');
+    } finally {
+      if (mounted) setState(() => _cargandoFechas = false);
+    }
+  }
+
+  Future<void> _cargarFechasPermitidas() async {
+    try {
+      final fechas = await ref.read(apiServiceProvider).getMisFechasLibres();
+      if (mounted) setState(() => _fechasPermitidas = fechas);
+    } catch (e) {
+      debugPrint('>>> error cargarFechasPermitidas: $e');
+    }
+  }
+
+  bool _fechaYaTieneParteRegistrado(DateTime dia) => _fechasConParte.any(
+    (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
+  );
+
+  bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
+    (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
+  );
+
+  bool _predicate(DateTime dia, bool esGestor) {
+    if (esGestor) return true;
+    final ahora = DateTime.now();
+    if (dia.year == ahora.year && dia.month == ahora.month && dia.day == ahora.day) {
+      return true;
+    }
+    return _fechaEstaPermitida(dia);
+  }
+
+  DateTime _fechaInicialValida(bool esGestor) {
+    DateTime candidata = _fecha;
+    if (_predicate(candidata, esGestor)) return candidata;
+    candidata = DateTime.now();
+    for (int i = 0; i < 30; i++) {
+      if (_predicate(candidata, esGestor)) return candidata;
+      candidata = candidata.subtract(const Duration(days: 1));
+    }
+    return candidata; // fallback
+  }
 
   @override
   void dispose() {
@@ -54,14 +128,68 @@ class _FormularioParteNormalState
   }
 
   Future<void> _pickDate(bool esGestor) async {
-    if (!esGestor) return;
+    final ahora = DateTime.now();
+    DateTime initialDate = ahora;
+    DateTime firstDate = DateTime(2020);
+    DateTime lastDate = DateTime.now().add(const Duration(days: 365));
+
+    if (!esGestor && _fechasPermitidas.isNotEmpty) {
+      DateTime? minPermitida;
+      DateTime? maxPermitida;
+      for (final f in _fechasPermitidas) {
+        if (minPermitida == null || f.isBefore(minPermitida)) minPermitida = f;
+        if (maxPermitida == null || f.isAfter(maxPermitida)) maxPermitida = f;
+      }
+      if (minPermitida != null) firstDate = minPermitida;
+      if (maxPermitida != null && maxPermitida.isAfter(ahora)) lastDate = maxPermitida;
+    }
+
+    if (!_predicate(ahora, esGestor)) {
+      DateTime? mejorFecha;
+      for (int i = 1; i <= 60; i++) {
+        final futuro = ahora.add(Duration(days: i));
+        if (!futuro.isAfter(lastDate) && _predicate(futuro, esGestor)) {
+          mejorFecha = futuro;
+          break;
+        }
+      }
+      if (mejorFecha == null) {
+        for (int i = 1; i <= 365; i++) {
+          final pasado = ahora.subtract(Duration(days: i));
+          if (!pasado.isBefore(firstDate) && _predicate(pasado, esGestor)) {
+            mejorFecha = pasado;
+            break;
+          }
+        }
+      }
+      if (mejorFecha != null) {
+        initialDate = mejorFecha;
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No hay fechas disponibles')),
+          );
+        }
+        return;
+      }
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _fecha,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      selectableDayPredicate: (day) => _predicate(day, esGestor),
     );
-    if (picked != null) setState(() => _fecha = picked);
+
+    if (picked != null) {
+      setState(() => _fecha = picked);
+    }
+  }
+
+  // Función auxiliar útil
+  bool isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   @override
@@ -114,7 +242,17 @@ class _FormularioParteNormalState
                           ),
                         )
                         .toList(),
-                    onChanged: (v) => setState(() => _idPerfilSeleccionado = v),
+                    onChanged: (v) {
+                      setState(() {
+                        _idPerfilSeleccionado = v;
+                        _perfilOperarioSeleccionado = v != null
+                            ? perfiles.firstWhere((p) => p.id == v)
+                            : null;
+                        _fecha = DateTime.now();
+                        _fechasConParte = [];
+                      });
+                      if (v != null) _cargarFechasDeOperario(v);
+                    },
                     validator: (v) =>
                         v == null ? 'Selecciona un operario' : null,
                   ),
@@ -159,36 +297,62 @@ class _FormularioParteNormalState
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(
-                    color: esGestor ? Colors.orange.shade300 : Colors.grey,
+              if (esGestor && _idPerfilSeleccionado == null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                leading: Icon(
-                  Icons.calendar_today,
-                  color: esGestor ? Colors.orange[800] : Colors.grey,
-                ),
-                title: Text(
-                  'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
-                  style: TextStyle(
-                    color: esGestor ? Colors.black87 : Colors.grey,
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.grey, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Selecciona un operario primero',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
                   ),
+                )
+              else
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    side: BorderSide(color: Colors.orange.shade300),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  leading: _cargandoFechas
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.calendar_today, color: Colors.orange[800]),
+                  title: Text(
+                    'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
+                    style: const TextStyle(color: Colors.black87),
+                  ),
+                  subtitle: Text(
+                    _cargandoFechas
+                        ? 'Cargando días disponibles...'
+                        : _fechasPermitidas.isNotEmpty
+                        ? 'Tienes ${_fechasPermitidas.length} día(s) extra habilitados'
+                        : 'Últimos 14 días disponibles',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _fechasPermitidas.isNotEmpty
+                          ? Colors.green[700]
+                          : Colors.orange[700],
+                    ),
+                  ),
+                  onTap: _cargandoFechas ? null : () => _pickDate(esGestor),
                 ),
-                subtitle: esGestor
-                    ? const Text(
-                        'Toca para cambiar la fecha',
-                        style: TextStyle(fontSize: 11, color: Colors.orange),
-                      )
-                    : null,
-                onTap: esGestor ? () => _pickDate(esGestor) : null,
-              ),
               const SizedBox(height: 25),
 
               // ── Horas ──
               const Text(
-                'Horas normales',
+                'Horas',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -256,13 +420,19 @@ class _FormularioParteNormalState
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
 
-    final data = {
+    final String? especialidad = esGestor
+        ? (_perfilOperarioSeleccionado?.especialidad?.isNotEmpty == true
+              ? _perfilOperarioSeleccionado!.especialidad
+              : null)
+        : (perfil.especialidad.isNotEmpty ? perfil.especialidad : null);
+
+    final data = <String, dynamic>{
       'id_obra': _idObraSeleccionada,
       'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales': _horasNormales,
       'descripcion': _descripcion,
-      if (perfil.especialidad.isNotEmpty) 'especialidad': perfil.especialidad,
+      if (especialidad != null) 'especialidad': especialidad,
     };
 
     try {
@@ -342,7 +512,80 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   int? _idObraSeleccionada;
   String? _especialidad;
   String? _idPerfilSeleccionado;
+  Perfil? _perfilOperarioSeleccionado;
   bool _enviando = false;
+
+  List<DateTime> _fechasConParte = [];
+  bool _cargandoFechas = false;
+  List<DateTime> _fechasPermitidas = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarMisFechas();
+    _cargarFechasPermitidas();
+  }
+
+  Future<void> _cargarMisFechas() async {
+    setState(() => _cargandoFechas = true);
+    try {
+      final fechas = await ref.read(apiServiceProvider).getMisFechasConParte();
+      if (mounted) setState(() => _fechasConParte = fechas);
+    } catch (e) {
+      debugPrint('>>> error cargarMisFechas: $e');
+    } finally {
+      if (mounted) setState(() => _cargandoFechas = false);
+    }
+  }
+
+  Future<void> _cargarFechasDeOperario(String id) async {
+    setState(() => _cargandoFechas = true);
+    try {
+      final fechas = await ref.read(apiServiceProvider).getFechasConParte(id);
+      if (mounted) setState(() => _fechasConParte = fechas);
+    } catch (e) {
+      debugPrint('>>> error cargarFechasDeOperario: $e');
+    } finally {
+      if (mounted) setState(() => _cargandoFechas = false);
+    }
+  }
+
+  Future<void> _cargarFechasPermitidas() async {
+    try {
+      final fechas = await ref.read(apiServiceProvider).getMisFechasLibres();
+      if (mounted) setState(() => _fechasPermitidas = fechas);
+    } catch (e) {
+      debugPrint('>>> error cargarFechasPermitidas: $e');
+    }
+  }
+
+  bool _fechaYaTieneParteRegistrado(DateTime dia) => _fechasConParte.any(
+    (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
+  );
+
+  bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
+    (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
+  );
+
+  bool _predicate(DateTime dia, bool esGestor) {
+    if (esGestor) return true;
+    final ahora = DateTime.now();
+    if (dia.year == ahora.year && dia.month == ahora.month && dia.day == ahora.day) {
+      return true;
+    }
+    return _fechaEstaPermitida(dia);
+  }
+
+  DateTime _fechaInicialValida(bool esGestor) {
+    DateTime candidata = _fecha;
+    if (_predicate(candidata, esGestor)) return candidata;
+    candidata = DateTime.now();
+    for (int i = 0; i < 30; i++) {
+      if (_predicate(candidata, esGestor)) return candidata;
+      candidata = candidata.subtract(const Duration(days: 1));
+    }
+    return candidata;
+  }
 
   @override
   void dispose() {
@@ -351,19 +594,66 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   }
 
   Future<void> _pickDate(bool esGestor) async {
-    if (!esGestor) return;
+    final ahora = DateTime.now();
+    DateTime initialDate = ahora;
+    DateTime firstDate = DateTime(2020);
+    DateTime lastDate = DateTime.now().add(const Duration(days: 365));
+
+    if (!esGestor && _fechasPermitidas.isNotEmpty) {
+      DateTime? minPermitida;
+      DateTime? maxPermitida;
+      for (final f in _fechasPermitidas) {
+        if (minPermitida == null || f.isBefore(minPermitida)) minPermitida = f;
+        if (maxPermitida == null || f.isAfter(maxPermitida)) maxPermitida = f;
+      }
+      if (minPermitida != null) firstDate = minPermitida;
+      if (maxPermitida != null && maxPermitida.isAfter(ahora)) lastDate = maxPermitida;
+    }
+
+    if (!_predicate(ahora, esGestor)) {
+      DateTime? mejorFecha;
+      for (int i = 1; i <= 60; i++) {
+        final futuro = ahora.add(Duration(days: i));
+        if (!futuro.isAfter(lastDate) && _predicate(futuro, esGestor)) {
+          mejorFecha = futuro;
+          break;
+        }
+      }
+      if (mejorFecha == null) {
+        for (int i = 1; i <= 365; i++) {
+          final pasado = ahora.subtract(Duration(days: i));
+          if (!pasado.isBefore(firstDate) && _predicate(pasado, esGestor)) {
+            mejorFecha = pasado;
+            break;
+          }
+        }
+      }
+      if (mejorFecha != null) {
+        initialDate = mejorFecha;
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No hay fechas disponibles')),
+          );
+        }
+        return;
+      }
+    }
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _fecha,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      selectableDayPredicate: (day) => _predicate(day, esGestor),
+      helpText: 'Selecciona un día',
     );
     if (picked != null) setState(() => _fecha = picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    final obrasAsync = ref.watch(obrasProvider);
+    final obrasAsync = ref.watch(obrasActivasProvider);
     final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
@@ -411,7 +701,17 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                           ),
                         )
                         .toList(),
-                    onChanged: (v) => setState(() => _idPerfilSeleccionado = v),
+                    onChanged: (v) {
+                      setState(() {
+                        _idPerfilSeleccionado = v;
+                        _perfilOperarioSeleccionado = v != null
+                            ? perfiles.firstWhere((p) => p.id == v)
+                            : null;
+                        _fecha = DateTime.now();
+                        _fechasConParte = [];
+                      });
+                      if (v != null) _cargarFechasDeOperario(v);
+                    },
                     validator: (v) =>
                         v == null ? 'Selecciona un operario' : null,
                   ),
@@ -456,31 +756,57 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(
-                    color: esGestor ? Colors.purple.shade300 : Colors.grey,
+              if (esGestor && _idPerfilSeleccionado == null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                leading: Icon(
-                  Icons.calendar_today,
-                  color: esGestor ? Colors.purple[700] : Colors.grey,
-                ),
-                title: Text(
-                  'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
-                  style: TextStyle(
-                    color: esGestor ? Colors.black87 : Colors.grey,
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.grey, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Selecciona un operario primero',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
                   ),
+                )
+              else
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    side: BorderSide(color: Colors.purple.shade300),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  leading: _cargandoFechas
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.calendar_today, color: Colors.purple[700]),
+                  title: Text(
+                    'Fecha: ${DateFormat('dd/MM/yyyy').format(_fecha)}',
+                    style: const TextStyle(color: Colors.black87),
+                  ),
+                  subtitle: Text(
+                    _cargandoFechas
+                        ? 'Cargando días disponibles...'
+                        : _fechasPermitidas.isNotEmpty
+                        ? 'Tienes ${_fechasPermitidas.length} día(s) extra habilitados'
+                        : 'Últimos 14 días disponibles',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: _fechasPermitidas.isNotEmpty
+                          ? Colors.green[700]
+                          : Colors.purple[700],
+                    ),
+                  ),
+                  onTap: _cargandoFechas ? null : () => _pickDate(esGestor),
                 ),
-                subtitle: esGestor
-                    ? const Text(
-                        'Toca para cambiar la fecha',
-                        style: TextStyle(fontSize: 11, color: Colors.purple),
-                      )
-                    : null,
-                onTap: esGestor ? () => _pickDate(esGestor) : null,
-              ),
               const SizedBox(height: 25),
 
               // ── Horas ──
@@ -502,36 +828,82 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
               const SizedBox(height: 25),
 
               // ── Especialidad ──
-              const Text(
-                'Especialidad',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _BotonEspecialidad(
-                      label: 'Electricidad',
-                      icono: Icons.electrical_services,
-                      color: Colors.amber[700]!,
-                      seleccionado: _especialidad == 'ELECTRICIDAD',
-                      onTap: () =>
-                          setState(() => _especialidad = 'ELECTRICIDAD'),
+              if (!esGestor) ...[
+                const Text(
+                  'Especialidad',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _BotonEspecialidad(
+                        label: 'Electricidad',
+                        icono: Icons.electrical_services,
+                        color: Colors.amber[700]!,
+                        seleccionado: _especialidad == 'ELECTRICIDAD',
+                        onTap: () =>
+                            setState(() => _especialidad = 'ELECTRICIDAD'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _BotonEspecialidad(
-                      label: 'Fontanería',
-                      icono: Icons.plumbing,
-                      color: Colors.blue[700]!,
-                      seleccionado: _especialidad == 'FONTANERIA',
-                      onTap: () => setState(() => _especialidad = 'FONTANERIA'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _BotonEspecialidad(
+                        label: 'Fontanería',
+                        icono: Icons.plumbing,
+                        color: Colors.blue[700]!,
+                        seleccionado: _especialidad == 'FONTANERIA',
+                        onTap: () =>
+                            setState(() => _especialidad = 'FONTANERIA'),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 25),
+              ],
+
+              if (esGestor && _perfilOperarioSeleccionado != null) ...[
+                const Text(
+                  'Especialidad',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
-                ],
-              ),
-              const SizedBox(height: 25),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _perfilOperarioSeleccionado!.especialidad ==
+                                'ELECTRICIDAD'
+                            ? Icons.electrical_services
+                            : Icons.plumbing,
+                        color:
+                            _perfilOperarioSeleccionado!.especialidad ==
+                                'ELECTRICIDAD'
+                            ? Colors.amber[700]
+                            : Colors.blue[700],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _perfilOperarioSeleccionado!.especialidad ==
+                                'ELECTRICIDAD'
+                            ? 'Electricidad (del operario)'
+                            : _perfilOperarioSeleccionado!.especialidad ==
+                                  'FONTANERIA'
+                            ? 'Fontanería (del operario)'
+                            : 'Sin especialidad asignada',
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 25),
+              ],
 
               // ── Descripción ──
               const Text(
@@ -585,14 +957,20 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
 
-    final data = {
+    final String? especialidadFinal = esGestor
+        ? (_perfilOperarioSeleccionado?.especialidad?.isNotEmpty == true
+              ? _perfilOperarioSeleccionado!.especialidad
+              : null)
+        : _especialidad;
+
+    final data = <String, dynamic>{
       'id_obra': _idObraSeleccionada,
       'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales': _horasNormales,
-      'especialidad': _especialidad,
       'descripcion': _descripcion,
       'es_post_venta': true,
+      if (especialidadFinal != null) 'especialidad': especialidadFinal,
     };
 
     try {
@@ -853,7 +1231,7 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _enviando = true);
 
-    final data = {
+    final data = <String, dynamic>{
       'descripcion': _descripcion,
       'obras': _lineas
           .map((l) => {'id_obra': l['obra_id'], 'porcentaje': l['porcentaje']})
@@ -970,8 +1348,8 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
     final filtradas = widget.obras
         .where(
           (o) =>
-              o.nombre.toLowerCase().contains(_filtro.toLowerCase()) ||
-              o.municipio.toLowerCase().contains(_filtro.toLowerCase()),
+              (o.nombre ?? '').toLowerCase().contains(_filtro.toLowerCase()) ||
+              (o.municipio ?? '').toLowerCase().contains(_filtro.toLowerCase()),
         )
         .toList();
 
@@ -1021,10 +1399,10 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
                         child: Icon(Icons.business, color: Colors.white),
                       ),
                       title: Text(
-                        o.nombre,
+                        o.nombre ?? '',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: Text(o.municipio),
+                      subtitle: Text(o.municipio ?? ''),
                       onTap: () {
                         widget.alSeleccionar(o);
                         Navigator.pop(context);

@@ -4,7 +4,6 @@ import '../config/env.dart';
 import '../models/parte_trabajo.dart';
 import 'dart:typed_data';
 import '../helpers/download_helper.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -58,10 +57,18 @@ class ApiService {
     return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
+  // ─────────────────────────────────────────
+  // Perfil
+  // ─────────────────────────────────────────
+
   Future<Map<String, dynamic>> getMyProfile() async {
     final response = await _dio.get('/user/me', options: await _authHeaders());
     return response.data;
   }
+
+  // ─────────────────────────────────────────
+  // Partes
+  // ─────────────────────────────────────────
 
   Future<List<dynamic>> getPartes() async {
     final response = await _dio.get(
@@ -101,6 +108,72 @@ class ApiService {
     }
   }
 
+  Future<ParteTrabajo> updateParte(
+    int parteId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _dio.put(
+      '/partes/update/$parteId',
+      data: data,
+      options: await _authHeaders(),
+    );
+    return ParteTrabajo.fromJson(response.data);
+  }
+
+  Future<List<dynamic>> buscarPartes({
+    String? obra,
+    String? operario,
+    String? especialidad,
+  }) async {
+    final params = <String, String>{};
+    if (obra != null && obra.isNotEmpty) params['obra'] = obra;
+    if (operario != null && operario.isNotEmpty) params['operario'] = operario;
+    if (especialidad != null) params['especialidad'] = especialidad;
+
+    final response = await _dio.get(
+      '/partes/buscar',
+      queryParameters: params,
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  // ─────────────────────────────────────────
+  // Fechas con parte — para el DatePicker
+  // ─────────────────────────────────────────
+
+  Future<List<DateTime>> getMisFechasConParte() async {
+    try {
+      final response = await _dio.get(
+        '/partes/mis-fechas-con-parte',
+        options: await _authHeaders(),
+      );
+      return (response.data as List)
+          .map((s) => DateTime.parse(s.toString()))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<DateTime>> getFechasConParte(String id) async {
+    try {
+      final response = await _dio.get(
+        '/partes/fechas-con-parte/$id',
+        options: await _authHeaders(),
+      );
+      return (response.data as List)
+          .map((s) => DateTime.parse(s.toString()))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // Obras
+  // ─────────────────────────────────────────
+
   Future<List<dynamic>> getObras() async {
     final response = await _dio.get('/obra', options: await _authHeaders());
     return response.data;
@@ -114,17 +187,33 @@ class ApiService {
     return response.data;
   }
 
-  Future<ParteTrabajo> updateParte(
-    int parteId,
-    Map<String, dynamic> data,
-  ) async {
-    final response = await _dio.put(
-      '/partes/update/$parteId',
+  Future<void> crearObra(Map<String, dynamic> data) async {
+    try {
+      await _dio.post('/obra', data: data, options: await _authHeaders());
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data.toString() ?? 'Error en el servidor';
+      }
+    } catch (e) {
+      throw 'Error de conexión inesperado';
+    }
+  }
+
+  Future<void> editarObra(int id, Map<String, dynamic> data) async {
+    await _dio.put(
+      '/obra/update_obra/$id',
       data: data,
       options: await _authHeaders(),
     );
-    return ParteTrabajo.fromJson(response.data);
   }
+
+  Future<void> eliminarObra(int id) async {
+    await _dio.delete('/obra/delete/$id', options: await _authHeaders());
+  }
+
+  // ─────────────────────────────────────────
+  // Usuarios
+  // ─────────────────────────────────────────
 
   Future<List<dynamic>> getUsuarios() async {
     final response = await _dio.get('/user/all', options: await _authHeaders());
@@ -151,6 +240,10 @@ class ApiService {
     await _dio.delete('/user/delete_user/$id', options: await _authHeaders());
   }
 
+  // ─────────────────────────────────────────
+  // Asignaciones
+  // ─────────────────────────────────────────
+
   Future<List<dynamic>> getSubordinadosDe(String jefeId) async {
     final response = await _dio.get(
       '/asignaciones/$jefeId/subordinados',
@@ -164,10 +257,9 @@ class ApiService {
     String jefeId,
     String rolJefe,
   ) async {
-    String endpoint = (rolJefe == 'JEFE_DE_OBRA')
+    final endpoint = (rolJefe == 'JEFE_DE_OBRA')
         ? 'asignar_encargado'
         : 'asignar_operario';
-
     await _dio.put(
       '/asignaciones/$endpoint/$usuarioId/$jefeId',
       options: await _authHeaders(),
@@ -179,30 +271,6 @@ class ApiService {
       '/asignaciones/quitar_subordinado/$usuarioId',
       options: await _authHeaders(),
     );
-  }
-
-  Future<void> crearObra(Map<String, dynamic> data) async {
-    try {
-      await _dio.post('/obra', data: data, options: await _authHeaders());
-    } on DioException catch (e) {
-      if (e.response != null) {
-        throw e.response?.data.toString() ?? "Error en el servidor";
-      }
-    } catch (e) {
-      throw "Error de conexión inesperado";
-    }
-  }
-
-  Future<void> editarObra(int id, Map<String, dynamic> data) async {
-    await _dio.put(
-      '/obra/update_obra/$id',
-      data: data,
-      options: await _authHeaders(),
-    );
-  }
-
-  Future<void> eliminarObra(int id) async {
-    await _dio.delete('/obra/delete/$id', options: await _authHeaders());
   }
 
   Future<List<dynamic>> getAsignacionesObra(int obraId) async {
@@ -235,6 +303,10 @@ class ApiService {
     return response.data;
   }
 
+  // ─────────────────────────────────────────
+  // Partes jefe
+  // ─────────────────────────────────────────
+
   Future<List<dynamic>> getPartesJefe() async {
     final response = await _dio.get(
       '/partes/get_partes_jefe',
@@ -243,23 +315,9 @@ class ApiService {
     return response.data;
   }
 
-  Future<List<dynamic>> buscarPartes({
-    String? obra,
-    String? operario,
-    String? especialidad,
-  }) async {
-    final params = <String, String>{};
-    if (obra != null && obra.isNotEmpty) params['obra'] = obra;
-    if (operario != null && operario.isNotEmpty) params['operario'] = operario;
-    if (especialidad != null) params['especialidad'] = especialidad;
-
-    final response = await _dio.get(
-      '/partes/buscar',
-      queryParameters: params,
-      options: await _authHeaders(),
-    );
-    return response.data;
-  }
+  // ─────────────────────────────────────────
+  // Quincena
+  // ─────────────────────────────────────────
 
   Future<List<dynamic>> getQuincena(String desde, String hasta) async {
     final response = await _dio.get(
@@ -279,11 +337,10 @@ class ApiService {
         responseType: ResponseType.bytes,
       ),
     );
-
     if (response.data != null) {
       saveAndLaunchFile(
         Uint8List.fromList(response.data),
-        'quincena_$desde\_$hasta.csv',
+        'quincena_${desde}_$hasta.csv',
       );
     }
   }
@@ -292,11 +349,8 @@ class ApiService {
     DateTime desde,
     DateTime hasta,
   ) async {
-    String desdeStr =
-        "${desde.year}-${desde.month.toString().padLeft(2, '0')}-${desde.day.toString().padLeft(2, '0')}";
-    String hastaStr =
-        "${hasta.year}-${hasta.month.toString().padLeft(2, '0')}-${hasta.day.toString().padLeft(2, '0')}";
-
+    final desdeStr = _fmtDate(desde);
+    final hastaStr = _fmtDate(hasta);
     final response = await _dio.get(
       '/quincena/contabilidad-detalle-json',
       queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
@@ -309,11 +363,8 @@ class ApiService {
     DateTime desde,
     DateTime hasta,
   ) async {
-    String desdeStr =
-        "${desde.year}-${desde.month.toString().padLeft(2, '0')}-${desde.day.toString().padLeft(2, '0')}";
-    String hastaStr =
-        "${hasta.year}-${hasta.month.toString().padLeft(2, '0')}-${hasta.day.toString().padLeft(2, '0')}";
-
+    final desdeStr = _fmtDate(desde);
+    final hastaStr = _fmtDate(hasta);
     try {
       final response = await _dio.get(
         '/quincena/exportar-detalle-csv',
@@ -323,65 +374,79 @@ class ApiService {
           responseType: ResponseType.bytes,
         ),
       );
-
       if (response.data != null) {
         saveAndLaunchFile(
           Uint8List.fromList(response.data),
-          'detalle_contabilidad_$desdeStr\_$hastaStr.csv',
+          'detalle_contabilidad_${desdeStr}_$hastaStr.csv',
         );
       }
     } catch (e) {
-      throw "Error al exportar CSV detallado: $e";
+      throw 'Error al exportar CSV detallado: $e';
     }
   }
 
   // ─────────────────────────────────────────
-  // Fecha libre
+  // Fecha libre — gestión de días permitidos
   // ─────────────────────────────────────────
 
-  /// Comprueba si el usuario con [id] tiene permiso de fecha libre activo
-  Future<bool> getMiPermisoFechaLibre(String id) async {
-    try {
-      final response = await _dio.get(
-        '/config/fecha-libre/mi-permiso',
-        queryParameters: {'id': id},
-        options: await _authHeaders(),
-      );
-      return response.data == true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Devuelve Map<id, hasta> de todos los usuarios con permiso activo
-  Future<Map<String, String>> getFechaLibreActivos() async {
-    final response = await _dio.get(
-      '/config/fecha-libre',
-      options: await _authHeaders(),
-    );
-    return Map<String, String>.from(
-      (response.data as Map).map(
-        (k, v) => MapEntry(k.toString(), v.toString()),
+  Future<void> habilitarFechas(String id, List<DateTime> fechas) async {
+    final body = fechas.map(_fmtDate).toList();
+    await _dio.post(
+      '/config/fecha-libre/habilitar/$id',
+      data: body,
+      options: Options(
+        headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+        contentType: 'application/json', // 👈 esto
       ),
     );
   }
 
-  /// Habilita fecha libre para [id] hasta [hasta]
-  Future<void> habilitarFechaLibre(String id, DateTime hasta) async {
-    final hastaStr =
-        '${hasta.year}-${hasta.month.toString().padLeft(2, '0')}-${hasta.day.toString().padLeft(2, '0')}';
-    await _dio.post(
-      '/config/fecha-libre/habilitar',
-      queryParameters: {'id': id, 'hasta': hastaStr},
+  Future<void> deshabilitarFecha(String id, DateTime fecha) async {
+    await _dio.delete(
+      '/config/fecha-libre/deshabilitar/$id/${_fmtDate(fecha)}',
       options: await _authHeaders(),
     );
   }
 
-  /// Deshabilita fecha libre para [id]
   Future<void> deshabilitarFechaLibre(String id) async {
     await _dio.delete(
       '/config/fecha-libre/deshabilitar/$id',
       options: await _authHeaders(),
     );
   }
+
+  Future<Map<String, List<DateTime>>> getFechaLibreActivos() async {
+    final response = await _dio.get(
+      '/config/fecha-libre',
+      options: await _authHeaders(),
+    );
+    final raw = response.data as Map<String, dynamic>;
+    return raw.map(
+      (userId, fechas) => MapEntry(
+        userId,
+        (fechas as List).map((s) => DateTime.parse(s.toString())).toList(),
+      ),
+    );
+  }
+
+  Future<List<DateTime>> getMisFechasLibres() async {
+    try {
+      final response = await _dio.get(
+        '/config/fecha-libre/mis-fechas',
+        options: await _authHeaders(),
+      );
+      return (response.data as List)
+          .map((s) => DateTime.parse(s.toString()))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────
+
+  String _fmtDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }

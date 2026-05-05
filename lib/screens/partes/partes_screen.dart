@@ -9,36 +9,14 @@ import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../services/update_service.dart';
 
-// ─── Helpers de fecha (sin intl para evitar LocaleDataException) ──────────────
+// ─── Helpers de fecha ─────────────────────────────────────────────────────────
 String _fmtDMY(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
 String _fmtYMD(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-String _fmtDayHeader(DateTime d) {
-  const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-  const meses = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
-  ];
-  final hoy = DateTime.now();
-  final esHoy = d.year == hoy.year && d.month == hoy.month && d.day == hoy.day;
-  final sufijo = '${d.day} ${meses[d.month - 1]}';
-  return esHoy ? 'Hoy $sufijo' : '${dias[d.weekday - 1]} $sufijo';
-}
-
-// ─── Colores de la app ────────────────────────────────────────────────────────
+// ─── Colores ──────────────────────────────────────────────────────────────────
 const _bgPage = Color(0xFFE8EAF0);
 const _bgCard = Colors.white;
 const _blue = Color(0xFF1565C0);
@@ -51,6 +29,10 @@ const _textPrimary = Color(0xFF1A1A2E);
 const _textSecondary = Color(0xFF888888);
 const _cardBorder = Color(0xFFE0E3EA);
 const _bgStat = Color(0xFFF1F3F8);
+const _greenOk = Color(0xFF2E7D32);
+const _greenPill = Color(0xFFE8F5E9);
+const _redAlert = Color(0xFFC62828);
+const _redPill = Color(0xFFFFEBEE);
 
 class PartesScreen extends ConsumerStatefulWidget {
   const PartesScreen({super.key});
@@ -178,10 +160,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       appBar: AppBar(
         backgroundColor: _bgPage,
         elevation: 0,
-        title: const Text(
-          'Mis partes',
-          style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w500),
-        ),
         iconTheme: const IconThemeData(color: _textPrimary),
         actions: [
           if (totalPendientes > 0)
@@ -216,7 +194,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Título sección
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text(
@@ -229,7 +206,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
             ),
           ),
 
-          // Buscador (roles con permiso)
           if (!perfil.esOperario) _buildBuscador(),
 
           // Banner sin conexión
@@ -254,7 +230,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
             loading: () => const SizedBox.shrink(),
           ),
 
-          // Lista
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refrescar,
@@ -263,10 +238,16 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                       partes: _resultadosBusqueda!
                           .map((p) => ParteTrabajo.fromJson(p))
                           .toList(),
+                      agruparPorOperario: true,
                     )
                   : perfil.esJefeObra
                   ? const _PartesJefeView()
-                  : const _PartesNormalesView(),
+                  : _PartesNormalesView(
+                      agruparPorOperario:
+                          perfil.esEncargado ||
+                          perfil.esAdmin ||
+                          perfil.esGestion,
+                    ),
             ),
           ),
         ],
@@ -397,7 +378,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   }
 }
 
-// ─── Campo de búsqueda con estilo de la app ───────────────────────────────────
+// ─── Campo de búsqueda ────────────────────────────────────────────────────────
 class _SearchField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
@@ -445,7 +426,7 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-// ─── Banner resumen semanal ───────────────────────────────────────────────────
+// ─── Resumen semanal ──────────────────────────────────────────────────────────
 class _ResumenSemanal extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -470,7 +451,6 @@ class _ResumenSemanal extends StatelessWidget {
       0,
       (s, p) => s + p.horasNormales,
     );
-
     final partesHoy = partes.where(
       (p) =>
           p.fecha.year == ahora.year &&
@@ -478,11 +458,10 @@ class _ResumenSemanal extends StatelessWidget {
           p.fecha.day == ahora.day,
     );
     final horasHoy = partesHoy.fold<double>(0, (s, p) => s + p.horasNormales);
-
     final progreso = (totalSemana / 40).clamp(0.0, 1.0);
     final hayExtra = horasHoy > 8;
 
-    String _fmt(double h) =>
+    String fmt(double h) =>
         h == h.truncateToDouble() ? '${h.toInt()}' : h.toStringAsFixed(1);
 
     return Container(
@@ -511,7 +490,7 @@ class _ResumenSemanal extends StatelessWidget {
               Expanded(
                 child: _StatBox(
                   label: 'Total',
-                  value: '${_fmt(totalSemana)}h',
+                  value: '${fmt(totalSemana)}h',
                   valueColor: _blue,
                 ),
               ),
@@ -526,7 +505,7 @@ class _ResumenSemanal extends StatelessWidget {
               Expanded(
                 child: _StatBox(
                   label: 'Hoy',
-                  value: '${_fmt(horasHoy)}h',
+                  value: '${fmt(horasHoy)}h',
                   valueColor: hayExtra ? _orange : _textPrimary,
                 ),
               ),
@@ -554,7 +533,7 @@ class _ResumenSemanal extends StatelessWidget {
               ),
               if (hayExtra)
                 Text(
-                  'Hoy: ${_fmt(horasHoy)}h · jornada 8h',
+                  'Hoy: ${fmt(horasHoy)}h · jornada 8h',
                   style: const TextStyle(
                     fontSize: 10,
                     color: _orange,
@@ -611,12 +590,17 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// ─── Lista con agrupación por día ─────────────────────────────────────────────
+// ─── Lista principal — agrupa por día y opcionalmente por operario ────────────
 class _ListaPartes extends StatelessWidget {
   final List<ParteTrabajo> partes;
   final bool mostrarResumen;
+  final bool agruparPorOperario;
 
-  const _ListaPartes({required this.partes, this.mostrarResumen = false});
+  const _ListaPartes({
+    required this.partes,
+    this.mostrarResumen = false,
+    this.agruparPorOperario = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -629,65 +613,62 @@ class _ListaPartes extends StatelessWidget {
       );
     }
 
-    // Agrupar por fecha (solo año/mes/día)
-    final Map<String, List<ParteTrabajo>> grupos = {};
+    // Agrupar por fecha
+    final Map<String, List<ParteTrabajo>> porFecha = {};
     for (final p in partes) {
-      final key = _fmtYMD(p.fecha);
-      grupos.putIfAbsent(key, () => []).add(p);
+      porFecha.putIfAbsent(_fmtYMD(p.fecha), () => []).add(p);
     }
-    // Ordenar fechas descendente
-    final fechasOrdenadas = grupos.keys.toList()
+    final fechasOrdenadas = porFecha.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 80),
       children: [
         if (mostrarResumen) _ResumenSemanal(partes: partes),
-        for (final fecha in fechasOrdenadas) ...[
-          _DayHeader(fecha: DateTime.parse(fecha), partes: grupos[fecha]!),
-          for (final p in grupos[fecha]!)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: _CardParte(parte: p),
-            ),
+        for (final fechaKey in fechasOrdenadas) ...[
+          _DayHeader(
+            fecha: DateTime.parse(fechaKey),
+            partes: porFecha[fechaKey]!,
+            agruparPorOperario: agruparPorOperario,
+          ),
         ],
       ],
     );
   }
 }
 
-// ─── Cabecera de día con total de horas ───────────────────────────────────────
-class _DayHeader extends StatelessWidget {
+// ─── Cabecera de día — expandible con operarios dentro ───────────────────────
+class _DayHeader extends StatefulWidget {
   final DateTime fecha;
   final List<ParteTrabajo> partes;
+  final bool agruparPorOperario;
 
-  const _DayHeader({required this.fecha, required this.partes});
+  const _DayHeader({
+    required this.fecha,
+    required this.partes,
+    required this.agruparPorOperario,
+  });
+
+  @override
+  State<_DayHeader> createState() => _DayHeaderState();
+}
+
+class _DayHeaderState extends State<_DayHeader> {
+  bool _expandido = true;
 
   @override
   Widget build(BuildContext context) {
-    final totalHoras = partes.fold<double>(0, (s, p) => s + p.horasNormales);
     final hoy = DateTime.now();
     final esHoy =
-        fecha.year == hoy.year &&
-        fecha.month == hoy.month &&
-        fecha.day == hoy.day;
-    final hayExtra = esHoy && totalHoras > 8;
+        widget.fecha.year == hoy.year &&
+        widget.fecha.month == hoy.month &&
+        widget.fecha.day == hoy.day;
 
-    String horasLabel;
-    if (totalHoras == totalHoras.truncateToDouble()) {
-      horasLabel = '${totalHoras.toInt()}h';
-    } else {
-      horasLabel = '${totalHoras.toStringAsFixed(1)}h';
-    }
-    if (hayExtra) {
-      final extra = totalHoras - 8;
-      final extraStr = extra == extra.truncateToDouble()
-          ? '${extra.toInt()}'
-          : extra.toStringAsFixed(1);
-      horasLabel += ' · +${extraStr} extra';
-    }
+    final totalHoras = widget.partes.fold<double>(
+      0,
+      (s, p) => s + p.horasNormales,
+    );
 
-    final dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     final meses = [
       'ene',
       'feb',
@@ -702,47 +683,284 @@ class _DayHeader extends StatelessWidget {
       'nov',
       'dic',
     ];
-    final diaStr =
-        '${dias[fecha.weekday - 1]} ${fecha.day} ${meses[fecha.month - 1]}';
-    final fechaStr = esHoy
-        ? 'Hoy ${fecha.day} ${meses[fecha.month - 1]}'
-        : diaStr;
+    final dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    final diaLabel = esHoy
+        ? 'Hoy ${widget.fecha.day} ${meses[widget.fecha.month - 1]}'
+        : '${dias[widget.fecha.weekday - 1]} ${widget.fecha.day} ${meses[widget.fecha.month - 1]}';
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 5),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            fechaStr,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: _textSecondary,
+    String horasLabel;
+    final h = totalHoras;
+    horasLabel = h == h.truncateToDouble()
+        ? '${h.toInt()}h'
+        : '${h.toStringAsFixed(1)}h';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Cabecera del día ──
+        GestureDetector(
+          onTap: () => setState(() => _expandido = !_expandido),
+          child: Container(
+            color: Colors.transparent,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+            child: Row(
+              children: [
+                Icon(
+                  _expandido
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_right,
+                  size: 18,
+                  color: _textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  diaLabel,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: esHoy ? _blue : _textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Total horas del día
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _bluePill,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    horasLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: _blue,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                // Nº de operarios/partes
+                Text(
+                  widget.agruparPorOperario
+                      ? '${_operariosUnicos(widget.partes)} persona(s)'
+                      : '${widget.partes.length} parte(s)',
+                  style: const TextStyle(fontSize: 11, color: _textSecondary),
+                ),
+              ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: hayExtra ? _orangePill : _bluePill,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              horasLabel,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: hayExtra ? _orange : _blue,
+        ),
+
+        // ── Contenido expandido ──
+        if (_expandido)
+          widget.agruparPorOperario
+              ? _GrupoOperarios(partes: widget.partes)
+              : _ListaCards(partes: widget.partes),
+
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+
+  int _operariosUnicos(List<ParteTrabajo> partes) =>
+      partes.map((p) => p.operarioNombre).toSet().length;
+}
+
+// ─── Cuando hay agrupación por operario ──────────────────────────────────────
+class _GrupoOperarios extends StatelessWidget {
+  final List<ParteTrabajo> partes;
+
+  const _GrupoOperarios({required this.partes});
+
+  @override
+  Widget build(BuildContext context) {
+    // Agrupar por operario
+    final Map<String, List<ParteTrabajo>> porOperario = {};
+    for (final p in partes) {
+      porOperario.putIfAbsent(p.operarioNombre, () => []).add(p);
+    }
+    // Ordenar alfabéticamente
+    final operarios = porOperario.keys.toList()..sort();
+
+    return Column(
+      children: operarios
+          .map(
+            (nombre) =>
+                _FilaOperario(nombre: nombre, partes: porOperario[nombre]!),
+          )
+          .toList(),
+    );
+  }
+}
+
+// ─── Fila resumen de un operario dentro de un día ────────────────────────────
+class _FilaOperario extends StatefulWidget {
+  final String nombre;
+  final List<ParteTrabajo> partes;
+
+  const _FilaOperario({required this.nombre, required this.partes});
+
+  @override
+  State<_FilaOperario> createState() => _FilaOperarioState();
+}
+
+class _FilaOperarioState extends State<_FilaOperario> {
+  bool _expandido = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalHoras = widget.partes.fold<double>(
+      0,
+      (s, p) => s + p.horasNormales,
+    );
+    final horas8 = (totalHoras - 8).abs() < 0.01;
+    final horasBajas = totalHoras < 8;
+    final horasExtra = totalHoras > 8;
+
+    Color pillColor;
+    Color textColor;
+    if (horas8) {
+      pillColor = _greenPill;
+      textColor = _greenOk;
+    } else if (horasBajas) {
+      pillColor = _redPill;
+      textColor = _redAlert;
+    } else {
+      pillColor = _orangePill;
+      textColor = _orange;
+    }
+
+    final horasLabel = totalHoras == totalHoras.truncateToDouble()
+        ? '${totalHoras.toInt()}h'
+        : '${totalHoras.toStringAsFixed(1)}h';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        children: [
+          // ── Fila del operario ──
+          GestureDetector(
+            onTap: () => setState(() => _expandido = !_expandido),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: _bgCard,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _cardBorder),
+              ),
+              child: Row(
+                children: [
+                  // Avatar inicial
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: _bgStat,
+                    child: Text(
+                      widget.nombre.isNotEmpty
+                          ? widget.nombre[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: _textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Nombre
+                  Expanded(
+                    child: Text(
+                      widget.nombre,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: _textPrimary,
+                      ),
+                    ),
+                  ),
+                  // Nº partes
+                  if (widget.partes.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text(
+                        '${widget.partes.length} partes',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: _textSecondary,
+                        ),
+                      ),
+                    ),
+                  // Pill horas
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: pillColor,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      horasLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    _expandido
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    size: 16,
+                    color: _textSecondary,
+                  ),
+                ],
               ),
             ),
           ),
+
+          // ── Partes del operario (expandidos) ──
+          if (_expandido)
+            ...widget.partes.map(
+              (p) => Padding(
+                padding: const EdgeInsets.only(left: 8, bottom: 4),
+                child: _CardParte(parte: p),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-// ─── Card de parte (operario / encargado / administración) ────────────────────
+// ─── Lista de cards sin agrupación por operario ───────────────────────────────
+class _ListaCards extends StatelessWidget {
+  final List<ParteTrabajo> partes;
+
+  const _ListaCards({required this.partes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: partes
+          .map(
+            (p) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: _CardParte(parte: p),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+// ─── Card de parte individual ─────────────────────────────────────────────────
 class _CardParte extends ConsumerWidget {
   final ParteTrabajo parte;
 
@@ -752,7 +970,6 @@ class _CardParte extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
-    // Gestores pueden editar cualquier parte; el resto solo los de hoy
     final puedeEditar = esGestor || parte.puedeEditarse;
     final String? esp = parte.especialidad;
     final bool esElec = esp == 'ELECTRICIDAD';
@@ -789,9 +1006,30 @@ class _CardParte extends ConsumerWidget {
             color: _textPrimary,
           ),
         ),
-        subtitle: Text(
-          '${parte.operarioNombre} · ${_fmtDMY(parte.fecha)}',
-          style: const TextStyle(fontSize: 12, color: _textSecondary),
+        subtitle: Row(
+          children: [
+            if (parte.creadoPorGestor)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(
+                  color: Colors.purple[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'ADMIN',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple[800],
+                  ),
+                ),
+              ),
+            Text(
+              _fmtDMY(parte.fecha),
+              style: const TextStyle(fontSize: 12, color: _textSecondary),
+            ),
+          ],
         ),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -872,7 +1110,7 @@ class _CardParte extends ConsumerWidget {
   }
 }
 
-// ─── Chip de especialidad ─────────────────────────────────────────────────────
+// ─── Chip especialidad ────────────────────────────────────────────────────────
 class _ChipEspecialidad extends StatelessWidget {
   final String especialidad;
   final bool esElec;
@@ -902,14 +1140,14 @@ class _ChipEspecialidad extends StatelessWidget {
 
 // ─── Vista partes normales ────────────────────────────────────────────────────
 class _PartesNormalesView extends ConsumerWidget {
-  const _PartesNormalesView();
+  final bool agruparPorOperario;
+
+  const _PartesNormalesView({required this.agruparPorOperario});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final partesAsync = ref.watch(partesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
-
-    // Resumen semanal solo para operario y encargado
     final mostrarResumen =
         perfil?.esOperario == true || perfil?.esEncargado == true;
 
@@ -919,8 +1157,11 @@ class _PartesNormalesView extends ConsumerWidget {
       error: (e, _) => Center(
         child: Text('Error: $e', style: const TextStyle(color: _textSecondary)),
       ),
-      data: (partes) =>
-          _ListaPartes(partes: partes, mostrarResumen: mostrarResumen),
+      data: (partes) => _ListaPartes(
+        partes: partes,
+        mostrarResumen: mostrarResumen,
+        agruparPorOperario: agruparPorOperario,
+      ),
     );
   }
 }

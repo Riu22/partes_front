@@ -83,10 +83,19 @@ class AppDrawer extends ConsumerWidget {
           if (perfil.esGestion || perfil.esAdmin)
             ListTile(
               leading: const Icon(Icons.analytics),
-              title: const Text('Quincena'),
+              title: const Text('Contabilidad'),
               onTap: () {
                 Navigator.of(context).pop();
-                context.push('/contabilidad-detalle');
+                context.go('/contabilidad-detalle');
+              },
+            ),
+          if (perfil.esGestion || perfil.esAdmin)
+            ListTile(
+              leading: const Icon(Icons.analytics),
+              title: const Text('Fecha libre'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/fecha-libre');
               },
             ),
           const Divider(),

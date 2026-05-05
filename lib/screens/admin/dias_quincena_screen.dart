@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_drawer.dart';
 
 class ContabilidadScreen extends StatefulWidget {
   const ContabilidadScreen({super.key});
@@ -237,6 +238,7 @@ class _ContabilidadScreenState extends State<ContabilidadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Exportación Contable'),
         backgroundColor: Colors.indigo,

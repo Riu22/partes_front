@@ -8,6 +8,7 @@ class ParteTrabajo {
   final String descripcion;
   final String? especialidad;
   final String? operarioId;
+  final bool creadoPorGestor;
 
   ParteTrabajo({
     required this.id,
@@ -19,6 +20,7 @@ class ParteTrabajo {
     required this.descripcion,
     this.especialidad,
     this.operarioId,
+    this.creadoPorGestor = false,
   });
 
   factory ParteTrabajo.fromJson(Map<String, dynamic> json) => ParteTrabajo(
@@ -31,6 +33,7 @@ class ParteTrabajo {
     descripcion: json['descripcion'] ?? '',
     especialidad: json['especialidad'],
     operarioId: json['perfil']?['id'],
+    creadoPorGestor: json['creado_por_gestor'] == true || json['creado_por_gestor'] == 1,
   );
 
   bool get puedeEditarse {

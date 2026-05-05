@@ -16,6 +16,7 @@ import '../screens/configurarion_screen.dart';
 import '../screens/NuevaPasswordScreen.dart';
 import '../models/parte_trabajo.dart';
 import '../screens/admin/dias_quincena_screen.dart';
+import '../screens/admin/fecha_libre_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -55,6 +56,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NuevaPasswordScreen(),
       ),
 
+      // ── Shell principal con barra de navegación ──
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -94,6 +96,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
+      // ── Rutas independientes (sin shell / barra inferior) ──
       GoRoute(
         path: '/partes/nuevo',
         builder: (context, state) => const CrearParteScreen(),
@@ -134,7 +137,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/contabilidad-detalle',
         builder: (context, state) => const ContabilidadScreen(),
         redirect: (context, state) {
-          // Protección extra de ruta
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
+            return '/partes';
+          }
+          return null;
+        },
+      ),
+      GoRoute(
+        path: '/fecha-libre',
+        builder: (context, state) => const FechaLibreScreen(),
+        redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
             return '/partes';
