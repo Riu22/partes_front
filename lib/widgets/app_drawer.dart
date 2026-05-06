@@ -21,7 +21,6 @@ class AppDrawer extends ConsumerWidget {
             currentAccountPicture: const CircleAvatar(
               child: Icon(Icons.person),
             ),
-            // Añade esto:
             otherAccountsPictures: [
               IconButton(
                 icon: const Icon(Icons.settings, color: Colors.white),
@@ -33,6 +32,8 @@ class AppDrawer extends ConsumerWidget {
             ],
             decoration: BoxDecoration(color: Theme.of(context).primaryColor),
           ),
+
+          // ── Partes ──────────────────────────────────────────────────────
           ListTile(
             leading: const Icon(Icons.assignment),
             title: const Text('Mis partes'),
@@ -41,7 +42,6 @@ class AppDrawer extends ConsumerWidget {
               context.go('/partes');
             },
           ),
-          // Crear parte — solo operario y encargado
           if (perfil.puedeCrearParte)
             ListTile(
               leading: const Icon(Icons.add_box),
@@ -51,7 +51,8 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/partes/nuevo');
               },
             ),
-          // Obras — todos excepto operario
+
+          // ── Obras ────────────────────────────────────────────────────────
           if (!perfil.esOperario)
             ListTile(
               leading: const Icon(Icons.business),
@@ -61,17 +62,30 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/obras');
               },
             ),
-          // Usuarios — solo gestión y admin
-          if (perfil.esGestion || perfil.esAdmin)
+
+          // ── Admin / Gestión ──────────────────────────────────────────────
+          if (perfil.esGestion || perfil.esAdmin) ...[
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                'ADMINISTRACIÓN',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
             ListTile(
               leading: const Icon(Icons.people),
               title: const Text('Usuarios'),
               onTap: () {
-                Navigator.of(context).pop(); // Cierra el drawer
+                Navigator.of(context).pop();
                 context.go('/usuarios');
               },
             ),
-          if (perfil.esGestion || perfil.esAdmin)
             ListTile(
               leading: const Icon(Icons.calculate),
               title: const Text('Resumen Quincena'),
@@ -80,24 +94,33 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/quincena');
               },
             ),
-          if (perfil.esGestion || perfil.esAdmin)
             ListTile(
               leading: const Icon(Icons.analytics),
-              title: const Text('Quincena'),
+              title: const Text('Contabilidad'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/contabilidad-detalle');
               },
             ),
-          if (perfil.esGestion || perfil.esAdmin)
             ListTile(
-              leading: const Icon(Icons.analytics),
+              leading: const Icon(Icons.calendar_month),
               title: const Text('Fecha libre'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/fecha-libre');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf),
+              title: const Text('Informe de partes'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/pdf-screen');
+              },
+            ),
+          ],
+
+          // ── Sesión ───────────────────────────────────────────────────────
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),

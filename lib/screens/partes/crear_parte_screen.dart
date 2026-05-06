@@ -104,7 +104,9 @@ class _FormularioParteNormalState
   bool _predicate(DateTime dia, bool esGestor) {
     if (esGestor) return true;
     final ahora = DateTime.now();
-    if (dia.year == ahora.year && dia.month == ahora.month && dia.day == ahora.day) {
+    if (dia.year == ahora.year &&
+        dia.month == ahora.month &&
+        dia.day == ahora.day) {
       return true;
     }
     return _fechaEstaPermitida(dia);
@@ -141,7 +143,8 @@ class _FormularioParteNormalState
         if (maxPermitida == null || f.isAfter(maxPermitida)) maxPermitida = f;
       }
       if (minPermitida != null) firstDate = minPermitida;
-      if (maxPermitida != null && maxPermitida.isAfter(ahora)) lastDate = maxPermitida;
+      if (maxPermitida != null && maxPermitida.isAfter(ahora))
+        lastDate = maxPermitida;
     }
 
     if (!_predicate(ahora, esGestor)) {
@@ -570,7 +573,9 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   bool _predicate(DateTime dia, bool esGestor) {
     if (esGestor) return true;
     final ahora = DateTime.now();
-    if (dia.year == ahora.year && dia.month == ahora.month && dia.day == ahora.day) {
+    if (dia.year == ahora.year &&
+        dia.month == ahora.month &&
+        dia.day == ahora.day) {
       return true;
     }
     return _fechaEstaPermitida(dia);
@@ -607,7 +612,8 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
         if (maxPermitida == null || f.isAfter(maxPermitida)) maxPermitida = f;
       }
       if (minPermitida != null) firstDate = minPermitida;
-      if (maxPermitida != null && maxPermitida.isAfter(ahora)) lastDate = maxPermitida;
+      if (maxPermitida != null && maxPermitida.isAfter(ahora))
+        lastDate = maxPermitida;
     }
 
     if (!_predicate(ahora, esGestor)) {
@@ -1349,7 +1355,12 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
         .where(
           (o) =>
               (o.nombre ?? '').toLowerCase().contains(_filtro.toLowerCase()) ||
-              (o.municipio ?? '').toLowerCase().contains(_filtro.toLowerCase()),
+              (o.municipio ?? '').toLowerCase().contains(
+                _filtro.toLowerCase(),
+              ) ||
+              (o.ubicacion ?? '').toLowerCase().contains(
+                _filtro.toLowerCase(),
+              ), // ← NUEVO
         )
         .toList();
 
@@ -1369,7 +1380,7 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
           child: TextField(
             autofocus: true,
             decoration: InputDecoration(
-              hintText: 'Nombre de obra o municipio...',
+              hintText: 'Nombre, municipio o calle...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1402,7 +1413,12 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
                         o.nombre ?? '',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: Text(o.municipio ?? ''),
+                      subtitle: Text(
+                        [
+                          o.ubicacion,
+                          o.municipio,
+                        ].where((s) => s != null && s.isNotEmpty).join(' · '),
+                      ),
                       onTap: () {
                         widget.alSeleccionar(o);
                         Navigator.pop(context);

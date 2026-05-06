@@ -17,6 +17,7 @@ import '../screens/NuevaPasswordScreen.dart';
 import '../models/parte_trabajo.dart';
 import '../screens/admin/dias_quincena_screen.dart';
 import '../screens/admin/fecha_libre_screen.dart';
+import '../screens/pdf/pdf_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -147,6 +148,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/fecha-libre',
         builder: (context, state) => const FechaLibreScreen(),
+        redirect: (context, state) {
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
+            return '/partes';
+          }
+          return null;
+        },
+      ),
+      GoRoute(
+        path: '/pdf-screen',
+        builder: (context, state) => const InformePartesScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
