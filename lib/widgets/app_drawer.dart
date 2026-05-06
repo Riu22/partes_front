@@ -83,7 +83,7 @@ class AppDrawer extends ConsumerWidget {
           if (perfil.esGestion || perfil.esAdmin)
             ListTile(
               leading: const Icon(Icons.analytics),
-              title: const Text('Contabilidad'),
+              title: const Text('Quincena'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/contabilidad-detalle');
