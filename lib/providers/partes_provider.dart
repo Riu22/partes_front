@@ -12,17 +12,15 @@ final partesProvider = FutureProvider<List<ParteTrabajo>>((ref) async {
 
   try {
     final data = await api.getPartes();
-    // Guardar en cache para uso offline
     await prefs.setString(_cacheKeyPartes, jsonEncode(data));
     return data.map((e) => ParteTrabajo.fromJson(e)).toList();
   } catch (e) {
-    // Sin conexión: devolver la última lista guardada
     final cache = prefs.getString(_cacheKeyPartes);
     if (cache != null) {
       final List<dynamic> lista = jsonDecode(cache);
       return lista.map((e) => ParteTrabajo.fromJson(e)).toList();
     }
-    return []; // Sin cache y sin red: lista vacía
+    return [];
   }
 });
 
@@ -45,3 +43,12 @@ final busquedaPartesProvider =
             especialidad: filtros['especialidad'],
           );
     });
+
+// ── NUEVO: fechas que el gestor ha habilitado para el operario ──
+final fechasPermitidasProvider = FutureProvider<List<DateTime>>((ref) async {
+  try {
+    return await ref.read(apiServiceProvider).getMisFechasLibres();
+  } catch (_) {
+    return [];
+  }
+});

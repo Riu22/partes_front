@@ -33,7 +33,8 @@ class ParteTrabajo {
     descripcion: json['descripcion'] ?? '',
     especialidad: json['especialidad'],
     operarioId: json['perfil']?['id'],
-    creadoPorGestor: json['creado_por_gestor'] == true || json['creado_por_gestor'] == 1,
+    creadoPorGestor:
+        json['creado_por_gestor'] == true || json['creado_por_gestor'] == 1,
   );
 
   bool get puedeEditarse {
@@ -41,5 +42,14 @@ class ParteTrabajo {
     return fecha.year == hoy.year &&
         fecha.month == hoy.month &&
         fecha.day == hoy.day;
+  }
+
+  // Nuevo: también permite editar si la fecha está habilitada por el gestor
+  bool puedeEditarseConFechas(List<DateTime> fechasPermitidas) {
+    if (puedeEditarse) return true;
+    return fechasPermitidas.any(
+      (f) =>
+          f.year == fecha.year && f.month == fecha.month && f.day == fecha.day,
+    );
   }
 }

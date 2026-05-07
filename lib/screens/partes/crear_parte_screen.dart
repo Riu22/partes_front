@@ -341,7 +341,7 @@ class _FormularioParteNormalState
                         ? 'Cargando días disponibles...'
                         : _fechasPermitidas.isNotEmpty
                         ? 'Tienes ${_fechasPermitidas.length} día(s) extra habilitados'
-                        : 'Últimos 14 días disponibles',
+                        : 'No tienes días disponibles',
                     style: TextStyle(
                       fontSize: 11,
                       color: _fechasPermitidas.isNotEmpty

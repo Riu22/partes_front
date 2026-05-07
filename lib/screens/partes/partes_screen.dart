@@ -129,6 +129,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     ref.invalidate(partesProvider);
     ref.invalidate(partesJefeProvider);
     ref.invalidate(pendientesOfflineProvider);
+    ref.invalidate(fechasPermitidasProvider); // ── NUEVO
   }
 
   void _limpiarBusqueda() {
@@ -613,7 +614,6 @@ class _ListaPartes extends StatelessWidget {
       );
     }
 
-    // Agrupar por fecha
     final Map<String, List<ParteTrabajo>> porFecha = {};
     for (final p in partes) {
       porFecha.putIfAbsent(_fmtYMD(p.fecha), () => []).add(p);
@@ -637,7 +637,7 @@ class _ListaPartes extends StatelessWidget {
   }
 }
 
-// ─── Cabecera de día — expandible con operarios dentro ───────────────────────
+// ─── Cabecera de día ──────────────────────────────────────────────────────────
 class _DayHeader extends StatefulWidget {
   final DateTime fecha;
   final List<ParteTrabajo> partes;
@@ -688,16 +688,14 @@ class _DayHeaderState extends State<_DayHeader> {
         ? 'Hoy ${widget.fecha.day} ${meses[widget.fecha.month - 1]}'
         : '${dias[widget.fecha.weekday - 1]} ${widget.fecha.day} ${meses[widget.fecha.month - 1]}';
 
-    String horasLabel;
     final h = totalHoras;
-    horasLabel = h == h.truncateToDouble()
+    final horasLabel = h == h.truncateToDouble()
         ? '${h.toInt()}h'
         : '${h.toStringAsFixed(1)}h';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Cabecera del día ──
         GestureDetector(
           onTap: () => setState(() => _expandido = !_expandido),
           child: Container(
@@ -722,7 +720,6 @@ class _DayHeaderState extends State<_DayHeader> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Total horas del día
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -742,7 +739,6 @@ class _DayHeaderState extends State<_DayHeader> {
                   ),
                 ),
                 const Spacer(),
-                // Nº de operarios/partes
                 Text(
                   widget.agruparPorOperario
                       ? '${_operariosUnicos(widget.partes)} persona(s)'
@@ -753,13 +749,10 @@ class _DayHeaderState extends State<_DayHeader> {
             ),
           ),
         ),
-
-        // ── Contenido expandido ──
         if (_expandido)
           widget.agruparPorOperario
               ? _GrupoOperarios(partes: widget.partes)
               : _ListaCards(partes: widget.partes),
-
         const SizedBox(height: 4),
       ],
     );
@@ -769,7 +762,7 @@ class _DayHeaderState extends State<_DayHeader> {
       partes.map((p) => p.operarioNombre).toSet().length;
 }
 
-// ─── Cuando hay agrupación por operario ──────────────────────────────────────
+// ─── Agrupación por operario ──────────────────────────────────────────────────
 class _GrupoOperarios extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -777,12 +770,10 @@ class _GrupoOperarios extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Agrupar por operario
     final Map<String, List<ParteTrabajo>> porOperario = {};
     for (final p in partes) {
       porOperario.putIfAbsent(p.operarioNombre, () => []).add(p);
     }
-    // Ordenar alfabéticamente
     final operarios = porOperario.keys.toList()..sort();
 
     return Column(
@@ -796,7 +787,7 @@ class _GrupoOperarios extends StatelessWidget {
   }
 }
 
-// ─── Fila resumen de un operario dentro de un día ────────────────────────────
+// ─── Fila de operario ─────────────────────────────────────────────────────────
 class _FilaOperario extends StatefulWidget {
   final String nombre;
   final List<ParteTrabajo> partes;
@@ -818,7 +809,6 @@ class _FilaOperarioState extends State<_FilaOperario> {
     );
     final horas8 = (totalHoras - 8).abs() < 0.01;
     final horasBajas = totalHoras < 8;
-    final horasExtra = totalHoras > 8;
 
     Color pillColor;
     Color textColor;
@@ -841,7 +831,6 @@ class _FilaOperarioState extends State<_FilaOperario> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         children: [
-          // ── Fila del operario ──
           GestureDetector(
             onTap: () => setState(() => _expandido = !_expandido),
             child: Container(
@@ -854,7 +843,6 @@ class _FilaOperarioState extends State<_FilaOperario> {
               ),
               child: Row(
                 children: [
-                  // Avatar inicial
                   CircleAvatar(
                     radius: 16,
                     backgroundColor: _bgStat,
@@ -870,7 +858,6 @@ class _FilaOperarioState extends State<_FilaOperario> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  // Nombre
                   Expanded(
                     child: Text(
                       widget.nombre,
@@ -881,7 +868,6 @@ class _FilaOperarioState extends State<_FilaOperario> {
                       ),
                     ),
                   ),
-                  // Nº partes
                   if (widget.partes.length > 1)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -893,7 +879,6 @@ class _FilaOperarioState extends State<_FilaOperario> {
                         ),
                       ),
                     ),
-                  // Pill horas
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -924,8 +909,6 @@ class _FilaOperarioState extends State<_FilaOperario> {
               ),
             ),
           ),
-
-          // ── Partes del operario (expandidos) ──
           if (_expandido)
             ...widget.partes.map(
               (p) => Padding(
@@ -939,7 +922,7 @@ class _FilaOperarioState extends State<_FilaOperario> {
   }
 }
 
-// ─── Lista de cards sin agrupación por operario ───────────────────────────────
+// ─── Lista de cards sin agrupación ───────────────────────────────────────────
 class _ListaCards extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -1012,9 +995,17 @@ class _CardParte extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
-    final puedeEditar = esGestor || parte.puedeEditarse;
-    // Puede eliminar si es gestor, o si es su parte y es hoy (misma regla que editar)
-    final puedeEliminar = esGestor || parte.puedeEditarse;
+
+    // ── NUEVO: fechas habilitadas por el gestor ──
+    final fechasPermitidas = esGestor
+        ? <DateTime>[]
+        : ref.watch(fechasPermitidasProvider).valueOrNull ?? [];
+
+    final puedeEditar =
+        esGestor || parte.puedeEditarseConFechas(fechasPermitidas);
+    final puedeEliminar =
+        esGestor || parte.puedeEditarseConFechas(fechasPermitidas);
+
     final String? esp = parte.especialidad;
     final bool esElec = esp == 'ELECTRICIDAD';
 
@@ -1123,7 +1114,6 @@ class _CardParte extends ConsumerWidget {
                     height: 1.5,
                   ),
                 ),
-                // ── Botones de acción ──
                 if (puedeEditar || puedeEliminar) ...[
                   const SizedBox(height: 12),
                   Row(
