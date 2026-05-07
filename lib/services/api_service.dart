@@ -444,44 +444,61 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────
-  // PDF de partes
+  // PDF / ZIP de partes
   // ─────────────────────────────────────────
 
-  /// Llama al backend y devuelve los bytes del PDF generado.
-  /// Spring espera parámetros repetidos: obraIds=1&obraIds=2&obraIds=3
-  /// Dio lo soporta pasando una lista como valor del mapa.
+  Map<String, dynamic> _buildPdfParams(
+    DateTime desde,
+    DateTime hasta,
+    List<int> obraIds,
+    List<String> perfilIds,
+  ) {
+    return <String, dynamic>{
+      'desde': _fmtDate(desde),
+      'hasta': _fmtDate(hasta),
+      if (obraIds.isNotEmpty) 'obraIds': obraIds,
+      if (perfilIds.isNotEmpty) 'perfilIds': perfilIds,
+    };
+  }
+
+  /// PDF único con todas las obras en un solo archivo.
   Future<Uint8List> generarPdfPartes({
     required DateTime desde,
     required DateTime hasta,
     List<int> obraIds = const [],
     List<String> perfilIds = const [],
   }) async {
-    // Construimos la query manualmente para que Dio repita el parámetro
-    // en vez de unirlos con comas: obraIds=1&obraIds=2 en lugar de obraIds=1,2
-    final queryParams = <String, dynamic>{
-      'desde': _fmtDate(desde),
-      'hasta': _fmtDate(hasta),
-    };
-
-    // Dio acepta List como valor — lo serializa como param repetido
-    if (obraIds.isNotEmpty) queryParams['obraIds'] = obraIds;
-    if (perfilIds.isNotEmpty) queryParams['perfilIds'] = perfilIds;
-
     final response = await _dio.get(
       '/pdf/partes',
-      queryParameters: queryParams,
+      queryParameters: _buildPdfParams(desde, hasta, obraIds, perfilIds),
       options: Options(
         headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
         responseType: ResponseType.bytes,
-        // multiCompatible añade corchetes []. csv los une con coma.
-        // Spring acepta parámetros repetidos sin corchetes: obraIds=1&obraIds=2
         listFormat: ListFormat.multi,
       ),
     );
     return Uint8List.fromList(response.data);
   }
 
-  /// Guarda el PDF localmente y lo abre.
+  /// ZIP con un PDF por cada obra física.
+  Future<Uint8List> generarZipPartes({
+    required DateTime desde,
+    required DateTime hasta,
+    List<int> obraIds = const [],
+    List<String> perfilIds = const [],
+  }) async {
+    final response = await _dio.get(
+      '/pdf/partes-zip',
+      queryParameters: _buildPdfParams(desde, hasta, obraIds, perfilIds),
+      options: Options(
+        headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+        responseType: ResponseType.bytes,
+        listFormat: ListFormat.multi,
+      ),
+    );
+    return Uint8List.fromList(response.data);
+  }
+
   void guardarPdfLocal(Uint8List bytes, String nombre) {
     saveAndLaunchFile(bytes, nombre);
   }

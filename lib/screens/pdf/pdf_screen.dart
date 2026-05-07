@@ -8,32 +8,23 @@ import '../../providers/perfiles_provider.dart';
 import '../../models/obra.dart';
 import '../../models/perfil.dart';
 
-// ─── Provider que llama al backend ───────────────────────────────────────────
-final _pdfProvider = FutureProvider.family<Uint8List, _PdfParams>((
-  ref,
-  params,
-) async {
-  return ref
-      .read(apiServiceProvider)
-      .generarPdfPartes(
-        desde: params.desde,
-        hasta: params.hasta,
-        obraIds: params.obraIds,
-        perfilIds: params.perfilIds,
-      );
-});
+// ─── Modo de exportación ──────────────────────────────────────────────────────
+enum _ModoExport { zip, pdf }
 
+// ─── Parámetros del informe ───────────────────────────────────────────────────
 class _PdfParams {
   final DateTime desde;
   final DateTime hasta;
   final List<int> obraIds;
   final List<String> perfilIds;
+  final _ModoExport modo;
 
   const _PdfParams({
     required this.desde,
     required this.hasta,
     required this.obraIds,
     required this.perfilIds,
+    required this.modo,
   });
 
   @override
@@ -42,12 +33,39 @@ class _PdfParams {
       desde == other.desde &&
       hasta == other.hasta &&
       obraIds.toString() == other.obraIds.toString() &&
-      perfilIds.toString() == other.perfilIds.toString();
+      perfilIds.toString() == other.perfilIds.toString() &&
+      modo == other.modo;
 
   @override
   int get hashCode =>
-      Object.hash(desde, hasta, obraIds.toString(), perfilIds.toString());
+      Object.hash(desde, hasta, obraIds.toString(), perfilIds.toString(), modo);
 }
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+final _exportProvider = FutureProvider.family<Uint8List, _PdfParams>((
+  ref,
+  params,
+) async {
+  if (params.modo == _ModoExport.zip) {
+    return ref
+        .read(apiServiceProvider)
+        .generarZipPartes(
+          desde: params.desde,
+          hasta: params.hasta,
+          obraIds: params.obraIds,
+          perfilIds: params.perfilIds,
+        );
+  } else {
+    return ref
+        .read(apiServiceProvider)
+        .generarPdfPartes(
+          desde: params.desde,
+          hasta: params.hasta,
+          obraIds: params.obraIds,
+          perfilIds: params.perfilIds,
+        );
+  }
+});
 
 // ─── Pantalla principal ───────────────────────────────────────────────────────
 class InformePartesScreen extends ConsumerStatefulWidget {
@@ -64,19 +82,15 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
 
   final Set<int> _obrasSeleccionadas = {};
   final Set<String> _perfilesSeleccionados = {};
-
+  _ModoExport _modo = _ModoExport.zip;
   _PdfParams? _params;
 
   Future<void> _pickFecha({required bool esDe}) async {
-    final inicial = esDe ? _desde : _hasta;
-    final primera = esDe ? DateTime(2020) : _desde;
-    final ultima = esDe ? _hasta : DateTime.now();
-
     final picked = await showDatePicker(
       context: context,
-      initialDate: inicial,
-      firstDate: primera,
-      lastDate: ultima,
+      initialDate: esDe ? _desde : _hasta,
+      firstDate: esDe ? DateTime(2020) : _desde,
+      lastDate: esDe ? _hasta : DateTime.now(),
     );
     if (picked == null) return;
     setState(() {
@@ -90,13 +104,28 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
     });
   }
 
-  void _generarPdf() {
+  /// Selecciona todos los perfiles con postventa = true
+  void _seleccionarPostventa(List<Perfil> perfiles) {
+    setState(() {
+      final postventaIds = perfiles
+          .where((p) => p.activo && (p.postventa == true))
+          .map((p) => p.id)
+          .toSet();
+      _perfilesSeleccionados
+        ..clear()
+        ..addAll(postventaIds);
+      _params = null;
+    });
+  }
+
+  void _generarInforme() {
     setState(() {
       _params = _PdfParams(
         desde: _desde,
         hasta: _hasta,
         obraIds: _obrasSeleccionadas.toList(),
         perfilIds: _perfilesSeleccionados.toList(),
+        modo: _modo,
       );
     });
   }
@@ -108,17 +137,15 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Informe de partes')),
-      // ── Usamos un Column con Expanded para evitar overflow ──
       body: Column(
         children: [
-          // Panel de filtros — scrollable, ocupa lo que necesita
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Rango de fechas
+                  // ── Rango de fechas ────────────────────────────────────
                   const Text(
                     'Rango de fechas',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -145,7 +172,7 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Selector de obras
+                  // ── Selector de obras ──────────────────────────────────
                   const Text(
                     'Obras (vacío = todas)',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -176,10 +203,39 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Selector de operarios
-                  const Text(
-                    'Operarios (vacío = todos)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  // ── Selector de operarios ──────────────────────────────
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Operarios (vacío = todos)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      // Botón seleccionar postventa
+                      perfilesAsync.when(
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (perfiles) => TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.purple[700],
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                          ),
+                          onPressed: () => _seleccionarPostventa(perfiles),
+                          icon: const Icon(Icons.construction, size: 16),
+                          label: const Text(
+                            'Postventa',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   perfilesAsync.when(
@@ -190,7 +246,8 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                       selectedIds: _perfilesSeleccionados,
                       getId: (p) => p.id,
                       getLabel: (p) => p.nombreCompleto,
-                      getSubtitle: (p) => p.rol ?? '',
+                      getSubtitle: (p) =>
+                          '${p.rol ?? ''}${p.postventa == true ? ' · Postventa' : ''}',
                       onToggle: (id) {
                         setState(() {
                           if (_perfilesSeleccionados.contains(id)) {
@@ -205,7 +262,44 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Botón generar
+                  // ── Modo de exportación ────────────────────────────────
+                  const Text(
+                    'Formato de exportación',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ModoTile(
+                          label: 'ZIP (un PDF por obra)',
+                          subtitulo: 'Cada obra en un archivo separado',
+                          icono: Icons.folder_zip,
+                          seleccionado: _modo == _ModoExport.zip,
+                          onTap: () => setState(() {
+                            _modo = _ModoExport.zip;
+                            _params = null;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _ModoTile(
+                          label: 'PDF único',
+                          subtitulo: 'Todas las obras en un archivo',
+                          icono: Icons.picture_as_pdf,
+                          seleccionado: _modo == _ModoExport.pdf,
+                          onTap: () => setState(() {
+                            _modo = _ModoExport.pdf;
+                            _params = null;
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Botón generar ──────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -217,11 +311,17 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      onPressed: _generarPdf,
-                      icon: const Icon(Icons.picture_as_pdf),
-                      label: const Text(
-                        'Generar informe',
-                        style: TextStyle(
+                      onPressed: _generarInforme,
+                      icon: Icon(
+                        _modo == _ModoExport.zip
+                            ? Icons.folder_zip
+                            : Icons.picture_as_pdf,
+                      ),
+                      label: Text(
+                        _modo == _ModoExport.zip
+                            ? 'Generar ZIP'
+                            : 'Generar PDF',
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -229,15 +329,14 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                     ),
                   ),
 
-                  // Resultado inline — aparece debajo del botón dentro del scroll
+                  // ── Resultado ──────────────────────────────────────────
                   if (_params != null) ...[
                     const SizedBox(height: 16),
                     const Divider(),
                     const SizedBox(height: 8),
-                    _PdfPreview(params: _params!),
+                    _ExportPreview(params: _params!),
                   ],
 
-                  // Espacio final para no quedar pegado al borde
                   const SizedBox(height: 24),
                 ],
               ),
@@ -249,17 +348,17 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
   }
 }
 
-// ─── Widget de previsualización ───────────────────────────────────────────────
-class _PdfPreview extends ConsumerWidget {
+// ─── Widget de resultado ──────────────────────────────────────────────────────
+class _ExportPreview extends ConsumerWidget {
   final _PdfParams params;
 
-  const _PdfPreview({required this.params});
+  const _ExportPreview({required this.params});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pdfAsync = ref.watch(_pdfProvider(params));
+    final async = ref.watch(_exportProvider(params));
 
-    return pdfAsync.when(
+    return async.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Center(
@@ -282,7 +381,7 @@ class _PdfPreview extends ConsumerWidget {
               const Icon(Icons.error_outline, color: Colors.red, size: 48),
               const SizedBox(height: 12),
               Text(
-                'Error al generar el PDF:\n$e',
+                'Error al generar el informe:\n$e',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.red),
               ),
@@ -290,179 +389,136 @@ class _PdfPreview extends ConsumerWidget {
           ),
         ),
       ),
-      data: (bytes) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Barra de estado + descarga
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.green, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'PDF generado — ${(bytes.length / 1024).toStringAsFixed(1)} KB',
-                    style: const TextStyle(fontSize: 13),
+      data: (bytes) {
+        final esZip = params.modo == _ModoExport.zip;
+        final kb = (bytes.length / 1024).toStringAsFixed(1);
+        final desde = DateFormat('yyyy-MM-dd').format(params.desde);
+        final hasta = DateFormat('yyyy-MM-dd').format(params.hasta);
+        final nombre = esZip
+            ? 'partes_${desde}_$hasta.zip'
+            : 'partes_${desde}_$hasta.pdf';
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    esZip ? Icons.folder_zip : Icons.picture_as_pdf,
+                    color: Colors.green,
+                    size: 20,
                   ),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${esZip ? 'ZIP' : 'PDF'} generado — $kb KB',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
-                  onPressed: () => _descargar(context, ref, bytes),
-                  icon: const Icon(Icons.download, size: 16),
-                  label: const Text('Descargar'),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1565C0),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () {
+                      ref
+                          .read(apiServiceProvider)
+                          .guardarPdfLocal(bytes, nombre);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Descargando $nombre...'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.download, size: 16),
+                    label: const Text('Descargar'),
+                  ),
+                ],
+              ),
+              if (esZip) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'El ZIP contiene un PDF por cada obra seleccionada.\n'
+                  'Dentro de cada PDF las partes se agrupan por especialidad '
+                  '(Electricidad / Fontanería) y por operario en orden cronológico.',
+                  style: TextStyle(fontSize: 12, color: Colors.green.shade700),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Resumen del informe
-          _ResumenInforme(params: params),
-        ],
-      ),
-    );
-  }
-
-  void _descargar(BuildContext context, WidgetRef ref, Uint8List bytes) {
-    final desde = DateFormat('yyyy-MM-dd').format(params.desde);
-    final hasta = DateFormat('yyyy-MM-dd').format(params.hasta);
-    final nombre = 'partes_${desde}_$hasta.pdf';
-    ref.read(apiServiceProvider).guardarPdfLocal(bytes, nombre);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Descargando $nombre...'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-}
-
-// ─── Resumen del informe generado ─────────────────────────────────────────────
-class _ResumenInforme extends ConsumerWidget {
-  final _PdfParams params;
-
-  const _ResumenInforme({required this.params});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final obrasAsync = ref.watch(obrasProvider);
-    final perfilesAsync = ref.watch(perfilesProvider);
-
-    final desde = DateFormat('dd/MM/yyyy').format(params.desde);
-    final hasta = DateFormat('dd/MM/yyyy').format(params.hasta);
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ResumenTile(
-            icon: Icons.calendar_today,
-            label: 'Período',
-            valor: '$desde → $hasta',
-          ),
-          const SizedBox(height: 10),
-          _ResumenTile(
-            icon: Icons.business,
-            label: 'Obras incluidas',
-            valor: params.obraIds.isEmpty
-                ? 'Todas'
-                : obrasAsync.valueOrNull
-                          ?.where((o) => params.obraIds.contains(o.id))
-                          .map((o) => o.nombre)
-                          .join(', ') ??
-                      '${params.obraIds.length} obras',
-          ),
-          const SizedBox(height: 10),
-          _ResumenTile(
-            icon: Icons.people,
-            label: 'Operarios incluidos',
-            valor: params.perfilIds.isEmpty
-                ? 'Todos'
-                : perfilesAsync.valueOrNull
-                          ?.where((p) => params.perfilIds.contains(p.id))
-                          .map((p) => p.nombreCompleto)
-                          .join(', ') ??
-                      '${params.perfilIds.length} operarios',
-          ),
-          const SizedBox(height: 10),
-          const Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.blue, size: 16),
-              SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Pulsa "Descargar" para guardar el PDF en tu dispositivo.',
-                  style: TextStyle(fontSize: 12, color: Colors.blue),
-                ),
-              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _ResumenTile extends StatelessWidget {
-  final IconData icon;
+// ─── Tile de modo de exportación ─────────────────────────────────────────────
+class _ModoTile extends StatelessWidget {
   final String label;
-  final String valor;
+  final String subtitulo;
+  final IconData icono;
+  final bool seleccionado;
+  final VoidCallback onTap;
 
-  const _ResumenTile({
-    required this.icon,
+  const _ModoTile({
     required this.label,
-    required this.valor,
+    required this.subtitulo,
+    required this.icono,
+    required this.seleccionado,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: Colors.grey),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                valor,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+    final color = seleccionado ? const Color(0xFF1565C0) : Colors.grey.shade400;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: seleccionado ? const Color(0xFFE3EDFF) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color, width: seleccionado ? 2 : 1),
         ),
-      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icono, color: color, size: 22),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitulo,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
