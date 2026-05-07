@@ -3,6 +3,7 @@ class ParteTrabajo {
   final int? obraId;
   final String obraNombre;
   final String operarioNombre;
+  final String operarioApellidos;
   final DateTime fecha;
   final double horasNormales;
   final String descripcion;
@@ -15,6 +16,7 @@ class ParteTrabajo {
     this.obraId,
     required this.obraNombre,
     required this.operarioNombre,
+    this.operarioApellidos = '',
     required this.fecha,
     required this.horasNormales,
     required this.descripcion,
@@ -23,11 +25,19 @@ class ParteTrabajo {
     this.creadoPorGestor = false,
   });
 
+  String get operarioNombreCompleto {
+    final ap = operarioApellidos.trim();
+    final nm = operarioNombre.trim();
+    if (ap.isEmpty) return nm;
+    return '$ap, $nm';
+  }
+
   factory ParteTrabajo.fromJson(Map<String, dynamic> json) => ParteTrabajo(
     id: json['id'],
     obraId: json['obra']?['id'],
     obraNombre: json['obra']?['nombre'] ?? 'Sin obra',
     operarioNombre: json['perfil']?['name'] ?? 'Sin nombre',
+    operarioApellidos: json['perfil']?['apellidos'] ?? '',
     fecha: DateTime.parse(json['fecha']),
     horasNormales: (json['horas_normales'] ?? 8.0).toDouble(),
     descripcion: json['descripcion'] ?? '',

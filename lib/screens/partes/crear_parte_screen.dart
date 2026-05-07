@@ -28,6 +28,26 @@ class CrearParteScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────
+String _normalizarApellido(String s) => s
+    .toLowerCase()
+    .replaceAll('á', 'a')
+    .replaceAll('é', 'e')
+    .replaceAll('í', 'i')
+    .replaceAll('ó', 'o')
+    .replaceAll('ú', 'u')
+    .replaceAll('ü', 'u')
+    .replaceAll('ñ', 'n');
+
+List<Perfil> _ordenarPerfiles(List<Perfil> perfiles) =>
+    [...perfiles.where((p) => p.activo)]..sort(
+      (a, b) => _normalizarApellido(
+        a.apellidos,
+      ).compareTo(_normalizarApellido(b.apellidos)),
+    );
+
+// ─────────────────────────────────────────
 // Formulario OPERARIO / ENCARGADO
 // ─────────────────────────────────────────
 class _FormularioParteNormal extends ConsumerStatefulWidget {
@@ -49,6 +69,7 @@ class _FormularioParteNormalState
   Perfil? _perfilOperarioSeleccionado;
   bool _enviando = false;
 
+  List<Perfil> _perfilesOrdenados = [];
   List<DateTime> _fechasConParte = [];
   bool _cargandoFechas = false;
   List<DateTime> _fechasPermitidas = [];
@@ -58,6 +79,15 @@ class _FormularioParteNormalState
     super.initState();
     _cargarMisFechas();
     _cargarFechasPermitidas();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.listenManual(perfilesProvider, (_, next) {
+        next.whenData((perfiles) {
+          if (mounted) {
+            setState(() => _perfilesOrdenados = _ordenarPerfiles(perfiles));
+          }
+        });
+      }, fireImmediately: true);
+    });
   }
 
   Future<void> _cargarMisFechas() async {
@@ -93,10 +123,6 @@ class _FormularioParteNormalState
     }
   }
 
-  bool _fechaYaTieneParteRegistrado(DateTime dia) => _fechasConParte.any(
-    (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
-  );
-
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
@@ -106,21 +132,9 @@ class _FormularioParteNormalState
     final ahora = DateTime.now();
     if (dia.year == ahora.year &&
         dia.month == ahora.month &&
-        dia.day == ahora.day) {
+        dia.day == ahora.day)
       return true;
-    }
     return _fechaEstaPermitida(dia);
-  }
-
-  DateTime _fechaInicialValida(bool esGestor) {
-    DateTime candidata = _fecha;
-    if (_predicate(candidata, esGestor)) return candidata;
-    candidata = DateTime.now();
-    for (int i = 0; i < 30; i++) {
-      if (_predicate(candidata, esGestor)) return candidata;
-      candidata = candidata.subtract(const Duration(days: 1));
-    }
-    return candidata; // fallback
   }
 
   @override
@@ -184,23 +198,50 @@ class _FormularioParteNormalState
       lastDate: lastDate,
       selectableDayPredicate: (day) => _predicate(day, esGestor),
     );
-
-    if (picked != null) {
-      setState(() => _fecha = picked);
-    }
+    if (picked != null) setState(() => _fecha = picked);
   }
 
-  // Función auxiliar útil
-  bool isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+  void _abrirBuscadorOperarios(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: _CuerpoBuscadorOperarios(
+            perfiles: _perfilesOrdenados,
+            scrollController: scrollController,
+            alSeleccionar: (p) {
+              setState(() {
+                _idPerfilSeleccionado = p.id;
+                _perfilOperarioSeleccionado = p;
+                _fecha = DateTime.now();
+                _fechasConParte = [];
+              });
+              _cargarFechasDeOperario(p.id);
+            },
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasActivasProvider);
-    final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
+
+    final seleccionado = _perfilesOrdenados
+        .where((p) => p.id == _idPerfilSeleccionado)
+        .firstOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -226,73 +267,35 @@ class _FormularioParteNormalState
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
-                perfilesAsync.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('Error cargando perfiles: $e'),
-                  data: (perfiles) => DropdownButtonFormField<String>(
-                    value: _idPerfilSeleccionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Seleccionar operario',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    items: perfiles
-                        .where((p) => p.activo)
-                        .map(
-                          (p) => DropdownMenuItem(
-                            value: p.id,
-                            child: Text(p.nombreCompleto),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      setState(() {
-                        _idPerfilSeleccionado = v;
-                        _perfilOperarioSeleccionado = v != null
-                            ? perfiles.firstWhere((p) => p.id == v)
-                            : null;
-                        _fecha = DateTime.now();
-                        _fechasConParte = [];
-                      });
-                      if (v != null) _cargarFechasDeOperario(v);
-                    },
-                    validator: (v) =>
-                        v == null ? 'Selecciona un operario' : null,
-                  ),
-                ),
+                _perfilesOrdenados.isEmpty
+                    ? const LinearProgressIndicator()
+                    : TextFormField(
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText:
+                              seleccionado?.nombreApellidoCompleto ??
+                              'Seleccionar operario',
+                          hintText: 'Toca para buscar...',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person_search),
+                          suffixIcon: seleccionado != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () => setState(() {
+                                    _idPerfilSeleccionado = null;
+                                    _perfilOperarioSeleccionado = null;
+                                    _fechasConParte = [];
+                                  }),
+                                )
+                              : null,
+                        ),
+                        onTap: () => _abrirBuscadorOperarios(context),
+                        validator: (_) => _idPerfilSeleccionado == null
+                            ? 'Selecciona un operario'
+                            : null,
+                      ),
                 const SizedBox(height: 20),
               ],
-
-              // ── Obra ──
-              const Text(
-                'Obra',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              obrasAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Error: $e'),
-                data: (obras) => TextFormField(
-                  controller: _obraSearchCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Seleccionar obra',
-                    hintText: 'Toca para buscar...',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onTap: () => _abrirBuscadorGeneral(context, obras, (o) {
-                    setState(() {
-                      _idObraSeleccionada = o.id;
-                      _obraSearchCtrl.text = o.nombre;
-                    });
-                  }),
-                  validator: (v) => _idObraSeleccionada == null
-                      ? 'Selecciona una obra'
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 20),
 
               // ── Fecha ──
               const Text(
@@ -351,6 +354,37 @@ class _FormularioParteNormalState
                   ),
                   onTap: _cargandoFechas ? null : () => _pickDate(esGestor),
                 ),
+              const SizedBox(height: 20),
+
+              // ── Obra ──
+              const Text(
+                'Obra',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              obrasAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Error: $e'),
+                data: (obras) => TextFormField(
+                  controller: _obraSearchCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Seleccionar obra',
+                    hintText: 'Toca para buscar...',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onTap: () => _abrirBuscadorGeneral(context, obras, (o) {
+                    setState(() {
+                      _idObraSeleccionada = o.id;
+                      _obraSearchCtrl.text = o.nombre;
+                    });
+                  }),
+                  validator: (v) => _idObraSeleccionada == null
+                      ? 'Selecciona una obra'
+                      : null,
+                ),
+              ),
               const SizedBox(height: 25),
 
               // ── Horas ──
@@ -518,6 +552,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   Perfil? _perfilOperarioSeleccionado;
   bool _enviando = false;
 
+  List<Perfil> _perfilesOrdenados = [];
   List<DateTime> _fechasConParte = [];
   bool _cargandoFechas = false;
   List<DateTime> _fechasPermitidas = [];
@@ -527,6 +562,15 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
     super.initState();
     _cargarMisFechas();
     _cargarFechasPermitidas();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.listenManual(perfilesProvider, (_, next) {
+        next.whenData((perfiles) {
+          if (mounted) {
+            setState(() => _perfilesOrdenados = _ordenarPerfiles(perfiles));
+          }
+        });
+      }, fireImmediately: true);
+    });
   }
 
   Future<void> _cargarMisFechas() async {
@@ -562,10 +606,6 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
     }
   }
 
-  bool _fechaYaTieneParteRegistrado(DateTime dia) => _fechasConParte.any(
-    (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
-  );
-
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
@@ -575,21 +615,9 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
     final ahora = DateTime.now();
     if (dia.year == ahora.year &&
         dia.month == ahora.month &&
-        dia.day == ahora.day) {
+        dia.day == ahora.day)
       return true;
-    }
     return _fechaEstaPermitida(dia);
-  }
-
-  DateTime _fechaInicialValida(bool esGestor) {
-    DateTime candidata = _fecha;
-    if (_predicate(candidata, esGestor)) return candidata;
-    candidata = DateTime.now();
-    for (int i = 0; i < 30; i++) {
-      if (_predicate(candidata, esGestor)) return candidata;
-      candidata = candidata.subtract(const Duration(days: 1));
-    }
-    return candidata;
   }
 
   @override
@@ -657,12 +685,47 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
     if (picked != null) setState(() => _fecha = picked);
   }
 
+  void _abrirBuscadorOperarios(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: _CuerpoBuscadorOperarios(
+            perfiles: _perfilesOrdenados,
+            scrollController: scrollController,
+            alSeleccionar: (p) {
+              setState(() {
+                _idPerfilSeleccionado = p.id;
+                _perfilOperarioSeleccionado = p;
+                _fecha = DateTime.now();
+                _fechasConParte = [];
+              });
+              _cargarFechasDeOperario(p.id);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasActivasProvider);
-    final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
+
+    final seleccionado = _perfilesOrdenados
+        .where((p) => p.id == _idPerfilSeleccionado)
+        .firstOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -688,73 +751,35 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
-                perfilesAsync.when(
-                  loading: () => const LinearProgressIndicator(),
-                  error: (e, _) => Text('Error cargando perfiles: $e'),
-                  data: (perfiles) => DropdownButtonFormField<String>(
-                    value: _idPerfilSeleccionado,
-                    decoration: const InputDecoration(
-                      labelText: 'Seleccionar operario',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                    items: perfiles
-                        .where((p) => p.activo)
-                        .map(
-                          (p) => DropdownMenuItem(
-                            value: p.id,
-                            child: Text(p.nombreCompleto),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      setState(() {
-                        _idPerfilSeleccionado = v;
-                        _perfilOperarioSeleccionado = v != null
-                            ? perfiles.firstWhere((p) => p.id == v)
-                            : null;
-                        _fecha = DateTime.now();
-                        _fechasConParte = [];
-                      });
-                      if (v != null) _cargarFechasDeOperario(v);
-                    },
-                    validator: (v) =>
-                        v == null ? 'Selecciona un operario' : null,
-                  ),
-                ),
+                _perfilesOrdenados.isEmpty
+                    ? const LinearProgressIndicator()
+                    : TextFormField(
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText:
+                              seleccionado?.nombreApellidoCompleto ??
+                              'Seleccionar operario',
+                          hintText: 'Toca para buscar...',
+                          border: const OutlineInputBorder(),
+                          prefixIcon: const Icon(Icons.person_search),
+                          suffixIcon: seleccionado != null
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 18),
+                                  onPressed: () => setState(() {
+                                    _idPerfilSeleccionado = null;
+                                    _perfilOperarioSeleccionado = null;
+                                    _fechasConParte = [];
+                                  }),
+                                )
+                              : null,
+                        ),
+                        onTap: () => _abrirBuscadorOperarios(context),
+                        validator: (_) => _idPerfilSeleccionado == null
+                            ? 'Selecciona un operario'
+                            : null,
+                      ),
                 const SizedBox(height: 20),
               ],
-
-              // ── Obra ──
-              const Text(
-                'Obra',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              obrasAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Error: $e'),
-                data: (obras) => TextFormField(
-                  controller: _obraSearchCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Seleccionar obra',
-                    hintText: 'Toca para buscar...',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onTap: () => _abrirBuscadorGeneral(context, obras, (o) {
-                    setState(() {
-                      _idObraSeleccionada = o.id;
-                      _obraSearchCtrl.text = o.nombre;
-                    });
-                  }),
-                  validator: (v) => _idObraSeleccionada == null
-                      ? 'Selecciona una obra'
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 20),
 
               // ── Fecha ──
               const Text(
@@ -813,6 +838,37 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                   ),
                   onTap: _cargandoFechas ? null : () => _pickDate(esGestor),
                 ),
+              const SizedBox(height: 20),
+
+              // ── Obra ──
+              const Text(
+                'Obra',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              obrasAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Error: $e'),
+                data: (obras) => TextFormField(
+                  controller: _obraSearchCtrl,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Seleccionar obra',
+                    hintText: 'Toca para buscar...',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onTap: () => _abrirBuscadorGeneral(context, obras, (o) {
+                    setState(() {
+                      _idObraSeleccionada = o.id;
+                      _obraSearchCtrl.text = o.nombre;
+                    });
+                  }),
+                  validator: (v) => _idObraSeleccionada == null
+                      ? 'Selecciona una obra'
+                      : null,
+                ),
+              ),
               const SizedBox(height: 25),
 
               // ── Horas ──
@@ -1303,7 +1359,7 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
 }
 
 // ─────────────────────────────────────────
-// BUSCADOR GENERAL
+// BUSCADOR GENERAL DE OBRAS
 // ─────────────────────────────────────────
 void _abrirBuscadorGeneral(
   BuildContext context,
@@ -1358,9 +1414,7 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
               (o.municipio ?? '').toLowerCase().contains(
                 _filtro.toLowerCase(),
               ) ||
-              (o.ubicacion ?? '').toLowerCase().contains(
-                _filtro.toLowerCase(),
-              ), // ← NUEVO
+              (o.ubicacion ?? '').toLowerCase().contains(_filtro.toLowerCase()),
         )
         .toList();
 
@@ -1421,6 +1475,110 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
                       ),
                       onTap: () {
                         widget.alSeleccionar(o);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// BUSCADOR DE OPERARIOS
+// ─────────────────────────────────────────
+class _CuerpoBuscadorOperarios extends StatefulWidget {
+  final List<Perfil> perfiles;
+  final Function(Perfil) alSeleccionar;
+  final ScrollController scrollController;
+
+  const _CuerpoBuscadorOperarios({
+    required this.perfiles,
+    required this.alSeleccionar,
+    required this.scrollController,
+  });
+
+  @override
+  State<_CuerpoBuscadorOperarios> createState() =>
+      _CuerpoBuscadorOperariosState();
+}
+
+class _CuerpoBuscadorOperariosState extends State<_CuerpoBuscadorOperarios> {
+  String _filtro = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtrados = widget.perfiles
+        .where(
+          (p) =>
+              p.apellidos.toLowerCase().contains(_filtro.toLowerCase()) ||
+              p.nombre.toLowerCase().contains(_filtro.toLowerCase()) ||
+              p.email.toLowerCase().contains(_filtro.toLowerCase()),
+        )
+        .toList();
+
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        Container(
+          width: 50,
+          height: 5,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: TextField(
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Buscar por nombre o apellido...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: Colors.grey[100],
+            ),
+            onChanged: (v) => setState(() => _filtro = v),
+          ),
+        ),
+        Expanded(
+          child: filtrados.isEmpty
+              ? const Center(child: Text('No se han encontrado operarios'))
+              : ListView.separated(
+                  controller: widget.scrollController,
+                  itemCount: filtrados.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final p = filtrados[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.blueGrey,
+                        child: Text(
+                          p.apellidos.isNotEmpty
+                              ? p.apellidos[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        p.nombreApellidoCompleto,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(p.email),
+                      onTap: () {
+                        widget.alSeleccionar(p);
                         Navigator.pop(context);
                       },
                     );

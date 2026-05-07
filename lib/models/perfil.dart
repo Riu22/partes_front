@@ -20,6 +20,7 @@ class Perfil {
   });
 
   String get nombreCompleto => '$nombre $apellidos'.trim();
+  String get nombreApellidoCompleto => '$apellidos, $nombre'.trim();
 
   factory Perfil.fromJson(Map<String, dynamic> json) {
     return Perfil(

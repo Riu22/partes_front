@@ -74,10 +74,10 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: const Text('Nueva versión disponible'),
+          title: const Text('Nueva version disponible'),
           content: Text(
-            'Hay una actualización a la versión ${update['version']}.\n\n'
-            'Descárgala para tener las últimas mejoras.\n\n'
+            'Hay una actualizacion a la versión ${update['version']}.\n\n'
+            'Descargala para tener las ultimas mejoras.\n\n'
             'Una vez descargado dale a abrir y selecciona actualizar.\n\n'
             'En caso de que de un error desinstale la aplicacion y vuelva a instalarla con el instalador que acaba de descargar.',
           ),
@@ -129,7 +129,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     ref.invalidate(partesProvider);
     ref.invalidate(partesJefeProvider);
     ref.invalidate(pendientesOfflineProvider);
-    ref.invalidate(fechasPermitidasProvider); // ── NUEVO
+    ref.invalidate(fechasPermitidasProvider);
   }
 
   void _limpiarBusqueda() {
@@ -759,7 +759,7 @@ class _DayHeaderState extends State<_DayHeader> {
   }
 
   int _operariosUnicos(List<ParteTrabajo> partes) =>
-      partes.map((p) => p.operarioNombre).toSet().length;
+      partes.map((p) => p.operarioNombreCompleto).toSet().length;
 }
 
 // ─── Agrupación por operario ──────────────────────────────────────────────────
@@ -772,7 +772,7 @@ class _GrupoOperarios extends StatelessWidget {
   Widget build(BuildContext context) {
     final Map<String, List<ParteTrabajo>> porOperario = {};
     for (final p in partes) {
-      porOperario.putIfAbsent(p.operarioNombre, () => []).add(p);
+      porOperario.putIfAbsent(p.operarioNombreCompleto, () => []).add(p);
     }
     final operarios = porOperario.keys.toList()..sort();
 
@@ -996,7 +996,6 @@ class _CardParte extends ConsumerWidget {
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
 
-    // ── NUEVO: fechas habilitadas por el gestor ──
     final fechasPermitidas = esGestor
         ? <DateTime>[]
         : ref.watch(fechasPermitidasProvider).valueOrNull ?? [];
