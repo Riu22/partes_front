@@ -828,7 +828,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                         ? 'Cargando días disponibles...'
                         : _fechasPermitidas.isNotEmpty
                         ? 'Tienes ${_fechasPermitidas.length} día(s) extra habilitados'
-                        : 'Últimos 14 días disponibles',
+                        : 'Los partes son únicamente del dia de hoy',
                     style: TextStyle(
                       fontSize: 11,
                       color: _fechasPermitidas.isNotEmpty
