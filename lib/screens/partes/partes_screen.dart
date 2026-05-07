@@ -966,11 +966,55 @@ class _CardParte extends ConsumerWidget {
 
   const _CardParte({required this.parte});
 
+  Future<void> _eliminar(BuildContext context, WidgetRef ref) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar parte'),
+        content: const Text(
+          '¿Estás seguro de que quieres eliminar este parte? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _redAlert),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !context.mounted) return;
+
+    try {
+      await ref.read(apiServiceProvider).eliminarParte(parte.id);
+      ref.invalidate(partesProvider);
+      ref.invalidate(partesJefeProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Parte eliminado correctamente')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
     final puedeEditar = esGestor || parte.puedeEditarse;
+    // Puede eliminar si es gestor, o si es su parte y es hoy (misma regla que editar)
+    final puedeEliminar = esGestor || parte.puedeEditarse;
     final String? esp = parte.especialidad;
     final bool esElec = esp == 'ELECTRICIDAD';
 
@@ -1079,26 +1123,51 @@ class _CardParte extends ConsumerWidget {
                     height: 1.5,
                   ),
                 ),
-                if (puedeEditar) ...[
+                // ── Botones de acción ──
+                if (puedeEditar || puedeEliminar) ...[
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _textPrimary,
-                        side: const BorderSide(color: _cardBorder),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  Row(
+                    children: [
+                      if (puedeEditar)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _textPrimary,
+                              side: const BorderSide(color: _cardBorder),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () =>
+                                context.go('/partes/editar', extra: parte),
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: const Text(
+                              'Editar',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ),
                         ),
-                      ),
-                      onPressed: () =>
-                          context.go('/partes/editar', extra: parte),
-                      icon: const Icon(Icons.edit_outlined, size: 16),
-                      label: const Text(
-                        'Editar parte',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                    ),
+                      if (puedeEditar && puedeEliminar)
+                        const SizedBox(width: 8),
+                      if (puedeEliminar)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _redAlert,
+                              side: const BorderSide(color: _redAlert),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () => _eliminar(context, ref),
+                            icon: const Icon(Icons.delete_outline, size: 16),
+                            label: const Text(
+                              'Eliminar',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],

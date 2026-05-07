@@ -487,6 +487,20 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────
+  // Eliminar parte
+  // ─────────────────────────────────────────
+  Future<void> eliminarParte(int id) async {
+    try {
+      await _dio.delete('/partes/delete/$id', options: await _authHeaders());
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data?.toString() ?? 'Error al eliminar el parte';
+      }
+      rethrow;
+    }
+  }
+
+  // ─────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────
 
