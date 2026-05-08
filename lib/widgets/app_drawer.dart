@@ -104,7 +104,7 @@ class AppDrawer extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.calendar_month),
-              title: const Text('Fecha libre'),
+              title: const Text('Autorizaciones'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/fecha-libre');
