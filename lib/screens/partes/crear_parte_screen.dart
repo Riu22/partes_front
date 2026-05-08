@@ -67,6 +67,7 @@ class _FormularioParteNormalState
   int? _idObraSeleccionada;
   String? _idPerfilSeleccionado;
   Perfil? _perfilOperarioSeleccionado;
+  String? _especialidad; // <- AÑADIDO
   bool _enviando = false;
 
   List<Perfil> _perfilesOrdenados = [];
@@ -224,6 +225,7 @@ class _FormularioParteNormalState
                 _perfilOperarioSeleccionado = p;
                 _fecha = DateTime.now();
                 _fechasConParte = [];
+                _especialidad = null; // <- AÑADIDO: limpiar al cambiar operario
               });
               _cargarFechasDeOperario(p.id);
             },
@@ -242,6 +244,10 @@ class _FormularioParteNormalState
     final seleccionado = _perfilesOrdenados
         .where((p) => p.id == _idPerfilSeleccionado)
         .firstOrNull;
+
+    // Determina si el operario seleccionado es de postventa
+    final operarioEsPostventa =
+        _perfilOperarioSeleccionado?.postventa == true; // <- AÑADIDO
 
     return Scaffold(
       appBar: AppBar(
@@ -285,6 +291,7 @@ class _FormularioParteNormalState
                                     _idPerfilSeleccionado = null;
                                     _perfilOperarioSeleccionado = null;
                                     _fechasConParte = [];
+                                    _especialidad = null; // <- AÑADIDO
                                   }),
                                 )
                               : null,
@@ -405,6 +412,42 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 25),
 
+              // ── Especialidad (solo si el operario seleccionado es postventa) ──
+              // BLOQUE AÑADIDO
+              if (esGestor && operarioEsPostventa) ...[
+                const Text(
+                  'Especialidad',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _BotonEspecialidad(
+                        label: 'Electricidad',
+                        icono: Icons.electrical_services,
+                        color: Colors.amber[700]!,
+                        seleccionado: _especialidad == 'ELECTRICIDAD',
+                        onTap: () =>
+                            setState(() => _especialidad = 'ELECTRICIDAD'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _BotonEspecialidad(
+                        label: 'Fontanería',
+                        icono: Icons.plumbing,
+                        color: Colors.blue[700]!,
+                        seleccionado: _especialidad == 'FONTANERIA',
+                        onTap: () =>
+                            setState(() => _especialidad = 'FONTANERIA'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 25),
+              ],
+
               // ── Descripción ──
               const Text(
                 'Tareas realizadas',
@@ -453,14 +496,33 @@ class _FormularioParteNormalState
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;
     if (perfil == null) return;
-    setState(() => _enviando = true);
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
 
+    // MODIFICADO: si el operario es postventa, se usa la especialidad
+    // seleccionada manualmente; si no, se usa la del perfil del operario
+    final operarioEsPostventa = _perfilOperarioSeleccionado?.postventa == true;
+
+    if (esGestor && operarioEsPostventa && _especialidad == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Selecciona una especialidad para el operario de post venta',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _enviando = true);
+
     final String? especialidad = esGestor
-        ? (_perfilOperarioSeleccionado?.especialidad?.isNotEmpty == true
-              ? _perfilOperarioSeleccionado!.especialidad
-              : null)
+        ? (operarioEsPostventa
+              ? _especialidad
+              : (_perfilOperarioSeleccionado?.especialidad?.isNotEmpty == true
+                    ? _perfilOperarioSeleccionado!.especialidad
+                    : null))
         : (perfil.especialidad.isNotEmpty ? perfil.especialidad : null);
 
     final data = <String, dynamic>{
