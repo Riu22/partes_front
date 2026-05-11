@@ -13,9 +13,9 @@ class FechaLibreScreen extends ConsumerStatefulWidget {
 }
 
 class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
-  // Map<userId, List<DateTime>> con las fechas permitidas activas
   Map<String, List<DateTime>> _activos = {};
   bool _cargando = true;
+  String _textoBusqueda = '';
 
   @override
   void initState() {
@@ -39,7 +39,6 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
     }
   }
 
-  /// Abre un selector de fechas múltiples y añade las elegidas al usuario
   Future<void> _anadirFechas(String id, String nombre) async {
     final seleccionadas = await showDialog<List<DateTime>>(
       context: context,
@@ -72,7 +71,6 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
     }
   }
 
-  /// Quita una fecha concreta de un usuario
   Future<void> _quitarFecha(String id, String nombre, DateTime fecha) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -118,7 +116,6 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
     }
   }
 
-  /// Quita todas las fechas de un usuario
   Future<void> _quitarTodas(String id, String nombre) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -182,102 +179,213 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (perfiles) {
-                final conPermiso = perfiles
-                    .where(
-                      (p) => p.activo && (_activos[p.id]?.isNotEmpty ?? false),
-                    )
+                // Filtrar activos y ordenar por apellido
+                final activos = perfiles.where((p) => p.activo).toList()
+                  ..sort(
+                    (a, b) => a.apellidos.toLowerCase().compareTo(
+                      b.apellidos.toLowerCase(),
+                    ),
+                  );
+
+                // Aplicar búsqueda por nombre o apellidos
+                final filtrados = _textoBusqueda.isEmpty
+                    ? activos
+                    : activos
+                          .where(
+                            (p) =>
+                                p.apellidos.toLowerCase().contains(
+                                  _textoBusqueda.toLowerCase(),
+                                ) ||
+                                p.nombre.toLowerCase().contains(
+                                  _textoBusqueda.toLowerCase(),
+                                ),
+                          )
+                          .toList();
+
+                final conPermiso = filtrados
+                    .where((p) => _activos[p.id]?.isNotEmpty ?? false)
                     .toList();
-                final sinPermiso = perfiles
-                    .where(
-                      (p) => p.activo && !(_activos[p.id]?.isNotEmpty ?? false),
-                    )
+                final sinPermiso = filtrados
+                    .where((p) => !(_activos[p.id]?.isNotEmpty ?? false))
                     .toList();
 
-                return ListView(
-                  padding: const EdgeInsets.all(16),
+                return Column(
                   children: [
-                    // ── Banner informativo ──
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.blue.shade200),
-                      ),
-                      child: const Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    // ── Buscador ──
+                    _BuscadorOperario(
+                      onBuscar: (v) => setState(() => _textoBusqueda = v),
+                      onLimpiar: () => setState(() => _textoBusqueda = ''),
+                    ),
+
+                    // ── Lista ──
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.blue,
-                            size: 18,
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Puedes añadir días sueltos para que un operario pueda registrar partes fuera del límite de 2 semanas. '
-                              'Los permisos se pierden si el servidor se reinicia.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue,
-                              ),
+                          // ── Banner informativo ──
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.blue,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Puedes añadir días sueltos para que un operario pueda registrar partes fuera del límite de 2 semanas. '
+                                    'Los permisos se pierden si el servidor se reinicia.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+
+                          // ── Sin resultados ──
+                          if (filtrados.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 32),
+                              child: Center(
+                                child: Text(
+                                  'No se encontró ningún operario con "${_textoBusqueda}"',
+                                  style: const TextStyle(color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          else ...[
+                            // ── Con fechas activas ──
+                            if (conPermiso.isNotEmpty) ...[
+                              _SectionHeader(
+                                label:
+                                    'Con fechas permitidas (${conPermiso.length})',
+                                color: Colors.green,
+                                icon: Icons.lock_open,
+                              ),
+                              const SizedBox(height: 8),
+                              ...conPermiso.map(
+                                (p) => _CardPermisoFechas(
+                                  nombre: p.nombreApellidoCompleto,
+                                  fechas: _activos[p.id] ?? [],
+                                  onAnadir: () => _anadirFechas(
+                                    p.id,
+                                    p.nombreApellidoCompleto,
+                                  ),
+                                  onQuitarFecha: (f) => _quitarFecha(
+                                    p.id,
+                                    p.nombreApellidoCompleto,
+                                    f,
+                                  ),
+                                  onQuitarTodas: () => _quitarTodas(
+                                    p.id,
+                                    p.nombreApellidoCompleto,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+
+                            // ── Sin permisos ──
+                            _SectionHeader(
+                              label:
+                                  'Sin fechas permitidas (${sinPermiso.length})',
+                              color: Colors.grey,
+                              icon: Icons.lock_outline,
+                            ),
+                            const SizedBox(height: 8),
+                            if (sinPermiso.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Center(
+                                  child: Text(
+                                    'Todos los usuarios tienen permisos activos',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                              )
+                            else
+                              ...sinPermiso.map(
+                                (p) => _CardSinPermiso(
+                                  nombre: p.nombreApellidoCompleto,
+                                  onAnadir: () => _anadirFechas(
+                                    p.id,
+                                    p.nombreApellidoCompleto,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ],
                       ),
                     ),
-
-                    // ── Con fechas activas ──
-                    if (conPermiso.isNotEmpty) ...[
-                      _SectionHeader(
-                        label: 'Con fechas permitidas (${conPermiso.length})',
-                        color: Colors.green,
-                        icon: Icons.lock_open,
-                      ),
-                      const SizedBox(height: 8),
-                      ...conPermiso.map(
-                        (p) => _CardPermisoFechas(
-                          nombre: p.nombreCompleto,
-                          fechas: _activos[p.id] ?? [],
-                          onAnadir: () => _anadirFechas(p.id, p.nombreCompleto),
-                          onQuitarFecha: (f) =>
-                              _quitarFecha(p.id, p.nombreCompleto, f),
-                          onQuitarTodas: () =>
-                              _quitarTodas(p.id, p.nombreCompleto),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // ── Sin permisos ──
-                    _SectionHeader(
-                      label: 'Sin fechas permitidas (${sinPermiso.length})',
-                      color: Colors.grey,
-                      icon: Icons.lock_outline,
-                    ),
-                    const SizedBox(height: 8),
-                    if (sinPermiso.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Center(
-                          child: Text(
-                            'Todos los usuarios tienen permisos activos',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                      )
-                    else
-                      ...sinPermiso.map(
-                        (p) => _CardSinPermiso(
-                          nombre: p.nombreCompleto,
-                          onAnadir: () => _anadirFechas(p.id, p.nombreCompleto),
-                        ),
-                      ),
                   ],
                 );
               },
             ),
+    );
+  }
+}
+
+// ─── Buscador de operario ─────────────────────────────────────────────────────
+class _BuscadorOperario extends StatefulWidget {
+  final Function(String) onBuscar;
+  final VoidCallback onLimpiar;
+
+  const _BuscadorOperario({required this.onBuscar, required this.onLimpiar});
+
+  @override
+  State<_BuscadorOperario> createState() => _BuscadorOperarioState();
+}
+
+class _BuscadorOperarioState extends State<_BuscadorOperario> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12.0),
+      child: TextField(
+        controller: _ctrl,
+        decoration: InputDecoration(
+          labelText: 'Buscar por nombre...',
+          prefixIcon: const Icon(Icons.search),
+          border: const OutlineInputBorder(),
+          isDense: true,
+          suffixIcon: _ctrl.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _ctrl.clear();
+                    widget.onLimpiar();
+                    setState(() {});
+                  },
+                )
+              : null,
+        ),
+        onChanged: (value) {
+          setState(() {});
+          if (value.isEmpty) widget.onLimpiar();
+          widget.onBuscar(value);
+        },
+      ),
     );
   }
 }
@@ -333,7 +441,6 @@ class _CardPermisoFechasState extends State<_CardPermisoFechas> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Expandir/colapsar las fechas
                 IconButton(
                   icon: Icon(
                     _expandido
@@ -343,7 +450,6 @@ class _CardPermisoFechasState extends State<_CardPermisoFechas> {
                   ),
                   onPressed: () => setState(() => _expandido = !_expandido),
                 ),
-                // Añadir más fechas
                 IconButton(
                   icon: const Icon(
                     Icons.add_circle_outline,
@@ -352,7 +458,6 @@ class _CardPermisoFechasState extends State<_CardPermisoFechas> {
                   tooltip: 'Añadir fechas',
                   onPressed: widget.onAnadir,
                 ),
-                // Quitar todas
                 IconButton(
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   tooltip: 'Quitar todas',
@@ -361,7 +466,6 @@ class _CardPermisoFechasState extends State<_CardPermisoFechas> {
               ],
             ),
           ),
-          // Lista de fechas individuales
           if (_expandido) ...[
             const Divider(height: 1),
             ...fechasOrdenadas.map(
@@ -469,21 +573,15 @@ class _DialogSelectorFechasState extends State<_DialogSelectorFechas> {
   Future<void> _abrirDatePicker() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(), // Usa hoy como base, es más seguro
+      initialDate: DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
       helpText: 'Selecciona una fecha para habilitar',
-      // Quitamos la lógica que bloquea los días ya permitidos para evitar el crash
       selectableDayPredicate: null,
     );
 
-    if (picked != null) {
-      // La validación de si ya existe la haces después de elegirla, no en el calendario
-      if (!_yaPermitida(picked)) {
-        _toggleFecha(picked);
-      } else {
-        // Opcional: Mostrar un aviso de que ya está habilitada
-      }
+    if (picked != null && !_yaPermitida(picked)) {
+      _toggleFecha(picked);
     }
   }
 
@@ -499,15 +597,12 @@ class _DialogSelectorFechasState extends State<_DialogSelectorFechas> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Botón para añadir una fecha
             OutlinedButton.icon(
               onPressed: _abrirDatePicker,
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Añadir fecha'),
             ),
             const SizedBox(height: 12),
-
-            // Lista de fechas seleccionadas
             if (_seleccionadas.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
