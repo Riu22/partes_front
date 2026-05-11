@@ -7,6 +7,7 @@ import '../../providers/obras_provider.dart';
 import '../../providers/perfiles_provider.dart';
 import '../../models/obra.dart';
 import '../../models/perfil.dart';
+import '../../widgets/app_drawer.dart';
 
 // ─── Modo de exportación ──────────────────────────────────────────────────────
 enum _ModoExport { zip, pdf }
@@ -137,6 +138,7 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Informe de partes')),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           Expanded(

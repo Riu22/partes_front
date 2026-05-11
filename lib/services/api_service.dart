@@ -67,151 +67,6 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────
-  // Partes
-  // ─────────────────────────────────────────
-
-  Future<List<dynamic>> getPartes() async {
-    final response = await _dio.get(
-      '/partes/get_partes',
-      options: await _authHeaders(),
-    );
-    return response.data;
-  }
-
-  Future<void> crearParte(Map<String, dynamic> data) async {
-    try {
-      await _dio.post(
-        '/partes/new_parte',
-        data: data,
-        options: await _authHeaders(),
-      );
-    } on DioException catch (e) {
-      if (e.response != null) {
-        throw e.response?.data?.toString() ?? 'Error del servidor';
-      }
-      rethrow;
-    }
-  }
-
-  Future<void> crearParteJefe(Map<String, dynamic> data) async {
-    try {
-      await _dio.post(
-        '/partes/new_parte_jefe',
-        data: data,
-        options: await _authHeaders(),
-      );
-    } on DioException catch (e) {
-      if (e.response != null) {
-        throw e.response?.data?.toString() ?? 'Error del servidor';
-      }
-      rethrow;
-    }
-  }
-
-  Future<ParteTrabajo> updateParte(
-    int parteId,
-    Map<String, dynamic> data,
-  ) async {
-    final response = await _dio.put(
-      '/partes/update/$parteId',
-      data: data,
-      options: await _authHeaders(),
-    );
-    return ParteTrabajo.fromJson(response.data);
-  }
-
-  Future<List<dynamic>> buscarPartes({
-    String? obra,
-    String? operario,
-    String? especialidad,
-  }) async {
-    final params = <String, String>{};
-    if (obra != null && obra.isNotEmpty) params['obra'] = obra;
-    if (operario != null && operario.isNotEmpty) params['operario'] = operario;
-    if (especialidad != null) params['especialidad'] = especialidad;
-
-    final response = await _dio.get(
-      '/partes/buscar',
-      queryParameters: params,
-      options: await _authHeaders(),
-    );
-    return response.data;
-  }
-
-  // ─────────────────────────────────────────
-  // Fechas con parte — para el DatePicker
-  // ─────────────────────────────────────────
-
-  Future<List<DateTime>> getMisFechasConParte() async {
-    try {
-      final response = await _dio.get(
-        '/partes/mis-fechas-con-parte',
-        options: await _authHeaders(),
-      );
-      return (response.data as List)
-          .map((s) => DateTime.parse(s.toString()))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<List<DateTime>> getFechasConParte(String id) async {
-    try {
-      final response = await _dio.get(
-        '/partes/fechas-con-parte/$id',
-        options: await _authHeaders(),
-      );
-      return (response.data as List)
-          .map((s) => DateTime.parse(s.toString()))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  // ─────────────────────────────────────────
-  // Obras
-  // ─────────────────────────────────────────
-
-  Future<List<dynamic>> getObras() async {
-    final response = await _dio.get('/obra', options: await _authHeaders());
-    return response.data;
-  }
-
-  Future<List<dynamic>> getObrasActivas() async {
-    final response = await _dio.get(
-      '/obra/activas',
-      options: await _authHeaders(),
-    );
-    return response.data;
-  }
-
-  Future<void> crearObra(Map<String, dynamic> data) async {
-    try {
-      await _dio.post('/obra', data: data, options: await _authHeaders());
-    } on DioException catch (e) {
-      if (e.response != null) {
-        throw e.response?.data.toString() ?? 'Error en el servidor';
-      }
-    } catch (e) {
-      throw 'Error de conexión inesperado';
-    }
-  }
-
-  Future<void> editarObra(int id, Map<String, dynamic> data) async {
-    await _dio.put(
-      '/obra/update_obra/$id',
-      data: data,
-      options: await _authHeaders(),
-    );
-  }
-
-  Future<void> eliminarObra(int id) async {
-    await _dio.delete('/obra/delete/$id', options: await _authHeaders());
-  }
-
-  // ─────────────────────────────────────────
   // Usuarios
   // ─────────────────────────────────────────
 
@@ -238,6 +93,46 @@ class ApiService {
 
   Future<void> eliminarUsuario(String id) async {
     await _dio.delete('/user/delete_user/$id', options: await _authHeaders());
+  }
+
+  // ─────────────────────────────────────────
+  // Obras
+  // ─────────────────────────────────────────
+
+  Future<List<dynamic>> getObras() async {
+    final response = await _dio.get('/obra', options: await _authHeaders());
+    return response.data;
+  }
+
+  Future<List<dynamic>> getObrasActivas() async {
+    final response = await _dio.get(
+      '/obra/activas',
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  Future<void> crearObra(Map<String, dynamic> data) async {
+    try {
+      await _dio.post('/obra', data: data, options: await _authHeaders());
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data.toString() ?? 'Error en el servidor';
+      }
+      throw 'Error de conexión inesperado';
+    }
+  }
+
+  Future<void> editarObra(int id, Map<String, dynamic> data) async {
+    await _dio.put(
+      '/obra/update_obra/$id',
+      data: data,
+      options: await _authHeaders(),
+    );
+  }
+
+  Future<void> eliminarObra(int id) async {
+    await _dio.delete('/obra/delete/$id', options: await _authHeaders());
   }
 
   // ─────────────────────────────────────────
@@ -304,8 +199,16 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────
-  // Partes jefe
+  // Partes
   // ─────────────────────────────────────────
+
+  Future<List<dynamic>> getPartes() async {
+    final response = await _dio.get(
+      '/partes/get_partes',
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
 
   Future<List<dynamic>> getPartesJefe() async {
     final response = await _dio.get(
@@ -315,73 +218,106 @@ class ApiService {
     return response.data;
   }
 
-  // ─────────────────────────────────────────
-  // Quincena
-  // ─────────────────────────────────────────
-
-  Future<List<dynamic>> getQuincena(String desde, String hasta) async {
-    final response = await _dio.get(
-      '/quincena',
-      queryParameters: {'desde': desde, 'hasta': hasta},
-      options: await _authHeaders(),
-    );
-    return response.data;
-  }
-
-  Future<void> exportarQuincena(String desde, String hasta) async {
-    final response = await _dio.get(
-      '/quincena/exportar',
-      queryParameters: {'desde': desde, 'hasta': hasta},
-      options: Options(
-        headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
-        responseType: ResponseType.bytes,
-      ),
-    );
-    if (response.data != null) {
-      saveAndLaunchFile(
-        Uint8List.fromList(response.data),
-        'quincena_${desde}_$hasta.csv',
+  Future<void> crearParte(Map<String, dynamic> data) async {
+    try {
+      await _dio.post(
+        '/partes/new_parte',
+        data: data,
+        options: await _authHeaders(),
       );
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data?.toString() ?? 'Error del servidor';
+      }
+      rethrow;
     }
   }
 
-  Future<List<dynamic>> getContabilidadDetalleJson(
-    DateTime desde,
-    DateTime hasta,
+  Future<void> crearParteJefe(Map<String, dynamic> data) async {
+    try {
+      await _dio.post(
+        '/partes/new_parte_jefe',
+        data: data,
+        options: await _authHeaders(),
+      );
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data?.toString() ?? 'Error del servidor';
+      }
+      rethrow;
+    }
+  }
+
+  Future<ParteTrabajo> updateParte(
+    int parteId,
+    Map<String, dynamic> data,
   ) async {
-    final desdeStr = _fmtDate(desde);
-    final hastaStr = _fmtDate(hasta);
+    final response = await _dio.put(
+      '/partes/update/$parteId',
+      data: data,
+      options: await _authHeaders(),
+    );
+    return ParteTrabajo.fromJson(response.data);
+  }
+
+  Future<void> eliminarParte(int id) async {
+    try {
+      await _dio.delete('/partes/delete/$id', options: await _authHeaders());
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data?.toString() ?? 'Error al eliminar el parte';
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> buscarPartes({
+    String? obra,
+    String? operario,
+    String? especialidad,
+  }) async {
+    final params = <String, String>{};
+    if (obra != null && obra.isNotEmpty) params['obra'] = obra;
+    if (operario != null && operario.isNotEmpty) params['operario'] = operario;
+    if (especialidad != null) params['especialidad'] = especialidad;
+
     final response = await _dio.get(
-      '/quincena/contabilidad-detalle-json',
-      queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
+      '/partes/buscar',
+      queryParameters: params,
       options: await _authHeaders(),
     );
     return response.data;
   }
 
-  Future<void> exportarContabilidadDetalleCsv(
-    DateTime desde,
-    DateTime hasta,
-  ) async {
-    final desdeStr = _fmtDate(desde);
-    final hastaStr = _fmtDate(hasta);
+  // ─────────────────────────────────────────
+  // Fechas con parte — para el DatePicker
+  // ─────────────────────────────────────────
+
+  Future<List<DateTime>> getMisFechasConParte() async {
     try {
       final response = await _dio.get(
-        '/quincena/exportar-detalle-csv',
-        queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
-        options: Options(
-          headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
-          responseType: ResponseType.bytes,
-        ),
+        '/partes/mis-fechas-con-parte',
+        options: await _authHeaders(),
       );
-      if (response.data != null) {
-        saveAndLaunchFile(
-          Uint8List.fromList(response.data),
-          'detalle_contabilidad_${desdeStr}_$hastaStr.csv',
-        );
-      }
-    } catch (e) {
-      throw 'Error al exportar CSV detallado: $e';
+      return (response.data as List)
+          .map((s) => DateTime.parse(s.toString()))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<DateTime>> getFechasConParte(String id) async {
+    try {
+      final response = await _dio.get(
+        '/partes/fechas-con-parte/$id',
+        options: await _authHeaders(),
+      );
+      return (response.data as List)
+          .map((s) => DateTime.parse(s.toString()))
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 
@@ -444,6 +380,91 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────
+  // Quincena
+  // ─────────────────────────────────────────
+
+  Future<List<dynamic>> getQuincena(String desde, String hasta) async {
+    final response = await _dio.get(
+      '/quincena',
+      queryParameters: {'desde': desde, 'hasta': hasta},
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  Future<void> exportarQuincena(String desde, String hasta) async {
+    final response = await _dio.get(
+      '/quincena/exportar',
+      queryParameters: {'desde': desde, 'hasta': hasta},
+      options: Options(
+        headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+        responseType: ResponseType.bytes,
+      ),
+    );
+    if (response.data != null) {
+      saveAndLaunchFile(
+        Uint8List.fromList(response.data),
+        'quincena_${desde}_$hasta.csv',
+      );
+    }
+  }
+
+  Future<List<dynamic>> getContabilidadDetalleJson(
+    DateTime desde,
+    DateTime hasta,
+  ) async {
+    final response = await _dio.get(
+      '/quincena/contabilidad-detalle-json',
+      queryParameters: {'desde': _fmtDate(desde), 'hasta': _fmtDate(hasta)},
+      options: await _authHeaders(),
+    );
+    return response.data;
+  }
+
+  Future<void> exportarContabilidadDetalleCsv(
+    DateTime desde,
+    DateTime hasta,
+  ) async {
+    final desdeStr = _fmtDate(desde);
+    final hastaStr = _fmtDate(hasta);
+    try {
+      final response = await _dio.get(
+        '/quincena/exportar-detalle-csv',
+        queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
+        options: Options(
+          headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+          responseType: ResponseType.bytes,
+        ),
+      );
+      if (response.data != null) {
+        saveAndLaunchFile(
+          Uint8List.fromList(response.data),
+          'detalle_contabilidad_${desdeStr}_$hastaStr.csv',
+        );
+      }
+    } catch (e) {
+      throw 'Error al exportar CSV detallado: $e';
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // Ausencias
+  // ─────────────────────────────────────────
+
+  /// Devuelve por operario/encargado los días laborables (L-V)
+  /// sin parte en la quincena actual.
+  /// Respuesta: Map<nombreCompleto, List<fecha>>
+  /// Solo incluye usuarios con al menos 1 día sin parte.
+  /// Requiere rol ADMINISTRACION o GESTION.
+  Future<Map<String, dynamic>> getDiasSinParte() async {
+    final response = await _dio.get(
+      '/ausencias/dias-sin-parte',
+      options: await _authHeaders(),
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
+  // ─────────────────────────────────────────
   // PDF / ZIP de partes
   // ─────────────────────────────────────────
 
@@ -501,20 +522,6 @@ class ApiService {
 
   void guardarPdfLocal(Uint8List bytes, String nombre) {
     saveAndLaunchFile(bytes, nombre);
-  }
-
-  // ─────────────────────────────────────────
-  // Eliminar parte
-  // ─────────────────────────────────────────
-  Future<void> eliminarParte(int id) async {
-    try {
-      await _dio.delete('/partes/delete/$id', options: await _authHeaders());
-    } on DioException catch (e) {
-      if (e.response != null) {
-        throw e.response?.data?.toString() ?? 'Error al eliminar el parte';
-      }
-      rethrow;
-    }
   }
 
   // ─────────────────────────────────────────

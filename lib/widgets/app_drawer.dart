@@ -79,6 +79,14 @@ class AppDrawer extends ConsumerWidget {
               ),
             ),
             ListTile(
+              leading: const Icon(Icons.dashboard_rounded),
+              title: const Text('Panel de administración'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/admin');
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.people),
               title: const Text('Usuarios'),
               onTap: () {

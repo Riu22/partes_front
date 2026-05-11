@@ -67,7 +67,7 @@ class _FormularioParteNormalState
   int? _idObraSeleccionada;
   String? _idPerfilSeleccionado;
   Perfil? _perfilOperarioSeleccionado;
-  String? _especialidad; // <- AÑADIDO
+  String? _especialidad;
   bool _enviando = false;
 
   List<Perfil> _perfilesOrdenados = [];

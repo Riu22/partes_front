@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/app_shell.dart';
@@ -18,21 +19,46 @@ import '../models/parte_trabajo.dart';
 import '../screens/admin/dias_quincena_screen.dart';
 import '../screens/admin/fecha_libre_screen.dart';
 import '../screens/pdf/pdf_screen.dart';
+import '../screens/admin/admin_home_screen.dart';
 
+/// Notifica a GoRouter cada vez que cambia el estado de autenticación.
+class _AuthNotifier extends ChangeNotifier {
+  _AuthNotifier(this._ref) {
+    _ref.listen(authProvider, (_, __) => notifyListeners());
+  }
+  final Ref _ref;
+}
+
+/// El GoRouter se crea UNA sola vez gracias a [Provider].
+/// El [refreshListenable] se encarga de reevaluar los redirects
+/// cuando el authProvider cambia (loading → data → unauthenticated).
 final routerProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authProvider);
+  final notifier = _AuthNotifier(ref);
+
+  ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    initialLocation: '/partes',
+    initialLocation: '/login',
+    refreshListenable: notifier,
     redirect: (context, state) {
       final location = state.matchedLocation;
 
       if (location == '/nueva-password') return null;
 
+      final auth = ref.read(authProvider);
+
+      // Mientras carga, no redirigir
+      if (auth.isLoading) return null;
+
       final perfil = auth.valueOrNull;
       final isLoggedIn = perfil != null;
+
       if (!isLoggedIn && location != '/login') return '/login';
-      if (isLoggedIn && location == '/login') return '/partes';
+
+      if (isLoggedIn && location == '/login') {
+        if (perfil.esAdmin || perfil.esGestion) return '/admin';
+        return '/partes';
+      }
 
       if (location == '/usuarios' &&
           perfil != null &&
@@ -132,6 +158,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             usuario: extra['usuario'] as Map<String, dynamic>,
             todos: extra['todos'] as List<dynamic>,
           );
+        },
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const AdminHomeScreen(),
+        redirect: (context, state) {
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
+            return '/partes';
+          }
+          return null;
         },
       ),
       GoRoute(
