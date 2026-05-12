@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../providers/perfiles_provider.dart';
@@ -9,10 +10,16 @@ import '../../models/obra.dart';
 import '../../models/perfil.dart';
 import '../../widgets/app_drawer.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
 // Modo de exportación
-enum _ModoExport { zip, pdf }
+// ─────────────────────────────────────────────────────────────────────────────
 
+enum _ModoExport { zip, pdf, zipOperario }
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Parámetros del informe
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _PdfParams {
   final DateTime desde;
   final DateTime hasta;
@@ -42,7 +49,10 @@ class _PdfParams {
       Object.hash(desde, hasta, obraIds.toString(), perfilIds.toString(), modo);
 }
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider
+// ─────────────────────────────────────────────────────────────────────────────
+
 final _exportProvider = FutureProvider.family<Uint8List, _PdfParams>((
   ref,
   params,
@@ -51,6 +61,15 @@ final _exportProvider = FutureProvider.family<Uint8List, _PdfParams>((
     return ref
         .read(apiServiceProvider)
         .generarZipPartes(
+          desde: params.desde,
+          hasta: params.hasta,
+          obraIds: params.obraIds,
+          perfilIds: params.perfilIds,
+        );
+  } else if (params.modo == _ModoExport.zipOperario) {
+    return ref
+        .read(apiServiceProvider)
+        .generarZipPartesPorOperario(
           desde: params.desde,
           hasta: params.hasta,
           obraIds: params.obraIds,
@@ -68,7 +87,10 @@ final _exportProvider = FutureProvider.family<Uint8List, _PdfParams>((
   }
 });
 
-// ─── Pantalla principal ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Pantalla principal
+// ─────────────────────────────────────────────────────────────────────────────
+
 class InformePartesScreen extends ConsumerStatefulWidget {
   const InformePartesScreen({super.key});
 
@@ -83,7 +105,9 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
 
   final Set<int> _obrasSeleccionadas = {};
   final Set<String> _perfilesSeleccionados = {};
+
   _ModoExport _modo = _ModoExport.zip;
+
   _PdfParams? _params;
 
   Future<void> _pickFecha({required bool esDe}) async {
@@ -93,14 +117,20 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
       firstDate: esDe ? DateTime(2020) : _desde,
       lastDate: esDe ? _hasta : DateTime.now(),
     );
+
     if (picked == null) return;
+
     setState(() {
       if (esDe) {
         _desde = picked;
-        if (_hasta.isBefore(_desde)) _hasta = _desde;
+
+        if (_hasta.isBefore(_desde)) {
+          _hasta = _desde;
+        }
       } else {
         _hasta = picked;
       }
+
       _params = null;
     });
   }
@@ -133,12 +163,16 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Rango de fechas ──────────────────────────────────
+                  // ─────────────────────────────────────────────────────
+                  // Fechas
+                  // ─────────────────────────────────────────────────────
                   const Text(
                     'Rango de fechas',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
+
                   const SizedBox(height: 10),
+
                   Row(
                     children: [
                       Expanded(
@@ -158,60 +192,79 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 20),
 
-                  // ── Selector de obras ────────────────────────────────
+                  // ─────────────────────────────────────────────────────
+                  // Obras
+                  // ─────────────────────────────────────────────────────
                   obrasAsync.when(
                     loading: () => const LinearProgressIndicator(),
                     error: (e, _) => Text('Error: $e'),
                     data: (obras) => _ObrasSelector(
                       obras: obras,
                       seleccionadas: _obrasSeleccionadas,
-                      onChanged: (ids) => setState(() {
-                        _obrasSeleccionadas
-                          ..clear()
-                          ..addAll(ids);
-                        _params = null;
-                      }),
+                      onChanged: (ids) {
+                        setState(() {
+                          _obrasSeleccionadas
+                            ..clear()
+                            ..addAll(ids);
+
+                          _params = null;
+                        });
+                      },
                     ),
                   ),
+
                   const SizedBox(height: 20),
 
-                  // ── Selector de operarios ────────────────────────────
+                  // ─────────────────────────────────────────────────────
+                  // Operarios
+                  // ─────────────────────────────────────────────────────
                   perfilesAsync.when(
                     loading: () => const LinearProgressIndicator(),
                     error: (e, _) => Text('Error: $e'),
                     data: (perfiles) => _PerfilesSelector(
                       perfiles: perfiles.where((p) => p.activo).toList(),
                       seleccionados: _perfilesSeleccionados,
-                      onChanged: (ids) => setState(() {
-                        _perfilesSeleccionados
-                          ..clear()
-                          ..addAll(ids);
-                        _params = null;
-                      }),
+                      onChanged: (ids) {
+                        setState(() {
+                          _perfilesSeleccionados
+                            ..clear()
+                            ..addAll(ids);
+
+                          _params = null;
+                        });
+                      },
                     ),
                   ),
+
                   const SizedBox(height: 20),
 
-                  // ── Modo de exportación ──────────────────────────────
+                  // ─────────────────────────────────────────────────────
+                  // Formato exportación
+                  // ─────────────────────────────────────────────────────
                   const Text(
                     'Formato de exportación',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
+
                   const SizedBox(height: 8),
+
                   Row(
                     children: [
                       Expanded(
                         child: _ModoTile(
-                          label: 'ZIP (un PDF por obra)',
-                          subtitulo: 'Cada obra en un archivo separado',
+                          label: 'ZIP por obra',
+                          subtitulo: 'Un PDF por obra',
                           icono: Icons.folder_zip,
                           seleccionado: _modo == _ModoExport.zip,
-                          onTap: () => setState(() {
-                            _modo = _ModoExport.zip;
-                            _params = null;
-                          }),
+                          onTap: () {
+                            setState(() {
+                              _modo = _ModoExport.zip;
+                              _params = null;
+                            });
+                          },
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -221,17 +274,37 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                           subtitulo: 'Todas las obras en un archivo',
                           icono: Icons.picture_as_pdf,
                           seleccionado: _modo == _ModoExport.pdf,
-                          onTap: () => setState(() {
-                            _modo = _ModoExport.pdf;
-                            _params = null;
-                          }),
+                          onTap: () {
+                            setState(() {
+                              _modo = _ModoExport.pdf;
+                              _params = null;
+                            });
+                          },
                         ),
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 10),
+
+                  _ModoTile(
+                    label: 'ZIP por operario',
+                    subtitulo: 'Un PDF por operario con todas sus obras',
+                    icono: Icons.people,
+                    seleccionado: _modo == _ModoExport.zipOperario,
+                    onTap: () {
+                      setState(() {
+                        _modo = _ModoExport.zipOperario;
+                        _params = null;
+                      });
+                    },
+                  ),
+
                   const SizedBox(height: 20),
 
-                  // ── Botón generar ────────────────────────────────────
+                  // ─────────────────────────────────────────────────────
+                  // Botón generar
+                  // ─────────────────────────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -245,12 +318,14 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                       ),
                       onPressed: _generarInforme,
                       icon: Icon(
-                        _modo == _ModoExport.zip
+                        (_modo == _ModoExport.zip ||
+                                _modo == _ModoExport.zipOperario)
                             ? Icons.folder_zip
                             : Icons.picture_as_pdf,
                       ),
                       label: Text(
-                        _modo == _ModoExport.zip
+                        (_modo == _ModoExport.zip ||
+                                _modo == _ModoExport.zipOperario)
                             ? 'Generar ZIP'
                             : 'Generar PDF',
                         style: const TextStyle(
@@ -261,7 +336,9 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                     ),
                   ),
 
-                  // ── Resultado ────────────────────────────────────────
+                  // ─────────────────────────────────────────────────────
+                  // Resultado
+                  // ─────────────────────────────────────────────────────
                   if (_params != null) ...[
                     const SizedBox(height: 16),
                     const Divider(),
@@ -280,7 +357,10 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
   }
 }
 
-// ─── Modelo interno de chip ───────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Grupo chip
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _GrupoChip {
   final String label;
   final IconData icono;
@@ -295,7 +375,10 @@ class _GrupoChip {
   });
 }
 
-// ─── Selector de obras — lista plana ─────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Selector de obras
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _ObrasSelector extends StatefulWidget {
   final List<Obra> obras;
   final Set<int> seleccionadas;
@@ -313,19 +396,24 @@ class _ObrasSelector extends StatefulWidget {
 
 class _ObrasSelectorState extends State<_ObrasSelector> {
   String _busqueda = '';
+
   final _ctrl = TextEditingController();
 
   List<Obra> get _filtradas {
     final base = [
       ...widget.obras,
     ]..sort((a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()));
+
     if (_busqueda.isEmpty) return base;
+
     final q = _busqueda.toLowerCase();
+
     return base.where((o) => o.nombre.toLowerCase().contains(q)).toList();
   }
 
   void _toggleTodas(bool seleccionar) {
     final ids = widget.obras.map((o) => o.id).toSet();
+
     widget.onChanged(seleccionar ? ids : {});
   }
 
@@ -338,14 +426,15 @@ class _ObrasSelectorState extends State<_ObrasSelector> {
   @override
   Widget build(BuildContext context) {
     final filtradas = _filtradas;
+
     final totalSel = widget.seleccionadas.length;
     final total = widget.obras.length;
+
     final todasSel = totalSel == total && total > 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Cabecera
         Row(
           children: [
             Expanded(
@@ -360,89 +449,88 @@ class _ObrasSelectorState extends State<_ObrasSelector> {
               ),
             ),
             TextButton.icon(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              ),
               onPressed: () => _toggleTodas(!todasSel),
               icon: Icon(
                 todasSel ? Icons.deselect : Icons.select_all,
                 size: 16,
               ),
-              label: Text(
-                todasSel ? 'Ninguna' : 'Todas',
-                style: const TextStyle(fontSize: 13),
-              ),
+              label: Text(todasSel ? 'Ninguna' : 'Todas'),
             ),
           ],
         ),
+
         const SizedBox(height: 8),
 
-        // Buscador
         TextField(
           controller: _ctrl,
           decoration: InputDecoration(
             hintText: 'Buscar obra...',
-            prefixIcon: const Icon(Icons.search, size: 18),
-            isDense: true,
+            prefixIcon: const Icon(Icons.search),
             border: const OutlineInputBorder(),
             suffixIcon: _busqueda.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, size: 16),
+                    icon: const Icon(Icons.clear),
                     onPressed: () {
                       _ctrl.clear();
-                      setState(() => _busqueda = '');
+
+                      setState(() {
+                        _busqueda = '';
+                      });
                     },
                   )
                 : null,
           ),
-          onChanged: (v) => setState(() => _busqueda = v),
+          onChanged: (v) {
+            setState(() {
+              _busqueda = v;
+            });
+          },
         ),
+
         const SizedBox(height: 8),
 
-        // Lista plana
         Container(
+          constraints: const BoxConstraints(maxHeight: 260),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(8),
           ),
-          constraints: const BoxConstraints(maxHeight: 260),
           child: filtradas.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(16),
-                  child: Center(
-                    child: Text(
-                      'No hay obras que coincidan',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
+                  child: Center(child: Text('No hay obras que coincidan')),
                 )
               : ListView.builder(
                   shrinkWrap: true,
                   itemCount: filtradas.length,
                   itemBuilder: (context, i) {
                     final o = filtradas[i];
+
                     final sel = widget.seleccionadas.contains(o.id);
+
                     return ListTile(
                       dense: true,
                       leading: Checkbox(
                         value: sel,
                         onChanged: (_) {
                           final nuevas = Set<int>.from(widget.seleccionadas);
+
                           sel ? nuevas.remove(o.id) : nuevas.add(o.id);
+
                           widget.onChanged(nuevas);
                         },
-                        activeColor: const Color(0xFF1565C0),
                       ),
                       title: Text(
                         o.nombre,
                         style: TextStyle(
-                          fontSize: 13,
                           fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
                       onTap: () {
                         final nuevas = Set<int>.from(widget.seleccionadas);
+
                         sel ? nuevas.remove(o.id) : nuevas.add(o.id);
+
                         widget.onChanged(nuevas);
                       },
                     );
@@ -454,7 +542,10 @@ class _ObrasSelectorState extends State<_ObrasSelector> {
   }
 }
 
-// ─── Selector de perfiles con chips de especialidad ───────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Selector perfiles
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _PerfilesSelector extends StatefulWidget {
   final List<Perfil> perfiles;
   final Set<String> seleccionados;
@@ -472,81 +563,8 @@ class _PerfilesSelector extends StatefulWidget {
 
 class _PerfilesSelectorState extends State<_PerfilesSelector> {
   String _busqueda = '';
+
   final _ctrl = TextEditingController();
-  String? _grupoActivo; // null = todos
-
-  static const _grupos = [
-    _GrupoChip(
-      label: 'Postventa',
-      icono: Icons.home_repair_service,
-      color: Color(0xFF7B1FA2),
-      colorFondo: Color(0xFFF3E5F5),
-    ),
-    _GrupoChip(
-      label: 'Electricidad',
-      icono: Icons.bolt,
-      color: Color(0xFFF9A825),
-      colorFondo: Color(0xFFFFF8E1),
-    ),
-    _GrupoChip(
-      label: 'Fontanería',
-      icono: Icons.water_drop,
-      color: Color(0xFF0288D1),
-      colorFondo: Color(0xFFE1F5FE),
-    ),
-  ];
-
-  String _labelEspecialidad(String esp) {
-    switch (esp.toUpperCase()) {
-      case 'ELECTRICIDAD':
-        return 'Electricidad';
-      case 'FONTANERIA':
-      case 'FONTANERÍA':
-        return 'Fontanería';
-      default:
-        return esp.isEmpty ? 'Sin especialidad' : esp;
-    }
-  }
-
-  bool _perteneceGrupo(Perfil p, String grupo) {
-    if (grupo == 'Postventa') return p.postventa;
-    return _labelEspecialidad(p.especialidad) == grupo && !p.postventa;
-  }
-
-  List<Perfil> get _filtrados {
-    var base = [...widget.perfiles]
-      ..sort(
-        (a, b) =>
-            a.apellidos.toLowerCase().compareTo(b.apellidos.toLowerCase()),
-      );
-    if (_grupoActivo != null) {
-      base = base.where((p) => _perteneceGrupo(p, _grupoActivo!)).toList();
-    }
-    if (_busqueda.isNotEmpty) {
-      final q = _busqueda.toLowerCase();
-      base = base
-          .where(
-            (p) =>
-                p.nombre.toLowerCase().contains(q) ||
-                p.apellidos.toLowerCase().contains(q),
-          )
-          .toList();
-    }
-    return base;
-  }
-
-  void _toggleTodos(bool seleccionar) {
-    final visibles = _filtrados.map((p) => p.id).toSet();
-    final nuevos = Set<String>.from(widget.seleccionados);
-    seleccionar ? nuevos.addAll(visibles) : nuevos.removeAll(visibles);
-    widget.onChanged(nuevos);
-  }
-
-  bool get _todosVisiblesSeleccionados {
-    final visibles = _filtrados;
-    if (visibles.isEmpty) return false;
-    return visibles.every((p) => widget.seleccionados.contains(p.id));
-  }
 
   @override
   void dispose() {
@@ -556,237 +574,81 @@ class _PerfilesSelectorState extends State<_PerfilesSelector> {
 
   @override
   Widget build(BuildContext context) {
-    final filtrados = _filtrados;
-    final totalSel = widget.seleccionados.length;
-    final total = widget.perfiles.length;
-    final todasSel = _todosVisiblesSeleccionados;
+    final perfiles = widget.perfiles;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Cabecera ──────────────────────────────────────────────────
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                totalSel == 0
-                    ? 'Operarios (vacío = todos)'
-                    : 'Operarios ($totalSel de $total seleccionados)',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            TextButton.icon(
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              ),
-              onPressed: () => _toggleTodos(!todasSel),
-              icon: Icon(
-                todasSel ? Icons.deselect : Icons.select_all,
-                size: 16,
-              ),
-              label: Text(
-                todasSel ? 'Ninguno' : 'Todos',
-                style: const TextStyle(fontSize: 13),
-              ),
-            ),
-          ],
+        const Text(
+          'Operarios',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
+
         const SizedBox(height: 8),
 
-        // ── Chips de especialidad ─────────────────────────────────────
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              // Chip "Todos"
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: const Text('Todos'),
-                  avatar: const Icon(Icons.group, size: 16),
-                  selected: _grupoActivo == null,
-                  onSelected: (_) => setState(() => _grupoActivo = null),
-                  backgroundColor: Colors.grey.shade100,
-                  selectedColor: Colors.grey.shade300,
-                  checkmarkColor: Colors.black87,
-                  labelStyle: TextStyle(
-                    fontWeight: _grupoActivo == null
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              // Chips por especialidad
-              ..._grupos.map((g) {
-                final activo = _grupoActivo == g.label;
-                final countSel = widget.perfiles
-                    .where(
-                      (p) =>
-                          _perteneceGrupo(p, g.label) &&
-                          widget.seleccionados.contains(p.id),
-                    )
-                    .length;
-                final countTotal = widget.perfiles
-                    .where((p) => _perteneceGrupo(p, g.label))
-                    .length;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    avatar: Icon(
-                      g.icono,
-                      size: 16,
-                      color: activo ? Colors.white : g.color,
-                    ),
-                    label: Text(
-                      countSel > 0
-                          ? '${g.label} ($countSel/$countTotal)'
-                          : g.label,
-                    ),
-                    selected: activo,
-                    onSelected: (_) =>
-                        setState(() => _grupoActivo = activo ? null : g.label),
-                    backgroundColor: g.colorFondo,
-                    selectedColor: g.color,
-                    checkmarkColor: Colors.white,
-                    labelStyle: TextStyle(
-                      color: activo ? Colors.white : g.color,
-                      fontWeight: activo ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 13,
-                    ),
-                    side: BorderSide(
-                      color: activo ? g.color : g.color.withOpacity(0.4),
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // ── Buscador ──────────────────────────────────────────────────
         TextField(
           controller: _ctrl,
-          decoration: InputDecoration(
-            hintText: 'Buscar por nombre o apellidos...',
-            prefixIcon: const Icon(Icons.search, size: 18),
-            isDense: true,
-            border: const OutlineInputBorder(),
-            suffixIcon: _busqueda.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, size: 16),
-                    onPressed: () {
-                      _ctrl.clear();
-                      setState(() => _busqueda = '');
-                    },
-                  )
-                : null,
+          decoration: const InputDecoration(
+            hintText: 'Buscar operario...',
+            prefixIcon: Icon(Icons.search),
+            border: OutlineInputBorder(),
           ),
-          onChanged: (v) => setState(() => _busqueda = v),
+          onChanged: (v) {
+            setState(() {
+              _busqueda = v;
+            });
+          },
         ),
+
         const SizedBox(height: 8),
 
-        // ── Lista plana ───────────────────────────────────────────────
         Container(
+          constraints: const BoxConstraints(maxHeight: 280),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(8),
           ),
-          constraints: const BoxConstraints(maxHeight: 280),
-          child: filtrados.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(
-                    child: Text(
-                      'No hay operarios que coincidan',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: filtrados.length,
-                  itemBuilder: (context, i) {
-                    final p = filtrados[i];
-                    final sel = widget.seleccionados.contains(p.id);
-                    final chipGrupo = _grupos.firstWhere(
-                      (g) => _perteneceGrupo(p, g.label),
-                      orElse: () => const _GrupoChip(
-                        label: 'Otro',
-                        icono: Icons.person,
-                        color: Color(0xFF9E9E9E),
-                        colorFondo: Color(0xFFF5F5F5),
-                      ),
-                    );
-                    return ListTile(
-                      dense: true,
-                      leading: Checkbox(
-                        value: sel,
-                        onChanged: (_) {
-                          final nuevos = Set<String>.from(widget.seleccionados);
-                          sel ? nuevos.remove(p.id) : nuevos.add(p.id);
-                          widget.onChanged(nuevos);
-                        },
-                        activeColor: const Color(0xFF1565C0),
-                      ),
-                      title: Text(
-                        p.nombreApellidoCompleto,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: sel ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: chipGrupo.colorFondo,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: chipGrupo.color.withOpacity(0.4),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              chipGrupo.icono,
-                              size: 11,
-                              color: chipGrupo.color,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              chipGrupo.label,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: chipGrupo.color,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      onTap: () {
-                        final nuevos = Set<String>.from(widget.seleccionados);
-                        sel ? nuevos.remove(p.id) : nuevos.add(p.id);
-                        widget.onChanged(nuevos);
-                      },
-                    );
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: perfiles.length,
+            itemBuilder: (context, i) {
+              final p = perfiles[i];
+
+              final sel = widget.seleccionados.contains(p.id);
+
+              return ListTile(
+                dense: true,
+                leading: Checkbox(
+                  value: sel,
+                  onChanged: (_) {
+                    final nuevos = Set<String>.from(widget.seleccionados);
+
+                    sel ? nuevos.remove(p.id) : nuevos.add(p.id);
+
+                    widget.onChanged(nuevos);
                   },
                 ),
+                title: Text(p.nombreApellidoCompleto),
+                onTap: () {
+                  final nuevos = Set<String>.from(widget.seleccionados);
+
+                  sel ? nuevos.remove(p.id) : nuevos.add(p.id);
+
+                  widget.onChanged(nuevos);
+                },
+              );
+            },
+          ),
         ),
       ],
     );
   }
 }
 
-// ─── Widget de resultado ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Resultado exportación
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _ExportPreview extends ConsumerWidget {
   final _PdfParams params;
 
@@ -799,40 +661,30 @@ class _ExportPreview extends ConsumerWidget {
     return async.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 12),
-              Text('Generando informe...'),
-            ],
-          ),
-        ),
+        child: Center(child: CircularProgressIndicator()),
       ),
+
       error: (e, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
-              const SizedBox(height: 12),
-              Text(
-                'Error al generar el informe:\n$e',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
-              ),
-            ],
-          ),
+          child: Text('Error: $e', style: const TextStyle(color: Colors.red)),
         ),
       ),
+
       data: (bytes) {
         final esZip = params.modo == _ModoExport.zip;
+
+        final esZipOp = params.modo == _ModoExport.zipOperario;
+
         final kb = (bytes.length / 1024).toStringAsFixed(1);
+
         final desde = DateFormat('yyyy-MM-dd').format(params.desde);
+
         final hasta = DateFormat('yyyy-MM-dd').format(params.hasta);
-        final nombre = esZip
+
+        final nombre = esZipOp
+            ? 'partes_por_operario_${desde}_$hasta.zip'
+            : esZip
             ? 'partes_${desde}_$hasta.zip'
             : 'partes_${desde}_$hasta.pdf';
 
@@ -849,55 +701,56 @@ class _ExportPreview extends ConsumerWidget {
               Row(
                 children: [
                   Icon(
-                    esZip ? Icons.folder_zip : Icons.picture_as_pdf,
+                    esZip || esZipOp ? Icons.folder_zip : Icons.picture_as_pdf,
                     color: Colors.green,
-                    size: 20,
                   ),
+
                   const SizedBox(width: 8),
+
                   Expanded(
                     child: Text(
-                      '${esZip ? 'ZIP' : 'PDF'} generado — $kb KB',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                      '${esZipOp
+                          ? 'ZIP por operario'
+                          : esZip
+                          ? 'ZIP por obra'
+                          : 'PDF'} generado — $kb KB',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
+
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1565C0),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
                     ),
                     onPressed: () {
                       ref
                           .read(apiServiceProvider)
                           .guardarPdfLocal(bytes, nombre);
+
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Descargando $nombre...'),
-                          backgroundColor: Colors.green,
-                        ),
+                        SnackBar(content: Text('Descargando $nombre...')),
                       );
                     },
-                    icon: const Icon(Icons.download, size: 16),
+                    icon: const Icon(Icons.download),
                     label: const Text('Descargar'),
                   ),
                 ],
               ),
+
               if (esZip) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'El ZIP contiene un PDF por cada obra seleccionada.\n'
-                  'Dentro de cada PDF las partes se agrupan por especialidad '
-                  '(Electricidad / Fontanería) y por operario en orden cronológico.',
-                  style: TextStyle(fontSize: 12, color: Colors.green.shade700),
+                  'El ZIP contiene un PDF por obra.',
+                  style: TextStyle(color: Colors.green.shade700),
+                ),
+              ],
+
+              if (esZipOp) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'El ZIP contiene un PDF por operario.',
+                  style: TextStyle(color: Colors.green.shade700),
                 ),
               ],
             ],
@@ -908,7 +761,10 @@ class _ExportPreview extends ConsumerWidget {
   }
 }
 
-// ─── Tile de modo de exportación ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Tile modo
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _ModoTile extends StatelessWidget {
   final String label;
   final String subtitulo;
@@ -927,6 +783,7 @@ class _ModoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = seleccionado ? const Color(0xFF1565C0) : Colors.grey.shade400;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -939,17 +796,17 @@ class _ModoTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icono, color: color, size: 22),
+            Icon(icono, color: color),
+
             const SizedBox(height: 6),
+
             Text(
               label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, color: color),
             ),
+
             const SizedBox(height: 2),
+
             Text(
               subtitulo,
               style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
@@ -961,7 +818,10 @@ class _ModoTile extends StatelessWidget {
   }
 }
 
-// ─── Tile de fecha ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Tile fecha
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _FechaTile extends StatelessWidget {
   final String label;
   final DateTime fecha;
@@ -991,7 +851,9 @@ class _FechaTile extends StatelessWidget {
               label,
               style: const TextStyle(fontSize: 11, color: Colors.grey),
             ),
+
             const SizedBox(height: 4),
+
             Row(
               children: [
                 const Icon(
@@ -999,13 +861,12 @@ class _FechaTile extends StatelessWidget {
                   size: 14,
                   color: Color(0xFF1565C0),
                 ),
+
                 const SizedBox(width: 6),
+
                 Text(
                   DateFormat('dd/MM/yyyy').format(fecha),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
               ],
             ),

@@ -524,6 +524,24 @@ class ApiService {
     saveAndLaunchFile(bytes, nombre);
   }
 
+  Future<Uint8List> generarZipPartesPorOperario({
+    required DateTime desde,
+    required DateTime hasta,
+    List<int> obraIds = const [],
+    List<String> perfilIds = const [],
+  }) async {
+    final params = _buildPdfParams(desde, hasta, obraIds, perfilIds);
+    final response = await _dio.get<List<int>>(
+      '/pdf/zip-por-operario',
+      queryParameters: params,
+      options: Options(
+        headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+        responseType: ResponseType.bytes,
+      ),
+    );
+    return Uint8List.fromList(response.data!);
+  }
+
   // ─────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────
