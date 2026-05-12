@@ -379,7 +379,10 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   }
 }
 
+// ─────────────────────────────────────────────
 // Campo de búsqueda
+// ─────────────────────────────────────────────
+
 class _SearchField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
@@ -427,7 +430,10 @@ class _SearchField extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────
 // Resumen semanal
+// ─────────────────────────────────────────────
+
 class _ResumenSemanal extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -591,7 +597,10 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// Lista principal agrupa por día y por operario
+// ─────────────────────────────────────────────
+// Lista principal
+// ─────────────────────────────────────────────
+
 class _ListaPartes extends StatelessWidget {
   final List<ParteTrabajo> partes;
   final bool mostrarResumen;
@@ -625,19 +634,21 @@ class _ListaPartes extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 80),
       children: [
         if (mostrarResumen) _ResumenSemanal(partes: partes),
-        for (final fechaKey in fechasOrdenadas) ...[
+        for (final fechaKey in fechasOrdenadas)
           _DayHeader(
             fecha: DateTime.parse(fechaKey),
             partes: porFecha[fechaKey]!,
             agruparPorOperario: agruparPorOperario,
           ),
-        ],
       ],
     );
   }
 }
 
+// ─────────────────────────────────────────────
 // Cabecera de día
+// ─────────────────────────────────────────────
+
 class _DayHeader extends StatefulWidget {
   final DateTime fecha;
   final List<ParteTrabajo> partes;
@@ -762,7 +773,10 @@ class _DayHeaderState extends State<_DayHeader> {
       partes.map((p) => p.operarioNombreCompleto).toSet().length;
 }
 
+// ─────────────────────────────────────────────
 // Agrupación por operario
+// ─────────────────────────────────────────────
+
 class _GrupoOperarios extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -787,7 +801,10 @@ class _GrupoOperarios extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────
 // Fila de operario
+// ─────────────────────────────────────────────
+
 class _FilaOperario extends StatefulWidget {
   final String nombre;
   final List<ParteTrabajo> partes;
@@ -922,7 +939,10 @@ class _FilaOperarioState extends State<_FilaOperario> {
   }
 }
 
+// ─────────────────────────────────────────────
 // Lista de cards sin agrupación
+// ─────────────────────────────────────────────
+
 class _ListaCards extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -943,7 +963,10 @@ class _ListaCards extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────
 // Card de parte individual
+// ─────────────────────────────────────────────
+
 class _CardParte extends ConsumerWidget {
   final ParteTrabajo parte;
 
@@ -1063,6 +1086,34 @@ class _CardParte extends ConsumerWidget {
               _fmtDMY(parte.fecha),
               style: const TextStyle(fontSize: 12, color: _textSecondary),
             ),
+            if ((parte.firmaUrl != null && parte.firmaUrl!.isNotEmpty) ||
+                (parte.nombreFirma != null && parte.nombreFirma!.isNotEmpty)) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: _greenPill,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.draw_outlined, size: 9, color: _greenOk),
+                    const SizedBox(width: 3),
+                    Text(
+                      parte.nombreFirma != null && parte.nombreFirma!.isNotEmpty
+                          ? parte.nombreFirma!
+                          : 'FIRMADO',
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: _greenOk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         trailing: Column(
@@ -1094,6 +1145,7 @@ class _CardParte extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ── Descripción ──
                 const Text(
                   'Descripción',
                   style: TextStyle(
@@ -1113,6 +1165,107 @@ class _CardParte extends ConsumerWidget {
                     height: 1.5,
                   ),
                 ),
+
+                // ── Firma ──
+                if ((parte.firmaUrl != null && parte.firmaUrl!.isNotEmpty) ||
+                    (parte.nombreFirma != null && parte.nombreFirma!.isNotEmpty)) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text(
+                        'Firma del cliente',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _textSecondary,
+                        ),
+                      ),
+                      if (parte.nombreFirma != null &&
+                          parte.nombreFirma!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _greenPill,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.person_outline,
+                                size: 11,
+                                color: _greenOk,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                parte.nombreFirma!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: _greenOk,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      parte.firmaUrl!,
+                      height: 120,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerLeft,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: _bgStat,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _blue,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 48,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _redPill,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.broken_image_outlined,
+                              size: 16,
+                              color: _redAlert,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'No se pudo cargar la firma',
+                              style: TextStyle(fontSize: 12, color: _redAlert),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+
+                // ── Botones editar / eliminar ──
                 if (puedeEditar || puedeEliminar) ...[
                   const SizedBox(height: 12),
                   Row(
@@ -1168,7 +1321,10 @@ class _CardParte extends ConsumerWidget {
   }
 }
 
+// ─────────────────────────────────────────────
 // Chip especialidad
+// ─────────────────────────────────────────────
+
 class _ChipEspecialidad extends StatelessWidget {
   final String especialidad;
   final bool esElec;
@@ -1196,7 +1352,10 @@ class _ChipEspecialidad extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────
 // Vista partes normales
+// ─────────────────────────────────────────────
+
 class _PartesNormalesView extends ConsumerWidget {
   final bool agruparPorOperario;
 
@@ -1224,7 +1383,10 @@ class _PartesNormalesView extends ConsumerWidget {
   }
 }
 
+// ─────────────────────────────────────────────
 // Vista partes jefe de obra
+// ─────────────────────────────────────────────
+
 class _PartesJefeView extends ConsumerWidget {
   const _PartesJefeView();
 
@@ -1256,7 +1418,10 @@ class _PartesJefeView extends ConsumerWidget {
   }
 }
 
+// ─────────────────────────────────────────────
 // Card jefe de obra
+// ─────────────────────────────────────────────
+
 class _CardParteJefe extends StatelessWidget {
   final dynamic parte;
 

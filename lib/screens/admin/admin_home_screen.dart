@@ -2,74 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../models/ausencia_info.dart';
+import '../../providers/admin_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
-
-// ─────────────────────────────────────────────
-// Modelos
-// ─────────────────────────────────────────────
-
-class DiaIncompleto {
-  final String fecha;
-  final String horas;
-
-  const DiaIncompleto({required this.fecha, required this.horas});
-}
-
-class AusenciaInfo {
-  final String perfilId;
-  final String nombre;
-  final List<String> diasSin;
-  final List<DiaIncompleto> diasIncompletos;
-  final int totalLaborables;
-
-  const AusenciaInfo({
-    required this.perfilId,
-    required this.nombre,
-    required this.diasSin,
-    required this.diasIncompletos,
-    required this.totalLaborables,
-  });
-
-  int get totalIncidencias => diasSin.length + diasIncompletos.length;
-}
-
-// ─────────────────────────────────────────────
-// Provider
-// ─────────────────────────────────────────────
-
-final diasSinParteProvider =
-    FutureProvider.autoDispose<Map<String, AusenciaInfo>>((ref) async {
-      final api = ApiService();
-      final raw = await api.getDiasSinParte();
-
-      return raw.map((uuid, value) {
-        final info = value as Map<String, dynamic>;
-
-        final diasSin = (info['diasSin'] as List)
-            .map((e) => e.toString())
-            .toList();
-
-        final diasIncompletos = (info['diasIncompletos'] as List).map((e) {
-          final m = e as Map<String, dynamic>;
-          return DiaIncompleto(
-            fecha: m['fecha'] as String,
-            horas: m['horas'] as String,
-          );
-        }).toList();
-
-        return MapEntry(
-          uuid,
-          AusenciaInfo(
-            perfilId: uuid,
-            nombre: info['nombre'] as String,
-            diasSin: diasSin,
-            diasIncompletos: diasIncompletos,
-            totalLaborables: info['totalLaborables'] as int,
-          ),
-        );
-      });
-    });
 
 // ─────────────────────────────────────────────
 // Screen

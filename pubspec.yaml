@@ -2,7 +2,7 @@ name: gestion_partes
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.9+1
+version: 1.0.10+1
 
 environment:
   sdk: ^3.11.3
@@ -23,6 +23,7 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_dotenv: ^5.1.0 
   package_info_plus: ^8.0.0
+  signature: ^5.4.0
 
 
 dev_dependencies:

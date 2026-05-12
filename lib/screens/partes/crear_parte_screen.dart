@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:signature/signature.dart';
 import '../../providers/partes_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
@@ -46,6 +48,178 @@ class CrearParteScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────
+// Widget reutilizable de firma
+// ─────────────────────────────────────────────
+
+class _SeccionFirma extends StatefulWidget {
+  final void Function(String? base64, String? nombreFirma) onFirmaChanged;
+
+  const _SeccionFirma({required this.onFirmaChanged});
+
+  @override
+  State<_SeccionFirma> createState() => _SeccionFirmaState();
+}
+
+class _SeccionFirmaState extends State<_SeccionFirma> {
+  late final SignatureController _controller;
+  final _nombreCtrl = TextEditingController();
+  bool _firmado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = SignatureController(
+      penStrokeWidth: 2,
+      penColor: Colors.black,
+      exportBackgroundColor: Colors.white,
+    );
+    _controller.addListener(() {
+      if (_controller.isNotEmpty && !_firmado) {
+        setState(() => _firmado = true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _nombreCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmarFirma() async {
+    final bytes = await _controller.toPngBytes();
+    if (bytes == null) return;
+    final base64Str = 'data:image/png;base64,${base64Encode(bytes)}';
+    final nombre = _nombreCtrl.text.trim().isEmpty
+        ? null
+        : _nombreCtrl.text.trim();
+    widget.onFirmaChanged(base64Str, nombre);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Firma guardada'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _limpiarFirma() {
+    _controller.clear();
+    _nombreCtrl.clear();
+    setState(() => _firmado = false);
+    widget.onFirmaChanged(null, null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Firma del cliente',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Opcional',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'El cliente puede firmar aquí para confirmar la realización del trabajo',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Nombre del firmante ──────────────────────────────
+        TextField(
+          controller: _nombreCtrl,
+          decoration: InputDecoration(
+            hintText: 'Nombre del firmante (opcional)',
+            prefixIcon: const Icon(Icons.person_outline, size: 18),
+            isDense: true,
+            border: const OutlineInputBorder(),
+            suffixIcon: _nombreCtrl.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () {
+                      _nombreCtrl.clear();
+                      setState(() {});
+                    },
+                  )
+                : null,
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Pad de firma ─────────────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Signature(
+              controller: _controller,
+              height: 160,
+              backgroundColor: Colors.grey.shade50,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Firmar con el dedo en el recuadro',
+          style: TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.clear, size: 18),
+                label: const Text('Limpiar'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey[700],
+                ),
+                onPressed: _limpiarFirma,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.check, size: 18),
+                label: const Text('Confirmar firma'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green[700],
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: _firmado ? _confirmarFirma : null,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
 
@@ -66,7 +240,9 @@ List<Perfil> _ordenarPerfiles(List<Perfil> perfiles) =>
       ).compareTo(_normalizarApellido(b.apellidos)),
     );
 
+// ─────────────────────────────────────────────
 // Formulario OPERARIO / ENCARGADO
+// ─────────────────────────────────────────────
 
 class _FormularioParteNormal extends ConsumerStatefulWidget {
   const _FormularioParteNormal({
@@ -96,6 +272,8 @@ class _FormularioParteNormalState
   Perfil? _perfilOperarioSeleccionado;
   String? _especialidad;
   bool _enviando = false;
+  String? _firmaBase64;
+  String? _nombreFirma;
 
   List<Perfil> _perfilesOrdenados = [];
   List<DateTime> _fechasConParte = [];
@@ -105,19 +283,14 @@ class _FormularioParteNormalState
   @override
   void initState() {
     super.initState();
-
-    // Aplicar preselección si viene del panel de admin
     _fecha = widget.fechaPreseleccionada ?? DateTime.now();
-
     if (widget.perfilIdPreseleccionado != null) {
       _idPerfilSeleccionado = widget.perfilIdPreseleccionado;
       _cargarFechasDeOperario(widget.perfilIdPreseleccionado!);
     } else {
       _cargarMisFechas();
     }
-
     _cargarFechasPermitidas();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.listenManual(perfilesProvider, (_, next) {
         next.whenData((perfiles) {
@@ -125,7 +298,6 @@ class _FormularioParteNormalState
             final ordenados = _ordenarPerfiles(perfiles);
             setState(() {
               _perfilesOrdenados = ordenados;
-              // Setear el objeto Perfil completo si viene preseleccionado
               if (widget.perfilIdPreseleccionado != null &&
                   _perfilOperarioSeleccionado == null) {
                 _perfilOperarioSeleccionado = ordenados
@@ -331,7 +503,6 @@ class _FormularioParteNormalState
                           hintText: 'Toca para buscar...',
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.person_search),
-                          // Badge "preseleccionado" si viene del panel de admin
                           suffixIcon: seleccionado != null
                               ? Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -493,7 +664,7 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 25),
 
-              // ── Especialidad (solo si el operario seleccionado es postventa) ──
+              // ── Especialidad (solo gestor con operario postventa) ──
               if (esGestor && operarioEsPostventa) ...[
                 const Text(
                   'Especialidad',
@@ -542,6 +713,17 @@ class _FormularioParteNormalState
                 ),
                 validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
                 onChanged: (v) => _descripcion = v,
+              ),
+              const SizedBox(height: 30),
+
+              // ── Firma del cliente (opcional) ──
+              const Divider(),
+              const SizedBox(height: 16),
+              _SeccionFirma(
+                onFirmaChanged: (base64, nombre) => setState(() {
+                  _firmaBase64 = base64;
+                  _nombreFirma = nombre;
+                }),
               ),
               const SizedBox(height: 30),
 
@@ -609,6 +791,8 @@ class _FormularioParteNormalState
       'horas_normales': _horasNormales,
       'descripcion': _descripcion,
       if (especialidad != null) 'especialidad': especialidad,
+      if (_firmaBase64 != null) 'firma_base64': _firmaBase64,
+      if (_nombreFirma != null) 'nombre_firmado': _nombreFirma,
     };
 
     try {
@@ -700,6 +884,8 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   String? _idPerfilSeleccionado;
   Perfil? _perfilOperarioSeleccionado;
   bool _enviando = false;
+  String? _firmaBase64;
+  String? _nombreFirma;
 
   List<Perfil> _perfilesOrdenados = [];
   List<DateTime> _fechasConParte = [];
@@ -709,18 +895,14 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   @override
   void initState() {
     super.initState();
-
     _fecha = widget.fechaPreseleccionada ?? DateTime.now();
-
     if (widget.perfilIdPreseleccionado != null) {
       _idPerfilSeleccionado = widget.perfilIdPreseleccionado;
       _cargarFechasDeOperario(widget.perfilIdPreseleccionado!);
     } else {
       _cargarMisFechas();
     }
-
     _cargarFechasPermitidas();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.listenManual(perfilesProvider, (_, next) {
         next.whenData((perfiles) {
@@ -890,7 +1072,6 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
     final obrasAsync = ref.watch(obrasActivasProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
-
     final seleccionado = _perfilesOrdenados
         .where((p) => p.id == _idPerfilSeleccionado)
         .firstOrNull;
@@ -912,7 +1093,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Selector de operario (solo admin/gestión) ──
+              // ── Selector de operario ──
               if (esGestor) ...[
                 const Text(
                   'Operario',
@@ -1091,7 +1272,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
               ),
               const SizedBox(height: 25),
 
-              // ── Especialidad (operario propio, no gestor) ──
+              // ── Especialidad (operario no gestor) ──
               if (!esGestor) ...[
                 const Text(
                   'Especialidad',
@@ -1126,7 +1307,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                 const SizedBox(height: 25),
               ],
 
-              // ── Especialidad del operario (gestor con operario seleccionado) ──
+              // ── Especialidad (gestor con operario seleccionado) ──
               if (esGestor && _perfilOperarioSeleccionado != null) ...[
                 const Text(
                   'Especialidad',
@@ -1187,6 +1368,17 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
               ),
               const SizedBox(height: 30),
 
+              // ── Firma del cliente (opcional) ──
+              const Divider(),
+              const SizedBox(height: 16),
+              _SeccionFirma(
+                onFirmaChanged: (base64, nombre) => setState(() {
+                  _firmaBase64 = base64;
+                  _nombreFirma = nombre;
+                }),
+              ),
+              const SizedBox(height: 30),
+
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -1236,6 +1428,8 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
       'descripcion': _descripcion,
       'es_post_venta': true,
       if (especialidadFinal != null) 'especialidad': especialidadFinal,
+      if (_firmaBase64 != null) 'firma_base64': _firmaBase64,
+      if (_nombreFirma != null) 'nombre_firmado': _nombreFirma,
     };
 
     try {

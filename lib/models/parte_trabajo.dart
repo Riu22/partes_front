@@ -10,6 +10,8 @@ class ParteTrabajo {
   final String? especialidad;
   final String? operarioId;
   final bool creadoPorGestor;
+  final String? firmaUrl;
+  final String? nombreFirma; // ← nuevo
 
   ParteTrabajo({
     required this.id,
@@ -23,6 +25,8 @@ class ParteTrabajo {
     this.especialidad,
     this.operarioId,
     this.creadoPorGestor = false,
+    this.firmaUrl,
+    this.nombreFirma,
   });
 
   String get operarioNombreCompleto {
@@ -45,6 +49,8 @@ class ParteTrabajo {
     operarioId: json['perfil']?['id'],
     creadoPorGestor:
         json['creado_por_gestor'] == true || json['creado_por_gestor'] == 1,
+    firmaUrl: json['firma_url'],
+    nombreFirma: json['nombre_firmado'],
   );
 
   bool get puedeEditarse {
@@ -54,7 +60,6 @@ class ParteTrabajo {
         fecha.day == hoy.day;
   }
 
-  // Nuevo: también permite editar si la fecha está habilitada por el gestor
   bool puedeEditarseConFechas(List<DateTime> fechasPermitidas) {
     if (puedeEditarse) return true;
     return fechasPermitidas.any(
