@@ -225,11 +225,11 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
       case 'GESTION':
         return Colors.blue;
       case 'JEFE_DE_OBRA':
-        return Colors.teal;
+        return Colors.red;
       case 'ENCARGADO':
-        return Colors.orange;
+        return Colors.green;
       default:
-        return Colors.blueGrey;
+        return Colors.grey;
     }
   }
 
