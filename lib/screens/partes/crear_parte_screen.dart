@@ -12,7 +12,16 @@ import '../../providers/perfiles_provider.dart';
 import '../../models/perfil.dart';
 
 class CrearParteScreen extends ConsumerWidget {
-  const CrearParteScreen({super.key});
+  const CrearParteScreen({
+    super.key,
+    this.perfilIdPreseleccionado,
+    this.nombrePreseleccionado,
+    this.fechaPreseleccionada,
+  });
+
+  final String? perfilIdPreseleccionado;
+  final String? nombrePreseleccionado;
+  final DateTime? fechaPreseleccionada;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,12 +31,24 @@ class CrearParteScreen extends ConsumerWidget {
     }
 
     if (perfil.esJefeObra) return const _FormularioParteJefe();
-    if (perfil.postventa) return const _FormularioPostVenta();
-    return const _FormularioParteNormal();
+    if (perfil.postventa)
+      return _FormularioPostVenta(
+        perfilIdPreseleccionado: perfilIdPreseleccionado,
+        nombrePreseleccionado: nombrePreseleccionado,
+        fechaPreseleccionada: fechaPreseleccionada,
+      );
+    return _FormularioParteNormal(
+      perfilIdPreseleccionado: perfilIdPreseleccionado,
+      nombrePreseleccionado: nombrePreseleccionado,
+      fechaPreseleccionada: fechaPreseleccionada,
+    );
   }
 }
 
+// ─────────────────────────────────────────────
 // Helpers
+// ─────────────────────────────────────────────
+
 String _normalizarApellido(String s) => s
     .toLowerCase()
     .replaceAll('á', 'a')
@@ -46,8 +67,18 @@ List<Perfil> _ordenarPerfiles(List<Perfil> perfiles) =>
     );
 
 // Formulario OPERARIO / ENCARGADO
+
 class _FormularioParteNormal extends ConsumerStatefulWidget {
-  const _FormularioParteNormal();
+  const _FormularioParteNormal({
+    this.perfilIdPreseleccionado,
+    this.nombrePreseleccionado,
+    this.fechaPreseleccionada,
+  });
+
+  final String? perfilIdPreseleccionado;
+  final String? nombrePreseleccionado;
+  final DateTime? fechaPreseleccionada;
+
   @override
   ConsumerState<_FormularioParteNormal> createState() =>
       _FormularioParteNormalState();
@@ -57,7 +88,7 @@ class _FormularioParteNormalState
     extends ConsumerState<_FormularioParteNormal> {
   final _formKey = GlobalKey<FormState>();
   final _obraSearchCtrl = TextEditingController();
-  DateTime _fecha = DateTime.now();
+  late DateTime _fecha;
   double _horasNormales = 0;
   String _descripcion = '';
   int? _idObraSeleccionada;
@@ -74,13 +105,34 @@ class _FormularioParteNormalState
   @override
   void initState() {
     super.initState();
-    _cargarMisFechas();
+
+    // Aplicar preselección si viene del panel de admin
+    _fecha = widget.fechaPreseleccionada ?? DateTime.now();
+
+    if (widget.perfilIdPreseleccionado != null) {
+      _idPerfilSeleccionado = widget.perfilIdPreseleccionado;
+      _cargarFechasDeOperario(widget.perfilIdPreseleccionado!);
+    } else {
+      _cargarMisFechas();
+    }
+
     _cargarFechasPermitidas();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.listenManual(perfilesProvider, (_, next) {
         next.whenData((perfiles) {
           if (mounted) {
-            setState(() => _perfilesOrdenados = _ordenarPerfiles(perfiles));
+            final ordenados = _ordenarPerfiles(perfiles);
+            setState(() {
+              _perfilesOrdenados = ordenados;
+              // Setear el objeto Perfil completo si viene preseleccionado
+              if (widget.perfilIdPreseleccionado != null &&
+                  _perfilOperarioSeleccionado == null) {
+                _perfilOperarioSeleccionado = ordenados
+                    .where((p) => p.id == widget.perfilIdPreseleccionado)
+                    .firstOrNull;
+              }
+            });
           }
         });
       }, fireImmediately: true);
@@ -142,7 +194,7 @@ class _FormularioParteNormalState
 
   Future<void> _pickDate(bool esGestor) async {
     final ahora = DateTime.now();
-    DateTime initialDate = ahora;
+    DateTime initialDate = _fecha;
     DateTime firstDate = DateTime(2020);
     DateTime lastDate = DateTime.now().add(const Duration(days: 365));
 
@@ -158,7 +210,7 @@ class _FormularioParteNormalState
         lastDate = maxPermitida;
     }
 
-    if (!_predicate(ahora, esGestor)) {
+    if (!esGestor && !_predicate(initialDate, esGestor)) {
       DateTime? mejorFecha;
       for (int i = 1; i <= 60; i++) {
         final futuro = ahora.add(Duration(days: i));
@@ -241,7 +293,6 @@ class _FormularioParteNormalState
         .where((p) => p.id == _idPerfilSeleccionado)
         .firstOrNull;
 
-    // Determina si el operario seleccionado es de postventa
     final operarioEsPostventa = _perfilOperarioSeleccionado?.postventa == true;
 
     return Scaffold(
@@ -261,7 +312,7 @@ class _FormularioParteNormalState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              //Selector de operario solo admin/gestión
+              // ── Selector de operario (solo admin/gestión) ──
               if (esGestor) ...[
                 const Text(
                   'Operario',
@@ -275,19 +326,45 @@ class _FormularioParteNormalState
                         decoration: InputDecoration(
                           labelText:
                               seleccionado?.nombreApellidoCompleto ??
+                              widget.nombrePreseleccionado ??
                               'Seleccionar operario',
                           hintText: 'Toca para buscar...',
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.person_search),
+                          // Badge "preseleccionado" si viene del panel de admin
                           suffixIcon: seleccionado != null
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () => setState(() {
-                                    _idPerfilSeleccionado = null;
-                                    _perfilOperarioSeleccionado = null;
-                                    _fechasConParte = [];
-                                    _especialidad = null;
-                                  }),
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (widget.perfilIdPreseleccionado !=
+                                            null &&
+                                        seleccionado.id ==
+                                            widget.perfilIdPreseleccionado)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 4,
+                                        ),
+                                        child: Chip(
+                                          label: const Text('Admin'),
+                                          labelStyle: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white,
+                                          ),
+                                          backgroundColor: Colors.orange[800],
+                                          padding: EdgeInsets.zero,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                      ),
+                                    IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () => setState(() {
+                                        _idPerfilSeleccionado = null;
+                                        _perfilOperarioSeleccionado = null;
+                                        _fechasConParte = [];
+                                        _especialidad = null;
+                                      }),
+                                    ),
+                                  ],
                                 )
                               : null,
                         ),
@@ -299,7 +376,7 @@ class _FormularioParteNormalState
                 const SizedBox(height: 20),
               ],
 
-              // Fecha
+              // ── Fecha ──
               const Text(
                 'Fecha',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -327,7 +404,12 @@ class _FormularioParteNormalState
               else
                 ListTile(
                   shape: RoundedRectangleBorder(
-                    side: BorderSide(color: Colors.orange.shade300),
+                    side: BorderSide(
+                      color: widget.fechaPreseleccionada != null
+                          ? Colors.orange.shade700
+                          : Colors.orange.shade300,
+                      width: widget.fechaPreseleccionada != null ? 2 : 1,
+                    ),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   leading: _cargandoFechas
@@ -344,12 +426,16 @@ class _FormularioParteNormalState
                   subtitle: Text(
                     _cargandoFechas
                         ? 'Cargando días disponibles...'
+                        : widget.fechaPreseleccionada != null
+                        ? 'Fecha preseleccionada desde el panel'
                         : _fechasPermitidas.isNotEmpty
                         ? 'Tienes ${_fechasPermitidas.length} día(s) extra habilitados'
                         : 'No tienes días disponibles',
                     style: TextStyle(
                       fontSize: 11,
-                      color: _fechasPermitidas.isNotEmpty
+                      color: widget.fechaPreseleccionada != null
+                          ? Colors.orange[800]
+                          : _fechasPermitidas.isNotEmpty
                           ? Colors.green[700]
                           : Colors.orange[700],
                     ),
@@ -358,7 +444,7 @@ class _FormularioParteNormalState
                 ),
               const SizedBox(height: 20),
 
-              // Obra
+              // ── Obra ──
               const Text(
                 'Obra',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -407,7 +493,7 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 25),
 
-              // ── Especialidad solo si el operario seleccionado es postventa ──
+              // ── Especialidad (solo si el operario seleccionado es postventa) ──
               if (esGestor && operarioEsPostventa) ...[
                 const Text(
                   'Especialidad',
@@ -492,9 +578,6 @@ class _FormularioParteNormalState
     if (perfil == null) return;
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
-
-    //  si el operario es postventa, se usa la especialidad
-    // seleccionada manualmente; si no, se usa la del perfil del operario
     final operarioEsPostventa = _perfilOperarioSeleccionado?.postventa == true;
 
     if (esGestor && operarioEsPostventa && _especialidad == null) {
@@ -586,9 +669,21 @@ class _FormularioParteNormalState
   }
 }
 
+// ─────────────────────────────────────────────
 // Formulario POST VENTA
+// ─────────────────────────────────────────────
+
 class _FormularioPostVenta extends ConsumerStatefulWidget {
-  const _FormularioPostVenta();
+  const _FormularioPostVenta({
+    this.perfilIdPreseleccionado,
+    this.nombrePreseleccionado,
+    this.fechaPreseleccionada,
+  });
+
+  final String? perfilIdPreseleccionado;
+  final String? nombrePreseleccionado;
+  final DateTime? fechaPreseleccionada;
+
   @override
   ConsumerState<_FormularioPostVenta> createState() =>
       _FormularioPostVentaState();
@@ -597,7 +692,7 @@ class _FormularioPostVenta extends ConsumerStatefulWidget {
 class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   final _formKey = GlobalKey<FormState>();
   final _obraSearchCtrl = TextEditingController();
-  DateTime _fecha = DateTime.now();
+  late DateTime _fecha;
   double _horasNormales = 0;
   String _descripcion = '';
   int? _idObraSeleccionada;
@@ -614,13 +709,32 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   @override
   void initState() {
     super.initState();
-    _cargarMisFechas();
+
+    _fecha = widget.fechaPreseleccionada ?? DateTime.now();
+
+    if (widget.perfilIdPreseleccionado != null) {
+      _idPerfilSeleccionado = widget.perfilIdPreseleccionado;
+      _cargarFechasDeOperario(widget.perfilIdPreseleccionado!);
+    } else {
+      _cargarMisFechas();
+    }
+
     _cargarFechasPermitidas();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.listenManual(perfilesProvider, (_, next) {
         next.whenData((perfiles) {
           if (mounted) {
-            setState(() => _perfilesOrdenados = _ordenarPerfiles(perfiles));
+            final ordenados = _ordenarPerfiles(perfiles);
+            setState(() {
+              _perfilesOrdenados = ordenados;
+              if (widget.perfilIdPreseleccionado != null &&
+                  _perfilOperarioSeleccionado == null) {
+                _perfilOperarioSeleccionado = ordenados
+                    .where((p) => p.id == widget.perfilIdPreseleccionado)
+                    .firstOrNull;
+              }
+            });
           }
         });
       }, fireImmediately: true);
@@ -682,7 +796,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
 
   Future<void> _pickDate(bool esGestor) async {
     final ahora = DateTime.now();
-    DateTime initialDate = ahora;
+    DateTime initialDate = _fecha;
     DateTime firstDate = DateTime(2020);
     DateTime lastDate = DateTime.now().add(const Duration(days: 365));
 
@@ -698,7 +812,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
         lastDate = maxPermitida;
     }
 
-    if (!_predicate(ahora, esGestor)) {
+    if (!esGestor && !_predicate(initialDate, esGestor)) {
       DateTime? mejorFecha;
       for (int i = 1; i <= 60; i++) {
         final futuro = ahora.add(Duration(days: i));
@@ -812,18 +926,43 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                         decoration: InputDecoration(
                           labelText:
                               seleccionado?.nombreApellidoCompleto ??
+                              widget.nombrePreseleccionado ??
                               'Seleccionar operario',
                           hintText: 'Toca para buscar...',
                           border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.person_search),
                           suffixIcon: seleccionado != null
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 18),
-                                  onPressed: () => setState(() {
-                                    _idPerfilSeleccionado = null;
-                                    _perfilOperarioSeleccionado = null;
-                                    _fechasConParte = [];
-                                  }),
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (widget.perfilIdPreseleccionado !=
+                                            null &&
+                                        seleccionado.id ==
+                                            widget.perfilIdPreseleccionado)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 4,
+                                        ),
+                                        child: Chip(
+                                          label: const Text('Admin'),
+                                          labelStyle: const TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white,
+                                          ),
+                                          backgroundColor: Colors.purple[700],
+                                          padding: EdgeInsets.zero,
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                      ),
+                                    IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () => setState(() {
+                                        _idPerfilSeleccionado = null;
+                                        _perfilOperarioSeleccionado = null;
+                                        _fechasConParte = [];
+                                      }),
+                                    ),
+                                  ],
                                 )
                               : null,
                         ),
@@ -863,7 +1002,12 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
               else
                 ListTile(
                   shape: RoundedRectangleBorder(
-                    side: BorderSide(color: Colors.purple.shade300),
+                    side: BorderSide(
+                      color: widget.fechaPreseleccionada != null
+                          ? Colors.purple.shade700
+                          : Colors.purple.shade300,
+                      width: widget.fechaPreseleccionada != null ? 2 : 1,
+                    ),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   leading: _cargandoFechas
@@ -880,12 +1024,16 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                   subtitle: Text(
                     _cargandoFechas
                         ? 'Cargando días disponibles...'
+                        : widget.fechaPreseleccionada != null
+                        ? 'Fecha preseleccionada desde el panel'
                         : _fechasPermitidas.isNotEmpty
                         ? 'Tienes ${_fechasPermitidas.length} día(s) extra habilitados'
                         : 'Los partes son únicamente del dia de hoy',
                     style: TextStyle(
                       fontSize: 11,
-                      color: _fechasPermitidas.isNotEmpty
+                      color: widget.fechaPreseleccionada != null
+                          ? Colors.purple[700]
+                          : _fechasPermitidas.isNotEmpty
                           ? Colors.green[700]
                           : Colors.purple[700],
                     ),
@@ -943,7 +1091,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
               ),
               const SizedBox(height: 25),
 
-              // ── Especialidad ──
+              // ── Especialidad (operario propio, no gestor) ──
               if (!esGestor) ...[
                 const Text(
                   'Especialidad',
@@ -978,6 +1126,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
                 const SizedBox(height: 25),
               ],
 
+              // ── Especialidad del operario (gestor con operario seleccionado) ──
               if (esGestor && _perfilOperarioSeleccionado != null) ...[
                 const Text(
                   'Especialidad',
@@ -1149,9 +1298,13 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   }
 }
 
+// ─────────────────────────────────────────────
 // Formulario JEFE DE OBRA
+// ─────────────────────────────────────────────
+
 class _FormularioParteJefe extends ConsumerStatefulWidget {
   const _FormularioParteJefe();
+
   @override
   ConsumerState<_FormularioParteJefe> createState() =>
       _FormularioParteJefeState();
@@ -1410,9 +1563,10 @@ class _FormularioParteJefeState extends ConsumerState<_FormularioParteJefe> {
   }
 }
 
-// ─────────────────────────────────────────
-// BUSCADOR GENERAL DE OBRAS
-// ─────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Buscador general de obras
+// ─────────────────────────────────────────────
+
 void _abrirBuscadorGeneral(
   BuildContext context,
   List obras,
@@ -1445,11 +1599,13 @@ class _CuerpoBuscador extends StatefulWidget {
   final List obras;
   final Function(dynamic) alSeleccionar;
   final ScrollController scrollController;
+
   const _CuerpoBuscador({
     required this.obras,
     required this.alSeleccionar,
     required this.scrollController,
   });
+
   @override
   State<_CuerpoBuscador> createState() => _CuerpoBuscadorState();
 }
@@ -1538,7 +1694,10 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
   }
 }
 
-// BUSCADOR DE OPERARIOS
+// ─────────────────────────────────────────────
+// Buscador de operarios
+// ─────────────────────────────────────────────
+
 class _CuerpoBuscadorOperarios extends StatefulWidget {
   final List<Perfil> perfiles;
   final Function(Perfil) alSeleccionar;
@@ -1640,7 +1799,10 @@ class _CuerpoBuscadorOperariosState extends State<_CuerpoBuscadorOperarios> {
   }
 }
 
-// BOTÓN ESPECIALIDAD
+// ─────────────────────────────────────────────
+// Botón de especialidad
+// ─────────────────────────────────────────────
+
 class _BotonEspecialidad extends StatelessWidget {
   final String label;
   final IconData icono;

@@ -126,7 +126,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ── Rutas independientes (sin shell / barra inferior) ──
       GoRoute(
         path: '/partes/nuevo',
-        builder: (context, state) => const CrearParteScreen(),
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CrearParteScreen(
+            perfilIdPreseleccionado: extra?['perfilId'] as String?,
+            nombrePreseleccionado: extra?['nombre'] as String?,
+            fechaPreseleccionada: extra?['fecha'] != null
+                ? DateTime.parse(extra!['fecha'] as String)
+                : null,
+          );
+        },
       ),
       GoRoute(
         path: '/partes/editar',

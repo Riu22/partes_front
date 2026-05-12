@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
 
+// ─────────────────────────────────────────────
 // Modelos
+// ─────────────────────────────────────────────
 
 class DiaIncompleto {
   final String fecha;
@@ -14,12 +17,14 @@ class DiaIncompleto {
 }
 
 class AusenciaInfo {
+  final String perfilId;
   final String nombre;
   final List<String> diasSin;
   final List<DiaIncompleto> diasIncompletos;
   final int totalLaborables;
 
   const AusenciaInfo({
+    required this.perfilId,
     required this.nombre,
     required this.diasSin,
     required this.diasIncompletos,
@@ -29,7 +34,9 @@ class AusenciaInfo {
   int get totalIncidencias => diasSin.length + diasIncompletos.length;
 }
 
+// ─────────────────────────────────────────────
 // Provider
+// ─────────────────────────────────────────────
 
 final diasSinParteProvider =
     FutureProvider.autoDispose<Map<String, AusenciaInfo>>((ref) async {
@@ -54,6 +61,7 @@ final diasSinParteProvider =
         return MapEntry(
           uuid,
           AusenciaInfo(
+            perfilId: uuid,
             nombre: info['nombre'] as String,
             diasSin: diasSin,
             diasIncompletos: diasIncompletos,
@@ -63,7 +71,9 @@ final diasSinParteProvider =
       });
     });
 
+// ─────────────────────────────────────────────
 // Screen
+// ─────────────────────────────────────────────
 
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
@@ -77,6 +87,16 @@ class AdminHomeScreen extends ConsumerWidget {
         int.parse(parts[0]),
       );
       return DateFormat('EEE d MMM', 'es').format(dt);
+    } catch (_) {
+      return fecha;
+    }
+  }
+
+  /// Convierte "dd/MM/yyyy" → "yyyy-MM-dd" para pasarlo por la ruta
+  String _fechaParaRuta(String fecha) {
+    try {
+      final parts = fecha.split('/');
+      return '${parts[2]}-${parts[1]}-${parts[0]}';
     } catch (_) {
       return fecha;
     }
@@ -195,6 +215,42 @@ class AdminHomeScreen extends ConsumerWidget {
                     itemBuilder: (context, index) => _AusenciaCard(
                       ausencia: lista[index],
                       formatFecha: _formatFecha,
+                      onHabilitarFecha: (perfilId, fecha) async {
+                        final dt = DateTime.parse(_fechaParaRuta(fecha));
+                        try {
+                          await ApiService().habilitarFechas(perfilId, [dt]);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Fecha $fecha habilitada correctamente',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            ref.invalidate(diasSinParteProvider);
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      onCrearParte: (perfilId, nombre, fecha) {
+                        context.go(
+                          '/partes/nuevo',
+                          extra: {
+                            'perfilId': perfilId,
+                            'nombre': nombre,
+                            'fecha': _fechaParaRuta(fecha),
+                          },
+                        );
+                      },
                     ),
                   ),
                 );
@@ -295,16 +351,37 @@ class _ResumenCard extends StatelessWidget {
 // Tarjeta por persona
 // ─────────────────────────────────────────────
 
-class _AusenciaCard extends StatelessWidget {
-  const _AusenciaCard({required this.ausencia, required this.formatFecha});
+class _AusenciaCard extends StatefulWidget {
+  const _AusenciaCard({
+    required this.ausencia,
+    required this.formatFecha,
+    required this.onHabilitarFecha,
+    required this.onCrearParte,
+  });
 
   final AusenciaInfo ausencia;
   final String Function(String) formatFecha;
+  final Future<void> Function(String perfilId, String fecha) onHabilitarFecha;
+  final void Function(String perfilId, String nombre, String fecha)
+  onCrearParte;
+
+  @override
+  State<_AusenciaCard> createState() => _AusenciaCardState();
+}
+
+class _AusenciaCardState extends State<_AusenciaCard> {
+  String? _fechaActiva;
+  bool _habilitando = false;
+
+  void _toggleFecha(String fecha) {
+    setState(() => _fechaActiva = _fechaActiva == fecha ? null : fecha);
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final ausencia = widget.ausencia;
     final nombre = ausencia.nombre;
 
     return Card(
@@ -316,7 +393,7 @@ class _AusenciaCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabecera
+            // ── Cabecera ──
             Row(
               children: [
                 CircleAvatar(
@@ -361,7 +438,7 @@ class _AusenciaCard extends StatelessWidget {
               ],
             ),
 
-            // Sección: días sin parte
+            // ── Días sin parte ──
             if (ausencia.diasSin.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
@@ -373,19 +450,35 @@ class _AusenciaCard extends StatelessWidget {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: ausencia.diasSin
-                    .map(
-                      (fecha) => _FechaChip(
-                        label: formatFecha(fecha),
-                        backgroundColor: colorScheme.errorContainer,
-                        foregroundColor: colorScheme.onErrorContainer,
-                      ),
-                    )
-                    .toList(),
+                children: ausencia.diasSin.map((fecha) {
+                  final activa = _fechaActiva == fecha;
+                  return _ChipConAcciones(
+                    label: widget.formatFecha(fecha),
+                    activa: activa,
+                    habilitando: activa && _habilitando,
+                    chipColor: colorScheme.errorContainer,
+                    chipTextColor: colorScheme.onErrorContainer,
+                    onTap: () => _toggleFecha(fecha),
+                    onHabilitar: () async {
+                      setState(() => _habilitando = true);
+                      await widget.onHabilitarFecha(ausencia.perfilId, fecha);
+                      if (mounted) {
+                        setState(() {
+                          _habilitando = false;
+                          _fechaActiva = null;
+                        });
+                      }
+                    },
+                    onCrearParte: () {
+                      setState(() => _fechaActiva = null);
+                      widget.onCrearParte(ausencia.perfilId, nombre, fecha);
+                    },
+                  );
+                }).toList(),
               ),
             ],
 
-            // Sección: días incompletos
+            // ── Días incompletos ──
             if (ausencia.diasIncompletos.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
@@ -397,15 +490,31 @@ class _AusenciaCard extends StatelessWidget {
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
-                children: ausencia.diasIncompletos
-                    .map(
-                      (d) => _FechaChip(
-                        label: '${formatFecha(d.fecha)} · ${d.horas}h',
-                        backgroundColor: colorScheme.tertiaryContainer,
-                        foregroundColor: colorScheme.onTertiaryContainer,
-                      ),
-                    )
-                    .toList(),
+                children: ausencia.diasIncompletos.map((d) {
+                  final activa = _fechaActiva == d.fecha;
+                  return _ChipConAcciones(
+                    label: '${widget.formatFecha(d.fecha)} · ${d.horas}h',
+                    activa: activa,
+                    habilitando: activa && _habilitando,
+                    chipColor: colorScheme.tertiaryContainer,
+                    chipTextColor: colorScheme.onTertiaryContainer,
+                    onTap: () => _toggleFecha(d.fecha),
+                    onHabilitar: () async {
+                      setState(() => _habilitando = true);
+                      await widget.onHabilitarFecha(ausencia.perfilId, d.fecha);
+                      if (mounted) {
+                        setState(() {
+                          _habilitando = false;
+                          _fechaActiva = null;
+                        });
+                      }
+                    },
+                    onCrearParte: () {
+                      setState(() => _fechaActiva = null);
+                      widget.onCrearParte(ausencia.perfilId, nombre, d.fecha);
+                    },
+                  );
+                }).toList(),
               ),
             ],
           ],
@@ -415,7 +524,181 @@ class _AusenciaCard extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────
+// Chip con menú de acciones inline
+// ─────────────────────────────────────────────
+
+class _ChipConAcciones extends StatelessWidget {
+  const _ChipConAcciones({
+    required this.label,
+    required this.activa,
+    required this.habilitando,
+    required this.chipColor,
+    required this.chipTextColor,
+    required this.onTap,
+    required this.onHabilitar,
+    required this.onCrearParte,
+  });
+
+  final String label;
+  final bool activa;
+  final bool habilitando;
+  final Color chipColor;
+  final Color chipTextColor;
+  final VoidCallback onTap;
+  final VoidCallback onHabilitar;
+  final VoidCallback onCrearParte;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // El chip
+        GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: activa ? colorScheme.inverseSurface : chipColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: activa
+                        ? colorScheme.onInverseSurface
+                        : chipTextColor,
+                    fontWeight: activa ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  activa
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: activa ? colorScheme.onInverseSurface : chipTextColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Menú inline expandible con AnimatedSize
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeInOut,
+          child: activa
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    child: IntrinsicWidth(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Opción: Habilitar día
+                          InkWell(
+                            onTap: habilitando ? null : onHabilitar,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(10),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (habilitando)
+                                    SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: colorScheme.primary,
+                                      ),
+                                    )
+                                  else
+                                    Icon(
+                                      Icons.lock_open_rounded,
+                                      size: 15,
+                                      color: colorScheme.primary,
+                                    ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Habilitar día',
+                                    style: textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Divider(height: 1, color: colorScheme.outlineVariant),
+                          // Opción: Crear parte
+                          InkWell(
+                            onTap: onCrearParte,
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(10),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.add_circle_outline_rounded,
+                                    size: 15,
+                                    color: colorScheme.tertiary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Crear parte',
+                                    style: textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.tertiary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
 // Widgets auxiliares
+// ─────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({
@@ -442,32 +725,6 @@ class _SectionLabel extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _FechaChip extends StatelessWidget {
-  const _FechaChip({
-    required this.label,
-    required this.backgroundColor,
-    required this.foregroundColor,
-  });
-
-  final String label;
-  final Color backgroundColor;
-  final Color foregroundColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      visualDensity: VisualDensity.compact,
-      label: Text(label),
-      labelStyle: Theme.of(
-        context,
-      ).textTheme.labelSmall?.copyWith(color: foregroundColor),
-      backgroundColor: backgroundColor,
-      side: BorderSide.none,
-      padding: EdgeInsets.zero,
     );
   }
 }
