@@ -4,9 +4,7 @@ import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
 
-// ─────────────────────────────────────────
 // Provider
-// ─────────────────────────────────────────
 
 final diasSinParteProvider = FutureProvider.autoDispose<Map<String, List<String>>>((
   ref,
@@ -21,9 +19,7 @@ final diasSinParteProvider = FutureProvider.autoDispose<Map<String, List<String>
   });
 });
 
-// ─────────────────────────────────────────
 // Screen
-// ─────────────────────────────────────────
 
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
@@ -66,7 +62,7 @@ class AdminHomeScreen extends ConsumerWidget {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // ── Fecha actual ──
+            // Fecha actual
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -82,7 +78,7 @@ class AdminHomeScreen extends ConsumerWidget {
               ),
             ),
 
-            // ── Tarjeta resumen ──
+            // Tarjeta resumen
             SliverToBoxAdapter(
               child: ausenciasAsync.when(
                 loading: () => const _ResumenCard(
@@ -109,7 +105,7 @@ class AdminHomeScreen extends ConsumerWidget {
 
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-            // ── Título sección ──
+            // Título seccion
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -122,7 +118,7 @@ class AdminHomeScreen extends ConsumerWidget {
               ),
             ),
 
-            // ── Contenido ──
+            // Contenido
             ausenciasAsync.when(
               loading: () => const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
@@ -162,9 +158,7 @@ class AdminHomeScreen extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────
 // Tarjeta resumen
-// ─────────────────────────────────────────
 
 class _ResumenCard extends StatelessWidget {
   const _ResumenCard({
@@ -233,9 +227,7 @@ class _ResumenCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────
 // Tarjeta por persona
-// ─────────────────────────────────────────
 
 class _AusenciaCard extends StatelessWidget {
   const _AusenciaCard({
@@ -330,9 +322,7 @@ class _AusenciaCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────
 // Estado vacío
-// ─────────────────────────────────────────
 
 class _EmptyView extends StatelessWidget {
   const _EmptyView();
@@ -370,9 +360,7 @@ class _EmptyView extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────
 // Estado de error
-// ─────────────────────────────────────────
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.mensaje, required this.onRetry});
