@@ -9,10 +9,10 @@ import '../../models/obra.dart';
 import '../../models/perfil.dart';
 import '../../widgets/app_drawer.dart';
 
-// ─── Modo de exportación ──────────────────────────────────────────────────────
+// Modo de exportación
 enum _ModoExport { zip, pdf }
 
-// ─── Parámetros del informe ───────────────────────────────────────────────────
+// Parámetros del informe
 class _PdfParams {
   final DateTime desde;
   final DateTime hasta;

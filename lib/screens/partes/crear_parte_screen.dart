@@ -27,9 +27,7 @@ class CrearParteScreen extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────
 // Helpers
-// ─────────────────────────────────────────
 String _normalizarApellido(String s) => s
     .toLowerCase()
     .replaceAll('á', 'a')
@@ -47,9 +45,7 @@ List<Perfil> _ordenarPerfiles(List<Perfil> perfiles) =>
       ).compareTo(_normalizarApellido(b.apellidos)),
     );
 
-// ─────────────────────────────────────────
 // Formulario OPERARIO / ENCARGADO
-// ─────────────────────────────────────────
 class _FormularioParteNormal extends ConsumerStatefulWidget {
   const _FormularioParteNormal();
   @override
@@ -225,7 +221,7 @@ class _FormularioParteNormalState
                 _perfilOperarioSeleccionado = p;
                 _fecha = DateTime.now();
                 _fechasConParte = [];
-                _especialidad = null; // <- AÑADIDO: limpiar al cambiar operario
+                _especialidad = null;
               });
               _cargarFechasDeOperario(p.id);
             },
@@ -246,8 +242,7 @@ class _FormularioParteNormalState
         .firstOrNull;
 
     // Determina si el operario seleccionado es de postventa
-    final operarioEsPostventa =
-        _perfilOperarioSeleccionado?.postventa == true; // <- AÑADIDO
+    final operarioEsPostventa = _perfilOperarioSeleccionado?.postventa == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -266,7 +261,7 @@ class _FormularioParteNormalState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Selector de operario (solo admin/gestión) ──
+              //Selector de operario solo admin/gestión
               if (esGestor) ...[
                 const Text(
                   'Operario',
@@ -291,7 +286,7 @@ class _FormularioParteNormalState
                                     _idPerfilSeleccionado = null;
                                     _perfilOperarioSeleccionado = null;
                                     _fechasConParte = [];
-                                    _especialidad = null; // <- AÑADIDO
+                                    _especialidad = null;
                                   }),
                                 )
                               : null,
@@ -304,7 +299,7 @@ class _FormularioParteNormalState
                 const SizedBox(height: 20),
               ],
 
-              // ── Fecha ──
+              // Fecha
               const Text(
                 'Fecha',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -363,7 +358,7 @@ class _FormularioParteNormalState
                 ),
               const SizedBox(height: 20),
 
-              // ── Obra ──
+              // Obra
               const Text(
                 'Obra',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -412,8 +407,7 @@ class _FormularioParteNormalState
               ),
               const SizedBox(height: 25),
 
-              // ── Especialidad (solo si el operario seleccionado es postventa) ──
-              // BLOQUE AÑADIDO
+              // ── Especialidad solo si el operario seleccionado es postventa ──
               if (esGestor && operarioEsPostventa) ...[
                 const Text(
                   'Especialidad',
@@ -499,7 +493,7 @@ class _FormularioParteNormalState
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
 
-    // MODIFICADO: si el operario es postventa, se usa la especialidad
+    //  si el operario es postventa, se usa la especialidad
     // seleccionada manualmente; si no, se usa la del perfil del operario
     final operarioEsPostventa = _perfilOperarioSeleccionado?.postventa == true;
 
@@ -592,9 +586,7 @@ class _FormularioParteNormalState
   }
 }
 
-// ─────────────────────────────────────────
 // Formulario POST VENTA
-// ─────────────────────────────────────────
 class _FormularioPostVenta extends ConsumerStatefulWidget {
   const _FormularioPostVenta();
   @override
@@ -1157,9 +1149,7 @@ class _FormularioPostVentaState extends ConsumerState<_FormularioPostVenta> {
   }
 }
 
-// ─────────────────────────────────────────
 // Formulario JEFE DE OBRA
-// ─────────────────────────────────────────
 class _FormularioParteJefe extends ConsumerStatefulWidget {
   const _FormularioParteJefe();
   @override
@@ -1548,9 +1538,7 @@ class _CuerpoBuscadorState extends State<_CuerpoBuscador> {
   }
 }
 
-// ─────────────────────────────────────────
 // BUSCADOR DE OPERARIOS
-// ─────────────────────────────────────────
 class _CuerpoBuscadorOperarios extends StatefulWidget {
   final List<Perfil> perfiles;
   final Function(Perfil) alSeleccionar;
@@ -1652,9 +1640,7 @@ class _CuerpoBuscadorOperariosState extends State<_CuerpoBuscadorOperarios> {
   }
 }
 
-// ─────────────────────────────────────────
 // BOTÓN ESPECIALIDAD
-// ─────────────────────────────────────────
 class _BotonEspecialidad extends StatelessWidget {
   final String label;
   final IconData icono;

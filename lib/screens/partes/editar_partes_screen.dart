@@ -82,7 +82,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Banner info ──
+              // Banner info
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -110,7 +110,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── Selector de operario (solo admin/gestión) ──
+              // Selector de operario (solo admin/gestión)
               if (esGestor) ...[
                 const Text(
                   'Operario',
@@ -144,7 +144,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 const SizedBox(height: 20),
               ],
 
-              // ── Obra ──
+              // Obra
               const Text(
                 'Obra',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -169,7 +169,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Fecha ──
+              // Fecha
               const Text(
                 'Fecha',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -391,9 +391,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   }
 }
 
-// ─────────────────────────────────────────
 // Buscador de obras
-// ─────────────────────────────────────────
 class _BuscadorObras extends StatefulWidget {
   final List obras;
   final ScrollController scrollController;

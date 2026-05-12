@@ -9,14 +9,14 @@ import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../services/update_service.dart';
 
-// ─── Helpers de fecha ─────────────────────────────────────────────────────────
+// Helpers de fecha
 String _fmtDMY(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
 String _fmtYMD(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-// ─── Colores ──────────────────────────────────────────────────────────────────
+// Colores
 const _bgPage = Color(0xFFE8EAF0);
 const _bgCard = Colors.white;
 const _blue = Color(0xFF1565C0);
@@ -379,7 +379,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   }
 }
 
-// ─── Campo de búsqueda ────────────────────────────────────────────────────────
+// Campo de búsqueda
 class _SearchField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
@@ -427,7 +427,7 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-// ─── Resumen semanal ──────────────────────────────────────────────────────────
+// Resumen semanal
 class _ResumenSemanal extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -591,7 +591,7 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// ─── Lista principal — agrupa por día y opcionalmente por operario ────────────
+// Lista principal agrupa por día y por operario
 class _ListaPartes extends StatelessWidget {
   final List<ParteTrabajo> partes;
   final bool mostrarResumen;
@@ -637,7 +637,7 @@ class _ListaPartes extends StatelessWidget {
   }
 }
 
-// ─── Cabecera de día ──────────────────────────────────────────────────────────
+// Cabecera de día
 class _DayHeader extends StatefulWidget {
   final DateTime fecha;
   final List<ParteTrabajo> partes;
@@ -683,7 +683,7 @@ class _DayHeaderState extends State<_DayHeader> {
       'nov',
       'dic',
     ];
-    final dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    final dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab', 'Dom'];
     final diaLabel = esHoy
         ? 'Hoy ${widget.fecha.day} ${meses[widget.fecha.month - 1]}'
         : '${dias[widget.fecha.weekday - 1]} ${widget.fecha.day} ${meses[widget.fecha.month - 1]}';
@@ -762,7 +762,7 @@ class _DayHeaderState extends State<_DayHeader> {
       partes.map((p) => p.operarioNombreCompleto).toSet().length;
 }
 
-// ─── Agrupación por operario ──────────────────────────────────────────────────
+// Agrupación por operario
 class _GrupoOperarios extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -787,7 +787,7 @@ class _GrupoOperarios extends StatelessWidget {
   }
 }
 
-// ─── Fila de operario ─────────────────────────────────────────────────────────
+// Fila de operario
 class _FilaOperario extends StatefulWidget {
   final String nombre;
   final List<ParteTrabajo> partes;
@@ -922,7 +922,7 @@ class _FilaOperarioState extends State<_FilaOperario> {
   }
 }
 
-// ─── Lista de cards sin agrupación ───────────────────────────────────────────
+// Lista de cards sin agrupación
 class _ListaCards extends StatelessWidget {
   final List<ParteTrabajo> partes;
 
@@ -943,7 +943,7 @@ class _ListaCards extends StatelessWidget {
   }
 }
 
-// ─── Card de parte individual ─────────────────────────────────────────────────
+// Card de parte individual
 class _CardParte extends ConsumerWidget {
   final ParteTrabajo parte;
 
@@ -1168,7 +1168,7 @@ class _CardParte extends ConsumerWidget {
   }
 }
 
-// ─── Chip especialidad ────────────────────────────────────────────────────────
+// Chip especialidad
 class _ChipEspecialidad extends StatelessWidget {
   final String especialidad;
   final bool esElec;
@@ -1196,7 +1196,7 @@ class _ChipEspecialidad extends StatelessWidget {
   }
 }
 
-// ─── Vista partes normales ────────────────────────────────────────────────────
+// Vista partes normales
 class _PartesNormalesView extends ConsumerWidget {
   final bool agruparPorOperario;
 
@@ -1224,7 +1224,7 @@ class _PartesNormalesView extends ConsumerWidget {
   }
 }
 
-// ─── Vista partes jefe de obra ────────────────────────────────────────────────
+// Vista partes jefe de obra
 class _PartesJefeView extends ConsumerWidget {
   const _PartesJefeView();
 
@@ -1256,7 +1256,7 @@ class _PartesJefeView extends ConsumerWidget {
   }
 }
 
-// ─── Card jefe de obra ────────────────────────────────────────────────────────
+// Card jefe de obra
 class _CardParteJefe extends StatelessWidget {
   final dynamic parte;
 
