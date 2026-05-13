@@ -423,7 +423,10 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                   border: OutlineInputBorder(),
                   suffixText: 'horas',
                 ),
-                onChanged: (v) => _horasNormales = double.tryParse(v) ?? 8.0,
+                onChanged: (v) {
+                  final h = double.tryParse(v.replaceAll(',', '.'));
+                  if (h != null) _horasNormales = h;
+                },
               ),
               const SizedBox(height: 25),
 
@@ -561,10 +564,37 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     );
   }
 
+  void _mostrarDialogoHoras() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Formato de horas incorrecto'),
+        content: const Text(
+          'Las horas deben escribirse en decimales, 0,5 es media hora.\n\n'
+          'Ejemplos válidos:\n'
+          '• 0.5  (media hora)\n'
+          '• 2.5  (dos horas y media)\n',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;
     if (perfil == null) return;
+
+    if (_horasNormales % 0.5 != 0) {
+      _mostrarDialogoHoras();
+      return;
+    }
+
     setState(() => _enviando = true);
 
     final esGestor = perfil.esAdmin || perfil.esGestion;

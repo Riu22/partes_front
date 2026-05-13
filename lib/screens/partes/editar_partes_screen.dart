@@ -162,7 +162,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.search),
                   ),
-                   onTap: () => abrirBuscadorObras(context, obras, (o) {
+                  onTap: () => abrirBuscadorObras(context, obras, (o) {
                     setState(() {
                       _idObraSeleccionada = o.id;
                       _obraSearchCtrl.text = o.nombre;
@@ -223,12 +223,6 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                   border: OutlineInputBorder(),
                   suffixText: 'horas',
                 ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Campo obligatorio';
-                  if (double.tryParse(v) == null)
-                    return 'Introduce un número válido';
-                  return null;
-                },
               ),
               const SizedBox(height: 24),
 
@@ -307,12 +301,37 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     );
   }
 
-
+  void _mostrarDialogoHoras() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Formato de horas incorrecto'),
+        content: const Text(
+          'Las horas deben escribirse en decimales, 0,5 es media hora.\n\n'
+          'Ejemplos válidos:\n'
+          '• 0.5  (media hora)\n'
+          '• 2.5  (dos horas y media)\n',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;
     if (perfil == null) return;
+
+    final h = double.tryParse(_horasCtrl.text.replaceAll(',', '.'));
+    if (h == null || h % 0.5 != 0) {
+      _mostrarDialogoHoras();
+      return;
+    }
 
     setState(() => _enviando = true);
 
@@ -369,5 +388,3 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     }
   }
 }
-
-
