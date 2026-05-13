@@ -108,7 +108,6 @@ class _SeccionFirmaState extends State<_SeccionFirma> {
 
   void _limpiarFirma() {
     _controller.clear();
-    _nombreCtrl.clear();
     setState(() => _firmado = false);
     widget.onFirmaChanged(null, null);
   }
