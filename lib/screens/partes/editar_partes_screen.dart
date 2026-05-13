@@ -8,6 +8,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../providers/perfiles_provider.dart';
+import '../../widgets/buscador_obras_modal.dart';
+import '../../widgets/boton_especialidad.dart';
 
 class EditarParteScreen extends ConsumerStatefulWidget {
   final ParteTrabajo parte;
@@ -64,7 +66,6 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     final obrasAsync = ref.watch(obrasActivasProvider);
     final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
-    final esPostventa = perfil?.postventa ?? false;
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
 
     return Scaffold(
@@ -161,7 +162,12 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.search),
                   ),
-                  onTap: () => _abrirBuscadorObras(context, obras),
+                   onTap: () => abrirBuscadorObras(context, obras, (o) {
+                    setState(() {
+                      _idObraSeleccionada = o.id;
+                      _obraSearchCtrl.text = o.nombre;
+                    });
+                  }),
                   validator: (v) => _idObraSeleccionada == null
                       ? 'Selecciona una obra'
                       : null,
@@ -226,8 +232,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── Especialidad (solo postventa) ──
-              if (esPostventa) ...[
+              // ── Especialidad ──
+              if (widget.parte.esPostVenta || esGestor) ...[
                 const Text(
                   'Especialidad',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -236,7 +242,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _BotonEspecialidad(
+                      child: BotonEspecialidad(
                         label: 'Electricidad',
                         icono: Icons.electrical_services,
                         color: Colors.amber[700]!,
@@ -247,7 +253,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _BotonEspecialidad(
+                      child: BotonEspecialidad(
                         label: 'Fontanería',
                         icono: Icons.plumbing,
                         color: Colors.blue[700]!,
@@ -301,34 +307,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     );
   }
 
-  void _abrirBuscadorObras(BuildContext context, List obras) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.8,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (_, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: _BuscadorObras(
-            obras: obras,
-            scrollController: scrollController,
-            onSeleccionar: (o) {
-              setState(() {
-                _idObraSeleccionada = o.id;
-                _obraSearchCtrl.text = o.nombre;
-              });
-            },
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
@@ -391,142 +370,4 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   }
 }
 
-// Buscador de obras
-class _BuscadorObras extends StatefulWidget {
-  final List obras;
-  final ScrollController scrollController;
-  final Function(dynamic) onSeleccionar;
 
-  const _BuscadorObras({
-    required this.obras,
-    required this.scrollController,
-    required this.onSeleccionar,
-  });
-
-  @override
-  State<_BuscadorObras> createState() => _BuscadorObrasState();
-}
-
-class _BuscadorObrasState extends State<_BuscadorObras> {
-  String _filtro = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final filtradas = widget.obras
-        .where(
-          (o) =>
-              o.nombre.toLowerCase().contains(_filtro.toLowerCase()) ||
-              o.municipio.toLowerCase().contains(_filtro.toLowerCase()),
-        )
-        .toList();
-
-    return Column(
-      children: [
-        const SizedBox(height: 12),
-        Container(
-          width: 50,
-          height: 5,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: TextField(
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: 'Nombre de obra o municipio...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              filled: true,
-              fillColor: Colors.grey[100],
-            ),
-            onChanged: (v) => setState(() => _filtro = v),
-          ),
-        ),
-        Expanded(
-          child: filtradas.isEmpty
-              ? const Center(child: Text('No se encontraron obras'))
-              : ListView.separated(
-                  controller: widget.scrollController,
-                  itemCount: filtradas.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final o = filtradas[index];
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
-                      ),
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.blueGrey,
-                        child: Icon(Icons.business, color: Colors.white),
-                      ),
-                      title: Text(
-                        o.nombre,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(o.municipio),
-                      onTap: () {
-                        widget.onSeleccionar(o);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────
-// Botón especialidad
-// ─────────────────────────────────────────
-class _BotonEspecialidad extends StatelessWidget {
-  final String label;
-  final IconData icono;
-  final Color color;
-  final bool seleccionado;
-  final VoidCallback onTap;
-
-  const _BotonEspecialidad({
-    required this.label,
-    required this.icono,
-    required this.color,
-    required this.seleccionado,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: seleccionado ? color : color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color, width: seleccionado ? 2 : 1),
-        ),
-        child: Column(
-          children: [
-            Icon(icono, color: seleccionado ? Colors.white : color, size: 28),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: seleccionado ? Colors.white : color,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

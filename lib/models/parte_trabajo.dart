@@ -11,7 +11,8 @@ class ParteTrabajo {
   final String? operarioId;
   final bool creadoPorGestor;
   final String? firmaUrl;
-  final String? nombreFirma; // ← nuevo
+  final String? nombreFirma;
+  final bool esPostVenta;
 
   ParteTrabajo({
     required this.id,
@@ -27,6 +28,7 @@ class ParteTrabajo {
     this.creadoPorGestor = false,
     this.firmaUrl,
     this.nombreFirma,
+    this.esPostVenta = false,
   });
 
   String get operarioNombreCompleto {
@@ -51,6 +53,7 @@ class ParteTrabajo {
         json['creado_por_gestor'] == true || json['creado_por_gestor'] == 1,
     firmaUrl: json['firma_url'],
     nombreFirma: json['nombre_firmado'],
+    esPostVenta: json['es_post_venta'] == true || json['es_post_venta'] == 1,
   );
 
   bool get puedeEditarse {
