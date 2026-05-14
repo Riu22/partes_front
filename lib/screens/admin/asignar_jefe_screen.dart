@@ -4,6 +4,7 @@ import '../../models/obra.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/obras_provider.dart';
+import '../../widgets/buscador_obras_modal.dart';
 
 class AsignarJefeScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> usuario;
@@ -28,7 +29,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
   List<dynamic> _subordinadosActuales = [];
 
   // ── Estado pestaña Obras ──
-  String? _obraSeleccionada;
+  Obra? _obraSeleccionada;
   bool _enviandoObra = false;
   bool _cargandoObras = true;
   List<dynamic> _obrasAsignadas = [];
@@ -47,7 +48,6 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Leemos el provider de obras (ya cacheado, no hace otra llamada de red)
     final obrasAsync = ref.read(obrasProvider);
     obrasAsync.whenData((lista) {
       if (mounted) setState(() => _todasLasObras = lista);
@@ -60,7 +60,6 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     super.dispose();
   }
 
-  // ── Carga subordinados actuales de este jefe ──
   Future<void> _cargarSubordinados() async {
     setState(() => _cargandoLista = true);
     try {
@@ -76,12 +75,10 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     }
   }
 
-  // ── Carga obras asignadas a este perfil ──
   Future<void> _cargarObrasAsignadas() async {
     setState(() => _cargandoObras = true);
     try {
       final api = ref.read(apiServiceProvider);
-      // GET /api/v1/asignaciones/perfil/{perfilId}
       final lista = await api.getObrasDePerfil(widget.usuario['id']);
       setState(() {
         _obrasAsignadas = lista;
@@ -109,7 +106,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
       return !yaAsignado && !esElMismo && rolValido;
     }).toList();
 
-    // ── Filtro obras que aún no están asignadas a este perfil ──
+    // ── Obras que aún no están asignadas ──
     final obrasAsignadasIds = _obrasAsignadas
         .map((a) => a['obra']['id'].toString())
         .toSet();
@@ -277,22 +274,56 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: _obraSeleccionada,
-                    decoration: const InputDecoration(
-                      labelText: 'Seleccionar obra',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.business),
+
+                  // ── Selector con buscador en bottom sheet ──
+                  GestureDetector(
+                    onTap: () => abrirBuscadorObras(context, posiblesObras, (
+                      obraSeleccionada,
+                    ) {
+                      setState(() => _obraSeleccionada = obraSeleccionada);
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.business, color: Colors.grey),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _obraSeleccionada?.nombre ??
+                                  'Seleccionar obra...',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: _obraSeleccionada != null
+                                    ? null
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                          if (_obraSeleccionada != null)
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _obraSeleccionada = null),
+                              child: const Icon(
+                                Icons.clear,
+                                size: 18,
+                                color: Colors.grey,
+                              ),
+                            )
+                          else
+                            const Icon(Icons.search, color: Colors.grey),
+                        ],
+                      ),
                     ),
-                    items: posiblesObras.map((o) {
-                      return DropdownMenuItem<String>(
-                        value: o.id.toString(),
-                        // ⚠️ Cambia 'o.nombre' por el campo real de tu modelo Obra
-                        child: Text(o.nombre),
-                      );
-                    }).toList(),
-                    onChanged: (v) => setState(() => _obraSeleccionada = v),
                   ),
+
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -355,7 +386,6 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                         leading: const CircleAvatar(
                           child: Icon(Icons.business),
                         ),
-                        // ⚠️ Cambia 'nombre' por el campo real de tu JSON de obra
                         title: Text(obra['nombre'] ?? 'Obra ${obra['id']}'),
                         subtitle: Text('ID: ${obra['id']}'),
                         trailing: IconButton(
@@ -450,10 +480,9 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     setState(() => _enviandoObra = true);
     try {
       final api = ref.read(apiServiceProvider);
-      // POST /api/v1/asignaciones/asignar_a_obra/{perfilId}/{obraId}
       await api.asignarPerfilAObra(
         widget.usuario['id'] as String,
-        int.parse(_obraSeleccionada!),
+        _obraSeleccionada!.id,
       );
       setState(() => _obraSeleccionada = null);
       await _cargarObrasAsignadas();
@@ -499,7 +528,6 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     );
     if (confirmar == true) {
       try {
-        // DELETE /api/v1/asignaciones/eliminar/{asignacionId}
         await ref
             .read(apiServiceProvider)
             .eliminarAsignacionObra(asignacion['id'] as int);
