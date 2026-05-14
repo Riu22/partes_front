@@ -21,7 +21,7 @@ class DayHeader extends StatefulWidget {
 }
 
 class _DayHeaderState extends State<DayHeader> {
-  bool _expandido = true;
+  bool _expandido = false;
 
   @override
   Widget build(BuildContext context) {

@@ -63,6 +63,31 @@ class AppDrawer extends ConsumerWidget {
               },
             ),
 
+          // ── Jefe de obra ─────────────────────────────────────────────────
+          if (perfil.esJefeObra) ...[
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                'DATOS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.analytics),
+              title: const Text('Detalle de horas'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/contabilidad-detalle');
+              },
+            ),
+          ],
+
           // ── Admin / Gestión ──────────────────────────────────────────────
           if (perfil.esGestion || perfil.esAdmin) ...[
             const Divider(),

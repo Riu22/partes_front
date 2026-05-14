@@ -185,7 +185,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ContabilidadScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
-          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
+          if (perfil == null ||
+              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
             return '/partes';
           }
           return null;

@@ -466,6 +466,44 @@ class ApiService {
     }
   }
 
+  Future<List<dynamic>> getContabilidadDetalleJsonJefe(
+    DateTime desde,
+    DateTime hasta,
+  ) async {
+    final response = await _dio.get(
+      '/quincena/jefe/contabilidad-detalle-json',
+      queryParameters: {'desde': _fmtDate(desde), 'hasta': _fmtDate(hasta)},
+      options: await _authHeaders(),
+    );
+    return (response.data as List?) ?? [];
+  }
+
+  Future<void> exportarContabilidadDetalleCsvJefe(
+    DateTime desde,
+    DateTime hasta,
+  ) async {
+    final desdeStr = _fmtDate(desde);
+    final hastaStr = _fmtDate(hasta);
+    try {
+      final response = await _dio.get(
+        '/quincena/jefe/exportar-detalle-csv',
+        queryParameters: {'desde': desdeStr, 'hasta': hastaStr},
+        options: Options(
+          headers: {'Authorization': 'Bearer ${await _authService.getToken()}'},
+          responseType: ResponseType.bytes,
+        ),
+      );
+      if (response.data != null) {
+        saveAndLaunchFile(
+          Uint8List.fromList(response.data),
+          'detalle_obras_${desdeStr}_$hastaStr.csv',
+        );
+      }
+    } catch (e) {
+      throw 'Error al exportar CSV: $e';
+    }
+  }
+
   // ─────────────────────────────────────────
   // Ausencias
   // ─────────────────────────────────────────

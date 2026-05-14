@@ -74,6 +74,8 @@ class PartesJefeCombinadaView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final partesNormalesAsync = ref.watch(partesProvider);
     final partesJefeAsync = ref.watch(partesJefeProvider);
+    final perfil = ref.watch(authProvider).valueOrNull;
+    final esJefeObra = perfil?.esJefeObra == true;
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 80),
@@ -157,12 +159,14 @@ class PartesJefeCombinadaView extends ConsumerWidget {
                   titulo: 'Electricidad',
                   icono: Icons.bolt_outlined,
                   partes: electricos,
+                  agruparPorObra: esJefeObra,
                 ),
                 const SizedBox(height: 4),
                 _SeccionEspecialidad(
                   titulo: 'Fontanería',
                   icono: Icons.water_drop_outlined,
                   partes: fontaneria,
+                  agruparPorObra: esJefeObra,
                 ),
               ],
             );
@@ -179,11 +183,13 @@ class _SeccionEspecialidad extends StatefulWidget {
   final String titulo;
   final IconData icono;
   final List<ParteTrabajo> partes;
+  final bool agruparPorObra;
 
   const _SeccionEspecialidad({
     required this.titulo,
     required this.icono,
     required this.partes,
+    this.agruparPorObra = false,
   });
 
   @override
@@ -207,12 +213,44 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
         .toSet()
         .length;
 
-    final Map<String, List<ParteTrabajo>> porFecha = {};
-    for (final p in widget.partes) {
-      porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);
+    Widget contenido;
+
+    if (widget.agruparPorObra) {
+      // Agrupar por obra → día → operarios
+      final Map<String, List<ParteTrabajo>> porObra = {};
+      for (final p in widget.partes) {
+        porObra.putIfAbsent(p.obraNombre, () => []).add(p);
+      }
+      final obrasOrdenadas = porObra.keys.toList()..sort();
+
+      contenido = Column(
+        children: obrasOrdenadas
+            .map((obra) => _ObraGroup(obraNombre: obra, partes: porObra[obra]!))
+            .toList(),
+      );
+    } else {
+      // Agrupación original: por fecha → operarios
+      final Map<String, List<ParteTrabajo>> porFecha = {};
+      for (final p in widget.partes) {
+        porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);
+      }
+      final fechasOrdenadas = porFecha.keys.toList()
+        ..sort((a, b) => b.compareTo(a));
+
+      contenido = Column(
+        children: [
+          for (final fechaKey in fechasOrdenadas)
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: DayHeader(
+                fecha: DateTime.parse(fechaKey),
+                partes: porFecha[fechaKey]!,
+                agruparPorOperario: true,
+              ),
+            ),
+        ],
+      );
     }
-    final fechasOrdenadas = porFecha.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,19 +322,116 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
             ),
           ),
         ),
-        if (_expandido && widget.partes.isNotEmpty)
-          Column(
-            children: [
-              for (final fechaKey in fechasOrdenadas)
-                Padding(
-                  padding: const EdgeInsets.only(left: 16),
-                  child: DayHeader(
+        if (_expandido && widget.partes.isNotEmpty) contenido,
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+}
+
+// ── Grupo por obra (obra → día → operarios) ──────────────────────────────────
+
+class _ObraGroup extends StatefulWidget {
+  final String obraNombre;
+  final List<ParteTrabajo> partes;
+
+  const _ObraGroup({required this.obraNombre, required this.partes});
+
+  @override
+  State<_ObraGroup> createState() => _ObraGroupState();
+}
+
+class _ObraGroupState extends State<_ObraGroup> {
+  bool _expandido = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalHoras = widget.partes.fold<double>(
+      0,
+      (s, p) => s + p.horasNormales,
+    );
+    final horasLabel = totalHoras == totalHoras.truncateToDouble()
+        ? '${totalHoras.toInt()}h'
+        : '${totalHoras.toStringAsFixed(1)}h';
+
+    final Map<String, List<ParteTrabajo>> porFecha = {};
+    for (final p in widget.partes) {
+      porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);
+    }
+    final fechasOrdenadas = porFecha.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _expandido = !_expandido),
+          child: Container(
+            color: Colors.transparent,
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+            child: Row(
+              children: [
+                Icon(
+                  _expandido
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_right,
+                  size: 16,
+                  color: textSecondary,
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.business_outlined,
+                  size: 14,
+                  color: textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.obraNombre,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: bluePill,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    horasLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: blue,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expandido)
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Column(
+              children: [
+                for (final fechaKey in fechasOrdenadas)
+                  DayHeader(
                     fecha: DateTime.parse(fechaKey),
                     partes: porFecha[fechaKey]!,
                     agruparPorOperario: true,
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         const SizedBox(height: 4),
       ],
