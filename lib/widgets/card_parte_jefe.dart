@@ -68,48 +68,52 @@ class CardParteJefe extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Distribución',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: textSecondary,
+                if (obras.isNotEmpty) ...[
+                  const Text(
+                    'Distribución',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                ...obras.map(
-                  (o) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.business_outlined,
-                          size: 14,
-                          color: blue,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            o['obra']?['nombre'] ?? '',
+                  const SizedBox(height: 8),
+                  ...obras.map(
+                    (o) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.business_outlined,
+                            size: 14,
+                            color: blue,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              o['obra']?['nombre'] ?? '',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: textPrimary,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '⚡${(o['porcentaje_electrico'] as num?)?.toStringAsFixed(0) ?? '0'}%'
+                            ' · '
+                            '🔧${(o['porcentaje_mecanico'] as num?)?.toStringAsFixed(0) ?? '0'}%',
                             style: const TextStyle(
-                              fontSize: 13,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                               color: textPrimary,
                             ),
                           ),
-                        ),
-                        Text(
-                          '${o['porcentaje']}%',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: textPrimary,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const Divider(color: cardBorder),
+                  const Divider(color: cardBorder),
+                ],
                 const Text(
                   'Descripción',
                   style: TextStyle(

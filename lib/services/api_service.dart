@@ -72,7 +72,7 @@ class ApiService {
 
   Future<List<dynamic>> getUsuarios() async {
     final response = await _dio.get('/user/all', options: await _authHeaders());
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<void> crearUsuario(Map<String, dynamic> data) async {
@@ -101,7 +101,7 @@ class ApiService {
 
   Future<List<dynamic>> getObras() async {
     final response = await _dio.get('/obra', options: await _authHeaders());
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<List<dynamic>> getObrasActivas() async {
@@ -109,7 +109,7 @@ class ApiService {
       '/obra/activas',
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<void> crearObra(Map<String, dynamic> data) async {
@@ -144,7 +144,7 @@ class ApiService {
       '/asignaciones/$jefeId/subordinados',
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<void> asignarJefe(
@@ -173,7 +173,7 @@ class ApiService {
       '/asignaciones/obra/$obraId',
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<void> asignarAObra(String perfilId, int obraId) async {
@@ -195,7 +195,26 @@ class ApiService {
       '/asignaciones/mis_obras',
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
+  }
+
+  // Obtiene las obras asignadas a un perfil
+  // GET /api/v1/asignaciones/perfil/{perfilId}
+  Future<List<dynamic>> getObrasDePerfil(String perfilId) async {
+    final response = await _dio.get(
+      '/asignaciones/perfil/$perfilId',
+      options: await _authHeaders(),
+    );
+    return (response.data as List?) ?? [];
+  }
+
+  // Asigna un perfil a una obra
+  // POST /api/v1/asignaciones/asignar_a_obra/{perfilId}/{obraId}
+  Future<void> asignarPerfilAObra(String perfilId, int obraId) async {
+    await _dio.post(
+      '/asignaciones/asignar_a_obra/$perfilId/$obraId',
+      options: await _authHeaders(),
+    );
   }
 
   // ─────────────────────────────────────────
@@ -207,7 +226,7 @@ class ApiService {
       '/partes/get_partes',
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<List<dynamic>> getPartesJefe() async {
@@ -215,7 +234,7 @@ class ApiService {
       '/partes/get_partes_jefe',
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<void> crearParte(Map<String, dynamic> data) async {
@@ -286,7 +305,7 @@ class ApiService {
       queryParameters: params,
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   // ─────────────────────────────────────────
@@ -389,7 +408,7 @@ class ApiService {
       queryParameters: {'desde': desde, 'hasta': hasta},
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<void> exportarQuincena(String desde, String hasta) async {
@@ -418,7 +437,7 @@ class ApiService {
       queryParameters: {'desde': _fmtDate(desde), 'hasta': _fmtDate(hasta)},
       options: await _authHeaders(),
     );
-    return response.data;
+    return (response.data as List?) ?? [];
   }
 
   Future<void> exportarContabilidadDetalleCsv(
@@ -451,11 +470,6 @@ class ApiService {
   // Ausencias
   // ─────────────────────────────────────────
 
-  /// Devuelve por operario/encargado los días laborables (L-V)
-  /// sin parte en la quincena actual.
-  /// Respuesta: Map<nombreCompleto, List<fecha>>
-  /// Solo incluye usuarios con al menos 1 día sin parte.
-  /// Requiere rol ADMINISTRACION o GESTION.
   Future<Map<String, dynamic>> getDiasSinParte() async {
     final response = await _dio.get(
       '/ausencias/dias-sin-parte',
@@ -482,7 +496,6 @@ class ApiService {
     };
   }
 
-  /// PDF único con todas las obras en un solo archivo.
   Future<Uint8List> generarPdfPartes({
     required DateTime desde,
     required DateTime hasta,
@@ -501,7 +514,6 @@ class ApiService {
     return Uint8List.fromList(response.data);
   }
 
-  /// ZIP con un PDF por cada obra física.
   Future<Uint8List> generarZipPartes({
     required DateTime desde,
     required DateTime hasta,
@@ -540,6 +552,14 @@ class ApiService {
       ),
     );
     return Uint8List.fromList(response.data!);
+  }
+
+  Future<Map<String, dynamic>> getInformeParteJefe(int parteId) async {
+    final response = await _dio.get(
+      '/partes/informe_jefe/$parteId',
+      options: await _authHeaders(),
+    );
+    return response.data as Map<String, dynamic>;
   }
 
   // ─────────────────────────────────────────

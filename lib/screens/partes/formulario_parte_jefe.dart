@@ -22,18 +22,57 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
   final _formKey = GlobalKey<FormState>();
   String _descripcion = '';
   bool _enviando = false;
+  DateTime? _fechaInicio;
+  DateTime? _fechaFin;
+
+  // Cada línea: { obra_id, obra_nombre, horas_electricas, horas_mecanicas }
   final List<Map<String, dynamic>> _lineas = [];
 
-  double get _totalPorcentaje => _lineas.fold(
+  // ── Horas totales introducidas por el usuario ──────────────────────
+  double get _totalHorasIntroducidas => _lineas.fold(
     0.0,
-    (sum, l) => sum + ((l['porcentaje'] as double?) ?? 0.0),
+    (sum, l) =>
+        sum +
+        ((l['horas_electricas'] as double?) ?? 0.0) +
+        ((l['horas_mecanicas'] as double?) ?? 0.0),
   );
+
+  bool get _fechasValidas =>
+      _fechaInicio != null &&
+      _fechaFin != null &&
+      !_fechaFin!.isBefore(_fechaInicio!);
+
+  bool get _formularioListo =>
+      _fechasValidas && _lineas.isNotEmpty && !_enviando;
+
+  // ── Selector de fecha ──────────────────────────────────────────────
+  Future<void> _seleccionarFecha({required bool esInicio}) async {
+    final ahora = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: esInicio ? (_fechaInicio ?? ahora) : (_fechaFin ?? ahora),
+      firstDate: DateTime(ahora.year - 1),
+      lastDate: DateTime(ahora.year + 1),
+      locale: const Locale('es'),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (esInicio) {
+        _fechaInicio = picked;
+        // Si la fecha fin es anterior a la nueva inicio, la reseteamos
+        if (_fechaFin != null && _fechaFin!.isBefore(picked)) {
+          _fechaFin = null;
+        }
+      } else {
+        _fechaFin = picked;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasProvider);
-    final double total = _totalPorcentaje;
-    final bool totalValido = (total - 100.0).abs() < 0.01;
+    final fmt = DateFormat('dd/MM/yyyy');
 
     return Scaffold(
       appBar: AppBar(
@@ -52,13 +91,71 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildInfoFecha(),
-              const SizedBox(height: 25),
-              _buildHeaderPorcentajes(total, totalValido),
+              // ── Rango de fechas ──────────────────────────────────
+              const Text(
+                'Período del parte',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSelectorFecha(
+                      label: 'Fecha inicio',
+                      valor: _fechaInicio != null
+                          ? fmt.format(_fechaInicio!)
+                          : 'Seleccionar',
+                      onTap: () => _seleccionarFecha(esInicio: true),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSelectorFecha(
+                      label: 'Fecha fin',
+                      valor: _fechaFin != null
+                          ? fmt.format(_fechaFin!)
+                          : 'Seleccionar',
+                      onTap: () => _seleccionarFecha(esInicio: false),
+                    ),
+                  ),
+                ],
+              ),
+              if (!_fechasValidas &&
+                  (_fechaInicio != null || _fechaFin != null))
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    '⚠️ La fecha fin debe ser igual o posterior a la fecha inicio',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ),
+
+              const SizedBox(height: 25),
+
+              // ── Obras ────────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Obras',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  if (_lineas.isNotEmpty)
+                    Text(
+                      'Total: ${_totalHorasIntroducidas.toStringAsFixed(1)} h',
+                      style: const TextStyle(
+                        color: Colors.teal,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
               ..._lineas.asMap().entries.map(
                 (e) => _buildCardLinea(e.key, e.value),
               ),
+
               obrasAsync.when(
                 loading: () => const SizedBox(),
                 error: (e, _) => const SizedBox(),
@@ -78,7 +175,8 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                             () => _lineas.add({
                               'obra_id': o.id,
                               'obra_nombre': o.nombre,
-                              'porcentaje': 0.0,
+                              'horas_electricas': 0.0,
+                              'horas_mecanicas': 0.0,
                             }),
                           );
                         }),
@@ -87,7 +185,10 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                   );
                 },
               ),
+
               const SizedBox(height: 25),
+
+              // ── Descripción ──────────────────────────────────────
               const Text(
                 'Descripción general',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -99,9 +200,10 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                 validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
                 onChanged: (v) => _descripcion = v,
               ),
+
               const SizedBox(height: 30),
-              if (!totalValido && _lineas.isNotEmpty)
-                _buildWarningPorcentaje(total),
+
+              // ── Botón enviar ─────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -110,9 +212,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                     backgroundColor: Colors.teal,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: (_enviando || !totalValido || _lineas.isEmpty)
-                      ? null
-                      : _enviarParte,
+                  onPressed: _formularioListo ? _enviarParte : null,
                   child: _enviando
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
@@ -131,85 +231,145 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     );
   }
 
-  Widget _buildInfoFecha() => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.teal.withOpacity(0.05),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.teal.withOpacity(0.2)),
-    ),
-    child: Text(
-      'Fecha del parte: ${DateFormat('dd/MM/yyyy').format(DateTime.now())}',
-      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal),
-    ),
-  );
+  // ── Widgets auxiliares ─────────────────────────────────────────────
 
-  Widget _buildHeaderPorcentajes(double total, bool totalValido) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      const Text(
-        'Distribución',
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  Widget _buildSelectorFecha({
+    required String label,
+    required String valor,
+    required VoidCallback onTap,
+  }) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(8),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.teal.withOpacity(0.4)),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.teal.withOpacity(0.04),
       ),
-      Text(
-        'Total: ${total.toStringAsFixed(0)}%',
-        style: TextStyle(
-          color: totalValido ? Colors.green : Colors.red,
-          fontWeight: FontWeight.bold,
-          fontSize: 18,
-        ),
-      ),
-    ],
-  );
-
-  Widget _buildCardLinea(int i, Map<String, dynamic> linea) => Card(
-    margin: const EdgeInsets.only(bottom: 10),
-    child: ListTile(
-      title: Text(
-        linea['obra_nombre'] ?? '',
-        style: const TextStyle(fontWeight: FontWeight.bold),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 60,
-            child: TextFormField(
-              initialValue: '0',
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              decoration: const InputDecoration(suffixText: '%'),
-              onChanged: (v) => setState(
-                () => _lineas[i]['porcentaje'] = double.tryParse(v) ?? 0.0,
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.calendar_today, size: 16, color: Colors.teal),
+              const SizedBox(width: 6),
+              Text(
+                valor,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal,
+                ),
               ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.red),
-            onPressed: () => setState(() => _lineas.removeAt(i)),
+            ],
           ),
         ],
       ),
     ),
   );
 
-  Widget _buildWarningPorcentaje(double total) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Text(
-      '⚠️ La suma debe ser 100% (actual: ${total.toStringAsFixed(0)}%)',
-      style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+  Widget _buildCardLinea(int i, Map<String, dynamic> linea) {
+    final electricas = (linea['horas_electricas'] as double?) ?? 0.0;
+    final mecanicas = (linea['horas_mecanicas'] as double?) ?? 0.0;
+    final totalLinea = electricas + mecanicas;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cabecera obra + eliminar
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    linea['obra_nombre'] ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () => setState(() => _lineas.removeAt(i)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Inputs horas
+            Row(
+              children: [
+                Expanded(
+                  child: _buildInputHoras(
+                    label: '⚡ Eléctricas (h)',
+                    valor: electricas,
+                    onChanged: (v) =>
+                        setState(() => _lineas[i]['horas_electricas'] = v),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildInputHoras(
+                    label: '🔧 Mecánicas (h)',
+                    valor: mecanicas,
+                    onChanged: (v) =>
+                        setState(() => _lineas[i]['horas_mecanicas'] = v),
+                  ),
+                ),
+              ],
+            ),
+            if (totalLinea > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Subtotal: ${totalLinea.toStringAsFixed(1)} h',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputHoras({
+    required String label,
+    required double valor,
+    required ValueChanged<double> onChanged,
+  }) => TextFormField(
+    initialValue: valor == 0 ? '' : valor.toStringAsFixed(1),
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    decoration: InputDecoration(
+      labelText: label,
+      border: const OutlineInputBorder(),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
     ),
+    onChanged: (v) => onChanged(double.tryParse(v) ?? 0.0),
   );
+
+  // ── Envío ──────────────────────────────────────────────────────────
 
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_fechasValidas) return;
     setState(() => _enviando = true);
 
+    final fmt = DateFormat('yyyy-MM-dd');
     final data = <String, dynamic>{
       'descripcion': _descripcion,
+      'fecha_inicio': fmt.format(_fechaInicio!),
+      'fecha_fin': fmt.format(_fechaFin!),
       'obras': _lineas
-          .map((l) => {'id_obra': l['obra_id'], 'porcentaje': l['porcentaje']})
+          .map(
+            (l) => {
+              'id_obra': l['obra_id'],
+              'horas_electricas': l['horas_electricas'] ?? 0.0,
+              'horas_mecanicas': l['horas_mecanicas'] ?? 0.0,
+            },
+          )
           .toList(),
     };
 

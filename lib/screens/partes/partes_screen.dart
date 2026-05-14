@@ -221,7 +221,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                       agruparPorOperario: true,
                     )
                   : perfil.esJefeObra
-                  ? const PartesJefeView()
+                  ? const PartesJefeCombinadaView() // ← fix: combinada en vez de solo jefe
                   : PartesNormalesView(
                       agruparPorOperario:
                           perfil.esEncargado ||
@@ -343,11 +343,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
               ),
               if (_hayFiltros)
                 IconButton(
-                  icon: const Icon(
-                    Icons.clear,
-                    size: 18,
-                    color: textSecondary,
-                  ),
+                  icon: const Icon(Icons.clear, size: 18, color: textSecondary),
                   onPressed: _limpiarBusqueda,
                 ),
             ],
