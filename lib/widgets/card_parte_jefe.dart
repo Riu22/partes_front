@@ -4,8 +4,15 @@ import '../helpers/fecha_helpers.dart';
 
 class CardParteJefe extends StatelessWidget {
   final dynamic parte;
+  final VoidCallback? onEditar;
+  final VoidCallback? onEliminar;
 
-  const CardParteJefe({super.key, required this.parte});
+  const CardParteJefe({
+    super.key,
+    required this.parte,
+    this.onEditar,
+    this.onEliminar,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,12 +33,14 @@ class CardParteJefe extends StatelessWidget {
     return Card(
       color: bgCard,
       elevation: 0,
+      clipBehavior: Clip.none,
       margin: const EdgeInsets.only(bottom: 6),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: cardBorder),
       ),
       child: ExpansionTile(
+        clipBehavior: Clip.none,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         leading: Container(
           width: 36,
@@ -130,6 +139,41 @@ class CardParteJefe extends StatelessWidget {
                     color: textPrimary,
                     height: 1.5,
                   ),
+                ),
+                // ─── BOTONES EDITAR / ELIMINAR ───────────────
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: puedeEditar ? onEditar : null,
+                      icon: const Icon(Icons.edit_outlined, size: 16),
+                      label: const Text('Editar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: orange,
+                        disabledForegroundColor: textSecondary,
+                        textStyle: const TextStyle(fontSize: 13),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      onPressed: onEliminar,
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: const Text('Eliminar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        textStyle: const TextStyle(fontSize: 13),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

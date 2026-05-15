@@ -7,6 +7,7 @@ import '../screens/login_screen.dart';
 import '../screens/partes/partes_screen.dart';
 import '../screens/partes/crear_parte_screen.dart';
 import '../screens/partes/editar_partes_screen.dart';
+import '../screens/partes/editar_parte_jefe_screen.dart';
 import '../screens/obras/obras_screen.dart';
 import '../screens/admin/usuarios_screen.dart';
 import '../screens/admin/crear_usuarios_screen.dart';
@@ -22,6 +23,7 @@ import '../screens/pdf/pdf_screen.dart';
 import '../screens/admin/admin_home_screen.dart';
 import '../screens/partes/informe_jefe_screen.dart';
 import '../screens/partes/resumen_mensual_jefe_screen.dart';
+import '../providers/partes_provider.dart';
 
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(this._ref) {
@@ -127,6 +129,32 @@ final routerProvider = Provider<GoRouter>((ref) {
           return EditarParteScreen(parte: parte);
         },
       ),
+
+      // ── Editar parte jefe ─────────────────────────────────────────
+      GoRoute(
+        path: '/partes/editar-jefe/:id',
+        redirect: (context, state) {
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null ||
+              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
+            return '/partes';
+          }
+          return null;
+        },
+        builder: (context, state) {
+          final parte = state.extra as Map<String, dynamic>?;
+          if (parte == null) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => context.go('/partes'),
+            );
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return EditarParteJefeScreen(parte: parte);
+        },
+      ),
+
       GoRoute(
         path: '/configuracion',
         builder: (context, state) => const ConfiguracionScreen(),

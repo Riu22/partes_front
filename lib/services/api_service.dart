@@ -4,6 +4,7 @@ import '../config/env.dart';
 import '../models/parte_trabajo.dart';
 import 'dart:typed_data';
 import '../helpers/download_helper.dart';
+import '../providers/partes_provider.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -21,8 +22,6 @@ class ApiService {
       ),
     );
 
-    // Interceptor 401: si el token expiró, intenta refrescarlo automáticamente
-    // y re-intenta la petición original. Evita reintentos infinitos con flag 'retried'.
     _dio.interceptors.add(
       InterceptorsWrapper(
         onError: (DioException error, ErrorInterceptorHandler handler) async {
@@ -200,8 +199,6 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
-  // Obtiene las obras asignadas a un perfil
-  // GET /api/v1/asignaciones/perfil/{perfilId}
   Future<List<dynamic>> getObrasDePerfil(String perfilId) async {
     final response = await _dio.get(
       '/asignaciones/perfil/$perfilId',
@@ -210,8 +207,6 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
-  // Asigna un perfil a una obra
-  // POST /api/v1/asignaciones/asignar_a_obra/{perfilId}/{obraId}
   Future<void> asignarPerfilAObra(String perfilId, int obraId) async {
     await _dio.post(
       '/asignaciones/asignar_a_obra/$perfilId/$obraId',
@@ -281,12 +276,42 @@ class ApiService {
     return ParteTrabajo.fromJson(response.data);
   }
 
+  Future<void> updateParteJefe(int parteId, Map<String, dynamic> data) async {
+    try {
+      await _dio.put(
+        '/partes/update_parte_jefe/$parteId',
+        data: data,
+        options: await _authHeaders(),
+      );
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data?.toString() ?? 'Error al actualizar el parte';
+      }
+      rethrow;
+    }
+  }
+
   Future<void> eliminarParte(int id) async {
     try {
       await _dio.delete('/partes/delete/$id', options: await _authHeaders());
     } on DioException catch (e) {
       if (e.response != null) {
         throw e.response?.data?.toString() ?? 'Error al eliminar el parte';
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> deleteParteJefe(dynamic id) async {
+    try {
+      await _dio.delete(
+        '/partes/delete_jefe/$id',
+        options: await _authHeaders(),
+      );
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data?.toString() ??
+            'Error al eliminar el parte de jefe';
       }
       rethrow;
     }

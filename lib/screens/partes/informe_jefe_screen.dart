@@ -92,7 +92,7 @@ class _InformeJefeScreenState extends ConsumerState<InformeJefeScreen> {
             ),
             pw.SizedBox(height: 4),
             pw.Text(
-              '${_fmt(_fechaInicio)}  →  ${_fmt(_fechaFin)}   ·   Total: ${_totalHoras.toStringAsFixed(1)} h',
+              '${_fmt(_fechaInicio)}  →  ${_fmt(_fechaFin)}   ·   Total: ${_totalHoras.toStringAsFixed(2)} h',
               style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey600),
             ),
             pw.SizedBox(height: 16),
@@ -120,13 +120,17 @@ class _InformeJefeScreenState extends ConsumerState<InformeJefeScreen> {
                   (o) => pw.TableRow(
                     children: [
                       _pdfCell(o['nombre_obra'] ?? '—'),
-                      _pdfCell('${o['horas_electricas'] ?? 0} h'),
-                      _pdfCell('${o['horas_mecanicas'] ?? 0} h'),
                       _pdfCell(
-                        '${(o['porcentaje_electrico'] as num?)?.toStringAsFixed(1) ?? '0'}%',
+                        '${(o['horas_electricas'] as num?)?.toStringAsFixed(2) ?? '0.00'} h',
                       ),
                       _pdfCell(
-                        '${(o['porcentaje_mecanico'] as num?)?.toStringAsFixed(1) ?? '0'}%',
+                        '${(o['horas_mecanicas'] as num?)?.toStringAsFixed(2) ?? '0.00'} h',
+                      ),
+                      _pdfCell(
+                        '${(o['porcentaje_electrico'] as num?)?.toStringAsFixed(2) ?? '0.00'}%',
+                      ),
+                      _pdfCell(
+                        '${(o['porcentaje_mecanico'] as num?)?.toStringAsFixed(2) ?? '0.00'}%',
                       ),
                     ],
                   ),
@@ -277,7 +281,7 @@ class _InformeJefeScreenState extends ConsumerState<InformeJefeScreen> {
         children: [
           // resumen total
           Text(
-            'Total del período: ${_totalHoras.toStringAsFixed(1)} h',
+            'Total del período: ${_totalHoras.toStringAsFixed(2)} h',
             style: const TextStyle(fontSize: 12, color: textSecondary),
           ),
           const SizedBox(height: 10),
@@ -328,14 +332,18 @@ class _InformeJefeScreenState extends ConsumerState<InformeJefeScreen> {
                   child: Row(
                     children: [
                       _tdCell(o['nombre_obra'] ?? '—', flex: 4, bold: true),
-                      _tdCell('${o['horas_electricas'] ?? 0} h'),
-                      _tdCell('${o['horas_mecanicas'] ?? 0} h'),
                       _tdCell(
-                        '${(o['porcentaje_electrico'] as num?)?.toStringAsFixed(1) ?? '0'}%',
+                        '${(o['horas_electricas'] as num?)?.toStringAsFixed(2) ?? '0.00'} h',
+                      ),
+                      _tdCell(
+                        '${(o['horas_mecanicas'] as num?)?.toStringAsFixed(2) ?? '0.00'} h',
+                      ),
+                      _tdCell(
+                        '${(o['porcentaje_electrico'] as num?)?.toStringAsFixed(2) ?? '0.00'}%',
                         color: blue,
                       ),
                       _tdCell(
-                        '${(o['porcentaje_mecanico'] as num?)?.toStringAsFixed(1) ?? '0'}%',
+                        '${(o['porcentaje_mecanico'] as num?)?.toStringAsFixed(2) ?? '0.00'}%',
                         color: orange,
                       ),
                     ],

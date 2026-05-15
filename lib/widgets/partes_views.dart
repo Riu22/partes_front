@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../helpers/tema_constants.dart';
 import '../helpers/fecha_helpers.dart';
 import '../models/parte_trabajo.dart';
@@ -8,6 +9,62 @@ import '../providers/auth_provider.dart';
 import 'lista_partes.dart';
 import 'card_parte_jefe.dart';
 import 'day_header.dart';
+
+// ── Helper compartido ────────────────────────────────────────────────────────
+
+Future<void> _confirmarEliminar(
+  BuildContext context,
+  WidgetRef ref,
+  dynamic parteId,
+) async {
+  final confirm = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: bgCard,
+      title: const Text(
+        'Eliminar parte',
+        style: TextStyle(color: textPrimary, fontSize: 16),
+      ),
+      content: const Text(
+        '¿Seguro que quieres eliminar este parte?',
+        style: TextStyle(color: textSecondary, fontSize: 14),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancelar', style: TextStyle(color: textSecondary)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text(
+            'Eliminar',
+            style: TextStyle(color: Colors.redAccent),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  if (confirm == true && context.mounted) {
+    try {
+      await ref.read(apiServiceProvider).deleteParteJefe(parteId);
+      ref.invalidate(partesJefeProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Parte eliminado')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al eliminar: $e')));
+      }
+    }
+  }
+}
+
+// ── Vistas ───────────────────────────────────────────────────────────────────
 
 class PartesNormalesView extends ConsumerWidget {
   final bool agruparPorOperario;
@@ -18,7 +75,6 @@ class PartesNormalesView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final partesAsync = ref.watch(partesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
-    // El resumen semanal solo se muestra a operarios y encargados (no a jefes/gestores)
     final mostrarResumen =
         perfil?.esOperario == true || perfil?.esEncargado == true;
 
@@ -61,7 +117,17 @@ class PartesJefeView extends ConsumerWidget {
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: 80, left: 12, right: 12),
           itemCount: partes.length,
-          itemBuilder: (context, index) => CardParteJefe(parte: partes[index]),
+          itemBuilder: (context, index) {
+            final p = partes[index];
+            return CardParteJefe(
+              parte: p,
+              onEditar: () => context.push(
+                '/partes/editar-jefe/${p['id']}',
+                extra: Map<String, dynamic>.from(p as Map),
+              ),
+              onEliminar: () => _confirmarEliminar(context, ref, p['id']),
+            );
+          },
         );
       },
     );
@@ -121,7 +187,15 @@ class PartesJefeCombinadaView extends ConsumerWidget {
                 ...partes.map(
                   (p) => Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: CardParteJefe(parte: p),
+                    child: CardParteJefe(
+                      parte: p,
+                      onEditar: () => context.push(
+                        '/partes/editar-jefe/${p['id']}',
+                        extra: Map<String, dynamic>.from(p as Map),
+                      ),
+                      onEliminar: () =>
+                          _confirmarEliminar(context, ref, p['id']),
+                    ),
                   ),
                 ),
               ],
@@ -133,7 +207,7 @@ class PartesJefeCombinadaView extends ConsumerWidget {
         const Divider(color: cardBorder, height: 1),
         const SizedBox(height: 4),
 
-        // ── Partes de la obra separados por especialidad (eléctrica / fontanería) ──
+        // ── Partes de la obra separados por especialidad ──
         partesNormalesAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(24),
@@ -206,7 +280,6 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
       0,
       (s, p) => s + p.horasNormales,
     );
-    // Muestra horas sin decimales si es entero, o con 1 decimal si no
     final horasLabel = totalHoras == totalHoras.truncateToDouble()
         ? '${totalHoras.toInt()}h'
         : '${totalHoras.toStringAsFixed(1)}h';
@@ -218,7 +291,6 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
     Widget contenido;
 
     if (widget.agruparPorObra) {
-      // Vista jefe de obra: agrupa partes por obra → dentro, por fecha → operarios
       final Map<String, List<ParteTrabajo>> porObra = {};
       for (final p in widget.partes) {
         porObra.putIfAbsent(p.obraNombre, () => []).add(p);
@@ -231,7 +303,6 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
             .toList(),
       );
     } else {
-      // Vista normal: agrupa por fecha → dentro, por operario
       final Map<String, List<ParteTrabajo>> porFecha = {};
       for (final p in widget.partes) {
         porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);
@@ -352,12 +423,10 @@ class _ObraGroupState extends State<_ObraGroup> {
       0,
       (s, p) => s + p.horasNormales,
     );
-    // Muestra horas sin decimales si es entero, o con 1 decimal si no
     final horasLabel = totalHoras == totalHoras.truncateToDouble()
         ? '${totalHoras.toInt()}h'
         : '${totalHoras.toStringAsFixed(1)}h';
 
-    // Agrupa partes de esta obra por fecha (orden descendente)
     final Map<String, List<ParteTrabajo>> porFecha = {};
     for (final p in widget.partes) {
       porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);

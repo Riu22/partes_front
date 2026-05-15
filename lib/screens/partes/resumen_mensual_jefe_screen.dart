@@ -198,7 +198,7 @@ class _ResumenMensualJefeScreenState
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
-                                    '${totalHoras?.toStringAsFixed(1) ?? '—'} h',
+                                    '${totalHoras?.toStringAsFixed(2) ?? '—'} h',
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
@@ -228,20 +228,20 @@ class _ResumenMensualJefeScreenState
                               final esUltimo = e.key == obras.length - 1;
                               final hE =
                                   (o['horas_electricas'] as num?)
-                                      ?.toStringAsFixed(1) ??
-                                  '0';
+                                      ?.toStringAsFixed(2) ??
+                                  '0.00';
                               final hM =
                                   (o['horas_mecanicas'] as num?)
-                                      ?.toStringAsFixed(1) ??
-                                  '0';
+                                      ?.toStringAsFixed(2) ??
+                                  '0.00';
                               final pctE =
                                   (o['porcentaje_electrico'] as num?)
-                                      ?.toStringAsFixed(1) ??
-                                  '0';
+                                      ?.toStringAsFixed(2) ??
+                                  '0.00';
                               final pctM =
                                   (o['porcentaje_mecanico'] as num?)
-                                      ?.toStringAsFixed(1) ??
-                                  '0';
+                                      ?.toStringAsFixed(2) ??
+                                  '0.00';
 
                               return Container(
                                 decoration: BoxDecoration(
@@ -334,13 +334,13 @@ class _ResumenMensualJefeScreenState
                                 );
                                 final base = (totalHoras ?? 0).toDouble();
                                 final pctE = base > 0
-                                    ? ((totalE / base) * 100)
+                                    ? (totalE / base) * 100
                                     : 0.0;
                                 final pctM = base > 0
-                                    ? ((totalM / base) * 100)
+                                    ? (totalM / base) * 100
                                     : 0.0;
                                 final pctTotal = pctE + pctM;
-                                final esCien = (pctTotal - 100.0).abs() < 0.1;
+                                final esCien = (pctTotal - 100.0).abs() < 0.01;
 
                                 return Container(
                                   padding: const EdgeInsets.symmetric(
@@ -356,7 +356,7 @@ class _ResumenMensualJefeScreenState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // fila ⚡ + 🔧 + total combinado
+                                      // fila ⚡ + 🔧
                                       Row(
                                         children: [
                                           const Text(
@@ -370,94 +370,76 @@ class _ResumenMensualJefeScreenState
                                           const SizedBox(width: 8),
                                           _chip(
                                             '⚡',
-                                            '${pctE.toStringAsFixed(1)}%',
-                                            '${totalE.toStringAsFixed(1)} h',
+                                            '${pctE.toStringAsFixed(2)}%',
+                                            '${totalE.toStringAsFixed(2)} h',
                                             orangePill,
                                             orange,
                                           ),
                                           const SizedBox(width: 8),
                                           _chip(
                                             '🔧',
-                                            '${pctM.toStringAsFixed(1)}%',
-                                            '${totalM.toStringAsFixed(1)} h',
+                                            '${pctM.toStringAsFixed(2)}%',
+                                            '${totalM.toStringAsFixed(2)} h',
                                             bluePill,
                                             blue,
                                           ),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
-                                      // fila total combinado + indicador
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 8,
-                                                  ),
-                                              decoration: BoxDecoration(
+                                      // indicador total combinado
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: esCien
+                                              ? const Color(0xFFE8F5E9)
+                                              : const Color(0xFFFFF3E0),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: esCien
+                                                ? const Color(0xFF81C784)
+                                                : const Color(0xFFFFB74D),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              esCien
+                                                  ? Icons.check_circle_outline
+                                                  : Icons.warning_amber_rounded,
+                                              size: 16,
+                                              color: esCien
+                                                  ? const Color(0xFF388E3C)
+                                                  : const Color(0xFFE65100),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Total dedicación: ${pctTotal.toStringAsFixed(2)}%',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
                                                 color: esCien
-                                                    ? const Color(0xFFE8F5E9)
-                                                    : const Color(0xFFFFF3E0),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                border: Border.all(
-                                                  color: esCien
-                                                      ? const Color(0xFF81C784)
-                                                      : const Color(0xFFFFB74D),
-                                                ),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Icon(
-                                                    esCien
-                                                        ? Icons
-                                                              .check_circle_outline
-                                                        : Icons
-                                                              .warning_amber_rounded,
-                                                    size: 16,
-                                                    color: esCien
-                                                        ? const Color(
-                                                            0xFF388E3C,
-                                                          )
-                                                        : const Color(
-                                                            0xFFE65100,
-                                                          ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Text(
-                                                    'Total dedicación: ${pctTotal.toStringAsFixed(1)}%',
-                                                    style: TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: esCien
-                                                          ? const Color(
-                                                              0xFF388E3C,
-                                                            )
-                                                          : const Color(
-                                                              0xFFE65100,
-                                                            ),
-                                                    ),
-                                                  ),
-                                                  if (!esCien) ...[
-                                                    const SizedBox(width: 6),
-                                                    Text(
-                                                      '(faltan ${(100.0 - pctTotal).toStringAsFixed(1)}%)',
-                                                      style: const TextStyle(
-                                                        fontSize: 11,
-                                                        color: Color(
-                                                          0xFFE65100,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
+                                                    ? const Color(0xFF388E3C)
+                                                    : const Color(0xFFE65100),
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                            if (!esCien) ...[
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                '(faltan ${(100.0 - pctTotal).toStringAsFixed(2)}%)',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFFE65100),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
