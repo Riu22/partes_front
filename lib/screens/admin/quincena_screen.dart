@@ -98,6 +98,72 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     }
   }
 
+  // ── Chips de quincena ─────────────────────────────────────────────
+
+  Widget _buildBotonesQuincena() {
+    final ahora = DateTime.now();
+    final quincenas = [
+      _Quincena(
+        label: '1a Q mes actual',
+        inicio: DateTime(ahora.year, ahora.month, 1),
+        fin: DateTime(ahora.year, ahora.month, 15),
+      ),
+      _Quincena(
+        label: '2a Q mes actual',
+        inicio: DateTime(ahora.year, ahora.month, 16),
+        fin: DateTime(ahora.year, ahora.month + 1, 0),
+      ),
+      _Quincena(
+        label: '1a Q mes ant.',
+        inicio: DateTime(ahora.year, ahora.month - 1, 1),
+        fin: DateTime(ahora.year, ahora.month - 1, 15),
+      ),
+      _Quincena(
+        label: '2a Q mes ant.',
+        inicio: DateTime(ahora.year, ahora.month - 1, 16),
+        fin: DateTime(ahora.year, ahora.month, 0),
+      ),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: quincenas.map((q) {
+          final sel =
+              _rangoSeleccionado != null &&
+              _rangoSeleccionado!.start == q.inicio &&
+              _rangoSeleccionado!.end == q.fin;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(q.label, style: const TextStyle(fontSize: 11)),
+              selected: sel,
+              selectedColor: Colors.blue,
+              labelStyle: TextStyle(
+                color: sel ? Colors.white : Colors.blue,
+                fontWeight: FontWeight.w500,
+              ),
+              side: const BorderSide(color: Colors.blue),
+              onSelected: (_) {
+                setState(() {
+                  _rangoSeleccionado = DateTimeRange(
+                    start: q.inicio,
+                    end: q.fin,
+                  );
+                  _datos = [];
+                  _error = null;
+                });
+                _buscar();
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final hayDatos = _datos.isNotEmpty;
@@ -131,40 +197,46 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _seleccionarFechas(context),
-              icon: const Icon(Icons.calendar_today),
-              label: Text(
-                _rangoSeleccionado == null
-                    ? 'Seleccionar Rango'
-                    : '${_fmt.format(_rangoSeleccionado!.start)} - ${_fmt.format(_rangoSeleccionado!.end)}',
+          _buildBotonesQuincena(), // ← chips añadidos
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _seleccionarFechas(context),
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(
+                    _rangoSeleccionado == null
+                        ? 'Seleccionar Rango'
+                        : '${_fmt.format(_rangoSeleccionado!.start)} - ${_fmt.format(_rangoSeleccionado!.end)}',
+                  ),
+                ),
               ),
-            ),
+              if (_datos.isNotEmpty) ...[
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _exportando ? null : _exportar,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: _exportando
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.download),
+                  label: const Text('CSV'),
+                ),
+              ],
+            ],
           ),
-          if (_datos.isNotEmpty) ...[
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-              onPressed: _exportando ? null : _exportar,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[700],
-                foregroundColor: Colors.white,
-              ),
-              icon: _exportando
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.download),
-              label: const Text('CSV'),
-            ),
-          ],
         ],
       ),
     );
@@ -278,4 +350,17 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       ),
     ),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _Quincena {
+  final String label;
+  final DateTime inicio;
+  final DateTime fin;
+  const _Quincena({
+    required this.label,
+    required this.inicio,
+    required this.fin,
+  });
 }

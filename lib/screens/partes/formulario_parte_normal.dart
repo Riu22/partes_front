@@ -113,12 +113,14 @@ class _FormularioParteNormalState extends ConsumerState<FormularioParteNormal> {
     }
   }
 
+  // Comprueba si una fecha está dentro de las fechas habilitadas por un gestor
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
 
+  // Un operario solo puede seleccionar: hoy o fechas que el gestor haya habilitado
   bool _predicate(DateTime dia, bool esGestor) {
-    if (esGestor) return true;
+    if (esGestor) return true; // Gestores pueden cualquier fecha
     final ahora = DateTime.now();
     if (dia.year == ahora.year &&
         dia.month == ahora.month &&
@@ -151,6 +153,8 @@ class _FormularioParteNormalState extends ConsumerState<FormularioParteNormal> {
         lastDate = maxPermitida;
     }
 
+    // Si la fecha actual no está permitida, busca la próxima fecha válida
+    // (primero hacia adelante 60 días, luego hacia atrás 365 días)
     if (!esGestor && !_predicate(initialDate, esGestor)) {
       DateTime? mejorFecha;
       for (int i = 1; i <= 60; i++) {
@@ -572,6 +576,10 @@ class _FormularioParteNormalState extends ConsumerState<FormularioParteNormal> {
 
     setState(() => _enviando = true);
 
+    // Determina la especialidad según quién crea el parte y el tipo de operario:
+    // - Gestor + postventa: usa la especialidad que eligió en el formulario
+    // - Gestor + normal: usa la especialidad del perfil del operario
+    // - Operario normal: usa su propia especialidad
     final String? especialidad = esGestor
         ? (operarioEsPostventa
               ? _especialidad

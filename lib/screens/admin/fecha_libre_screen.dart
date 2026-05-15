@@ -534,6 +534,7 @@ class _CardSinPermiso extends StatelessWidget {
 }
 
 // ─── Dialog selector de fechas múltiples ─────────────────────────────────────
+// Diálogo para seleccionar múltiples fechas con un DatePicker + lista selccionada
 class _DialogSelectorFechas extends StatefulWidget {
   final String titulo;
   final List<DateTime> fechasYaPermitidas;

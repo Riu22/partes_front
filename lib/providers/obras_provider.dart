@@ -13,18 +13,19 @@ final obrasProvider = FutureProvider<List<Obra>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   const cacheKey = 'cache_obras_lista';
 
-  try {
-    final data = await api.getObras();
-    await prefs.setString(cacheKey, jsonEncode(data));
-    return data.map((e) => Obra.fromJson(e)).toList();
-  } catch (e) {
-    final cacheGuardada = prefs.getString(cacheKey);
-    if (cacheGuardada != null) {
-      final List<dynamic> lista = jsonDecode(cacheGuardada);
-      return lista.map((e) => Obra.fromJson(e)).toList();
+    try {
+      final data = await api.getObras();
+      await prefs.setString(cacheKey, jsonEncode(data));
+      return data.map((e) => Obra.fromJson(e)).toList();
+    } catch (e) {
+      // Fallback al caché local si el servidor no responde
+      final cacheGuardada = prefs.getString(cacheKey);
+      if (cacheGuardada != null) {
+        final List<dynamic> lista = jsonDecode(cacheGuardada);
+        return lista.map((e) => Obra.fromJson(e)).toList();
+      }
+      return [];
     }
-    return [];
-  }
 });
 
 // ── Solo obras activas (para selectores en partes) ──

@@ -25,10 +25,11 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
   DateTime? _fechaInicio;
   DateTime? _fechaFin;
 
-  // Cada línea: { obra_id, obra_nombre, horas_electricas, horas_mecanicas }
+    // Cada línea representa una obra con sus horas desglosadas en eléctricas y mecánicas
+    // { obra_id, obra_nombre, horas_electricas, horas_mecanicas }
   final List<Map<String, dynamic>> _lineas = [];
 
-  // ── Horas totales introducidas por el usuario ──────────────────────
+  // Suma todas las horas eléctricas y mecánicas de todas las líneas de obra
   double get _totalHorasIntroducidas => _lineas.fold(
     0.0,
     (sum, l) =>
@@ -59,7 +60,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     setState(() {
       if (esInicio) {
         _fechaInicio = picked;
-        // Si la fecha fin es anterior a la nueva inicio, la reseteamos
+        // Si la fecha fin es anterior a la nueva fecha de inicio, la reseteamos
         if (_fechaFin != null && _fechaFin!.isBefore(picked)) {
           _fechaFin = null;
         }
@@ -358,6 +359,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     setState(() => _enviando = true);
 
     final fmt = DateFormat('yyyy-MM-dd');
+    // Construye el payload con rango de fechas + lista de obras con horas desglosadas
     final data = <String, dynamic>{
       'descripcion': _descripcion,
       'fecha_inicio': fmt.format(_fechaInicio!),

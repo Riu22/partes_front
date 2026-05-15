@@ -161,6 +161,7 @@ class _PerfilesSelectorState extends State<PerfilesSelector> {
                   itemBuilder: (context, i) {
                     final p = filtrados[i];
                     final sel = widget.seleccionados.contains(p.id);
+                    // Icono de especialidad visual para identificar rápidamente el tipo
                     final espLabel = p.especialidad == 'ELECTRICIDAD'
                         ? '⚡'
                         : p.especialidad == 'FONTANERIA'

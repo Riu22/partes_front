@@ -29,9 +29,9 @@ class _AuthNotifier extends ChangeNotifier {
   final Ref _ref;
 }
 
-/// El GoRouter se crea UNA sola vez gracias a [Provider].
-/// El [refreshListenable] se encarga de reevaluar los redirects
-/// cuando el authProvider cambia (loading → data → unauthenticated).
+/// El GoRouter se crea UNA sola vez gracias a Provider.
+/// El refreshListenable se encarga de reevaluar los redirects
+/// cuando el authProvider cambia (loading -> data -> unauthenticated).
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthNotifier(ref);
 
@@ -40,6 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: notifier,
+    // Redirect global: protege rutas según autenticación y rol del usuario
     redirect: (context, state) {
       final location = state.matchedLocation;
 

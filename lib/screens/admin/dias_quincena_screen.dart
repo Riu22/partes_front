@@ -154,7 +154,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     if (_rangoSeleccionado == null || _datosPrevia.isEmpty) return;
     setState(() => _exportandoPdf = true);
     try {
-      // Dias del rango
+      // Genera la lista completa de días entre las fechas seleccionadas
       final List<DateTime> dias = [];
       DateTime temp = _rangoSeleccionado!.start;
       while (!temp.isAfter(_rangoSeleccionado!.end)) {
@@ -162,7 +162,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         temp = temp.add(const Duration(days: 1));
       }
 
-      // Filtrar datos segun rol
+      // Aplica el filtro de obras/operarios seleccionados
       final datosFiltrados = _esJefeObra
           ? _datosPrevia
                 .where(
@@ -187,7 +187,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       final List<String> columnas = [
         'Codigo',
         'Operario',
-        'Grupo',
+        'Categoria',
         'Obra',
         ...dias.map((d) => '${d.day}/${d.month}'),
         'Total',
@@ -197,8 +197,8 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       final List<List<String>> filas = [];
       final Set<int> indicesSubtotal = {};
 
+      //Para jefe de obra: agrupa por obra, cada obra tiene sus filas de detalle + subtotal
       if (_esJefeObra) {
-        // Agrupar por OBRA
         final Map<String, List<dynamic>> porObra = {};
         for (final f in datosFiltrados) {
           porObra.putIfAbsent(f['obra']?.toString() ?? '', () => []).add(f);
@@ -209,13 +209,13 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
         for (final obra in obras) {
           final filasObra = porObra[obra]!;
-          // Filas de detalle
+          // Filas de detalle de cada operario en esta obra
           for (final f in filasObra) {
             final hpd = f['horas_por_dia'] as Map<String, dynamic>;
             filas.add([
               f['codigo']?.toString() ?? '',
               f['operario'] ?? '',
-              f['grupo_profesional'] ?? '-',
+              f['categoria_profesional'] ?? '-',
               f['obra'] ?? '',
               ...dias.map((d) {
                 final iso = DateFormat('yyyy-MM-dd').format(d);
@@ -227,7 +227,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               f['total_horas'].toStringAsFixed(1),
             ]);
           }
-          // Fila de subtotal OBRA
+          // Fila de subtotal: suma de todas las horas de la obra por día
           final Map<String, double> totDia = {};
           double totGen = 0;
           for (final f in filasObra) {
@@ -257,7 +257,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           ]);
         }
       } else {
-        // Agrupar por OPERARIO
+        // Para admin/gestion: agrupa por operario, con filas de detalle + subtotal
         final Map<String, List<dynamic>> porOp = {};
         for (final f in datosFiltrados) {
           porOp.putIfAbsent(f['operario']?.toString() ?? '', () => []).add(f);
@@ -273,7 +273,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             filas.add([
               f['codigo']?.toString() ?? '',
               f['operario'] ?? '',
-              f['grupo_profesional'] ?? '-',
+              f['categoria_profesional'] ?? '-',
               f['obra'] ?? '',
               ...dias.map((d) {
                 final iso = DateFormat('yyyy-MM-dd').format(d);
@@ -285,7 +285,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               f['total_horas'].toStringAsFixed(1),
             ]);
           }
-          // Fila de subtotal OPERARIO
+          // Fila de subtotal del operario
           final Map<String, double> totDia = {};
           double totGen = 0;
           for (final f in filasOp) {
@@ -534,6 +534,8 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
   Widget _buildBotonesQuincena() {
     final ahora = DateTime.now();
+    // Calcula las 4 quincenas predefinidas (2 del mes actual, 2 del anterior)
+    // Usa DateTime(year, month+1, 0) para obtener el último día del mes
     final quincenas = [
       _Quincena(
         label: '1a Q mes actual',
@@ -671,6 +673,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
 
     DataRow subtotalObra(String nombre, List<dynamic> filas) {
+      // Calcula el total por día sumando las horas de todos los operarios en esta obra
       final Map<String, double> totDia = {};
       double tot = 0;
       for (final f in filas) {
@@ -762,7 +765,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               ),
               DataCell(
                 Text(
-                  f['grupo_profesional'] ?? '-',
+                  f['categoria_profesional'] ?? '-',
                   style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]),
                 ),
               ),
@@ -827,6 +830,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
 
     DataRow subtotalOp(String nombre, List<dynamic> filas) {
+      // Calcula el total por día sumando todas las horas de este operario en distintas obras
       final Map<String, double> totDia = {};
       double tot = 0;
       for (final f in filas) {
@@ -918,7 +922,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               ),
               DataCell(
                 Text(
-                  f['grupo_profesional'] ?? '-',
+                  f['categoria_profesional'] ?? '-',
                   style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]),
                 ),
               ),
@@ -994,7 +998,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                     ),
                     const DataColumn(
                       label: Text(
-                        'Grupo',
+                        'Categoria',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),

@@ -18,6 +18,7 @@ class PartesNormalesView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final partesAsync = ref.watch(partesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
+    // El resumen semanal solo se muestra a operarios y encargados (no a jefes/gestores)
     final mostrarResumen =
         perfil?.esOperario == true || perfil?.esEncargado == true;
 
@@ -132,7 +133,7 @@ class PartesJefeCombinadaView extends ConsumerWidget {
         const Divider(color: cardBorder, height: 1),
         const SizedBox(height: 4),
 
-        // ── Partes de la obra separados por especialidad ──
+        // ── Partes de la obra separados por especialidad (eléctrica / fontanería) ──
         partesNormalesAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(24),
@@ -205,6 +206,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
       0,
       (s, p) => s + p.horasNormales,
     );
+    // Muestra horas sin decimales si es entero, o con 1 decimal si no
     final horasLabel = totalHoras == totalHoras.truncateToDouble()
         ? '${totalHoras.toInt()}h'
         : '${totalHoras.toStringAsFixed(1)}h';
@@ -216,7 +218,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
     Widget contenido;
 
     if (widget.agruparPorObra) {
-      // Agrupar por obra → día → operarios
+      // Vista jefe de obra: agrupa partes por obra → dentro, por fecha → operarios
       final Map<String, List<ParteTrabajo>> porObra = {};
       for (final p in widget.partes) {
         porObra.putIfAbsent(p.obraNombre, () => []).add(p);
@@ -229,7 +231,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
             .toList(),
       );
     } else {
-      // Agrupación original: por fecha → operarios
+      // Vista normal: agrupa por fecha → dentro, por operario
       final Map<String, List<ParteTrabajo>> porFecha = {};
       for (final p in widget.partes) {
         porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);
@@ -350,10 +352,12 @@ class _ObraGroupState extends State<_ObraGroup> {
       0,
       (s, p) => s + p.horasNormales,
     );
+    // Muestra horas sin decimales si es entero, o con 1 decimal si no
     final horasLabel = totalHoras == totalHoras.truncateToDouble()
         ? '${totalHoras.toInt()}h'
         : '${totalHoras.toStringAsFixed(1)}h';
 
+    // Agrupa partes de esta obra por fecha (orden descendente)
     final Map<String, List<ParteTrabajo>> porFecha = {};
     for (final p in widget.partes) {
       porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);

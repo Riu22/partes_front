@@ -56,6 +56,7 @@ class _DayHeaderState extends State<DayHeader> {
         : '${dias[widget.fecha.weekday - 1]} ${widget.fecha.day} ${meses[widget.fecha.month - 1]}';
 
     final h = totalHoras;
+    // Si el total de horas es un número entero, muestra sin decimales (ej: "8h")
     final horasLabel = h == h.truncateToDouble()
         ? '${h.toInt()}h'
         : '${h.toStringAsFixed(1)}h';

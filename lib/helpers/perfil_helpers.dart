@@ -1,5 +1,6 @@
 import '../models/perfil.dart';
 
+// Normaliza caracteres con tilde/dieresis/ñ para ordenación alfabética correcta
 String normalizarApellido(String s) => s
     .toLowerCase()
     .replaceAll('á', 'a')

@@ -56,6 +56,7 @@ class ParteTrabajo {
     esPostVenta: json['es_post_venta'] == true || json['es_post_venta'] == 1,
   );
 
+  // Solo se puede editar un parte si es del día de hoy
   bool get puedeEditarse {
     final hoy = DateTime.now();
     return fecha.year == hoy.year &&
@@ -63,6 +64,7 @@ class ParteTrabajo {
         fecha.day == hoy.day;
   }
 
+  // También permite editar si el gestor habilitó fechas concretas para ese operario
   bool puedeEditarseConFechas(List<DateTime> fechasPermitidas) {
     if (puedeEditarse) return true;
     return fechasPermitidas.any(

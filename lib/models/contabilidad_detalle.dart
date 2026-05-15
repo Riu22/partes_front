@@ -16,7 +16,8 @@ class ContabilidadDetalle {
   });
 
   factory ContabilidadDetalle.fromJson(Map<String, dynamic> json) {
-    // Mapeamos las llaves del mapa de horas que vienen como String a DateTime
+    // Convierte el mapa { "2024-01-15": 8.0, ... } del JSON
+    // a un Map<DateTime, double> para manejo tipado en Dart
     var horasRaw = json['horas_por_dia'] as Map<String, dynamic>;
     Map<DateTime, double> horasMap = {};
     horasRaw.forEach((key, value) {

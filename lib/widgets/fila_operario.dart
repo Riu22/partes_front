@@ -26,6 +26,7 @@ class _FilaOperarioState extends State<FilaOperario> {
       0,
       (s, p) => s + p.horasNormales,
     );
+    // Lógica de colores: verde si son 8h exactas, rojo si <8h, naranja si >8h (extras)
     final horas8 = (totalHoras - 8).abs() < 0.01;
     final horasBajas = totalHoras < 8;
 

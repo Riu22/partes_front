@@ -25,16 +25,19 @@ final pendientesOfflineProvider = FutureProvider<int>((ref) async {
   return await queue.totalPendientes();
 });
 
+// Motor de sincronización: se activa al recuperar la conexión o al iniciar la app
 final syncProvider = Provider((ref) {
   ref.listen<AsyncValue<bool>>(conectividadProvider, (prev, next) {
     final tieneConexion = next.valueOrNull ?? false;
     final veniaDeSinConexion = !(prev?.valueOrNull ?? true);
 
+    // Solo sincroniza cuando se pasa de "sin red" a "con red"
     if (tieneConexion && veniaDeSinConexion) {
       _sincronizar(ref);
     }
   });
 
+  // Intento inicial: si hay red al abrir la app, vacía la cola pendiente
   final tieneRedAhora = ref.read(conectividadProvider).valueOrNull ?? false;
   if (tieneRedAhora) {
     _sincronizar(ref);
@@ -43,6 +46,8 @@ final syncProvider = Provider((ref) {
   return null;
 });
 
+// Vacía la cola offline en orden: partes normales → partes jefe → updates
+// Usa List.from() para evitar mutaciones durante la iteración
 Future<void> _sincronizar(Ref ref) async {
   final queue = ref.read(offlineQueueProvider);
   final api = ref.read(apiServiceProvider);
@@ -66,7 +71,7 @@ Future<void> _sincronizar(Ref ref) async {
         await queue.borrarParteNormal(parte);
         ref.invalidate(pendientesOfflineProvider);
       } catch (e) {
-        break;
+        break; // Si falla uno, para la cola (se reintentará después)
       }
     }
     ref.invalidate(partesProvider);

@@ -349,6 +349,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
 
     final online = ref.read(conectividadProvider).valueOrNull ?? false;
 
+    // Sin conexión: guarda la edición en la cola offline para enviar después
     if (!online) {
       final queue = ref.read(offlineQueueProvider);
       await queue.guardarUpdateOffline(widget.parte.id, payload);

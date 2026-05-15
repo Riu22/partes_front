@@ -49,6 +49,7 @@ class _CuerpoBuscadorObrasState extends State<CuerpoBuscadorObras> {
 
   @override
   Widget build(BuildContext context) {
+    // Filtra obras por nombre, municipio o ubicación (case-insensitive)
     final filtradas = widget.obras
         .where(
           (o) =>

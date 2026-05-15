@@ -35,8 +35,8 @@ class OfflineQueueService {
   }
 
   // ── BORRADO INDIVIDUAL (Evita duplicados) ──
-  // Estos métodos buscan el parte exacto que acabamos de enviar y lo quitan
-
+  // Serializa el Map a String y lo elimina de la lista por comparación exacta.
+  // Así evitamos depender de índices que pueden cambiar si la cola se modifica concurrentemente.
   Future<void> borrarParteNormal(Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
     final lista = _getLista(prefs, _keyPartes);

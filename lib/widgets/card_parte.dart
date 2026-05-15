@@ -64,13 +64,14 @@ class CardParte extends ConsumerWidget {
         ? <DateTime>[]
         : ref.watch(fechasPermitidasProvider).valueOrNull ?? [];
 
+    // Los gestores siempre pueden editar; los operarios solo si es hoy o hay fecha habilitada
     final puedeEditar =
         esGestor || parte.puedeEditarseConFechas(fechasPermitidas);
     final puedeEliminar =
         esGestor || parte.puedeEditarseConFechas(fechasPermitidas);
 
     final String? esp = parte.especialidad;
-    final bool esElec = esp == 'ELECTRICIDAD';
+    final bool esElec = esp == 'ELECTRICIDAD'; // Determina color del chip de especialidad
 
     return Card(
       color: bgCard,

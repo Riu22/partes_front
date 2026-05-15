@@ -14,6 +14,7 @@ import '../../widgets/app_drawer.dart';
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
 
+  // Convierte "dd/MM/yyyy" → "jue 15 ene" para mostrar en pantalla
   String _formatFecha(String fecha) {
     try {
       final parts = fecha.split('/');
@@ -28,7 +29,7 @@ class AdminHomeScreen extends ConsumerWidget {
     }
   }
 
-  /// Convierte "dd/MM/yyyy" → "yyyy-MM-dd" para pasarlo por la ruta
+  /// Convierte "dd/MM/yyyy" → "yyyy-MM-dd" para pasarlo por la ruta como query param
   String _fechaParaRuta(String fecha) {
     try {
       final parts = fecha.split('/');
@@ -94,14 +95,15 @@ class AdminHomeScreen extends ConsumerWidget {
                   hayError: true,
                 ),
                 data: (ausencias) {
-                  final totalSin = ausencias.values.fold(
-                    0,
-                    (sum, a) => sum + a.diasSin.length,
-                  );
-                  final totalIncompletos = ausencias.values.fold(
-                    0,
-                    (sum, a) => sum + a.diasIncompletos.length,
-                  );
+    // Suma total de días sin parte y días incompletos de todos los operarios
+    final totalSin = ausencias.values.fold(
+      0,
+      (sum, a) => sum + a.diasSin.length,
+    );
+    final totalIncompletos = ausencias.values.fold(
+      0,
+      (sum, a) => sum + a.diasIncompletos.length,
+    );
                   return _ResumenCard(
                     cargando: false,
                     totalPersonas: ausencias.length,
@@ -464,6 +466,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
 // Chip con menú de acciones inline
 // ─────────────────────────────────────────────
 
+// Chip expandible con menú inline: "Habilitar día" o "Crear parte"
 class _ChipConAcciones extends StatelessWidget {
   const _ChipConAcciones({
     required this.label,

@@ -48,6 +48,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
 
   bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'JEFE_DE_OBRA';
 
+  // Devuelve el grupo profesional: el seleccionado del dropdown o el escrito a mano
   String get _grupoFinal {
     if (_grupoPersonalizado) return _grupoProfesionalCtrl.text.trim();
     return _grupoProfesionalSeleccionado ?? '';

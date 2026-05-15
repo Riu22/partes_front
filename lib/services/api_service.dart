@@ -21,6 +21,8 @@ class ApiService {
       ),
     );
 
+    // Interceptor 401: si el token expiró, intenta refrescarlo automáticamente
+    // y re-intenta la petición original. Evita reintentos infinitos con flag 'retried'.
     _dio.interceptors.add(
       InterceptorsWrapper(
         onError: (DioException error, ErrorInterceptorHandler handler) async {

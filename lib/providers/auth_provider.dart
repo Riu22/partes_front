@@ -14,11 +14,13 @@ final apiServiceProvider = Provider((ref) {
 class AuthNotifier extends AsyncNotifier<Perfil?> {
   @override
   Future<Perfil?> build() async {
+    // Al iniciar la app: si hay token guardado, intenta cargar el perfil
     final token = await ref.read(authServiceProvider).getToken();
     if (token == null) return null;
 
     final hayRed = await _checkRed();
 
+    // Sin conexión: carga el perfil desde almacenamiento local
     if (!hayRed) {
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
@@ -31,11 +33,13 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
   Future<Perfil?> _cargarPerfilServidor() async {
     try {
       final data = await ref.read(apiServiceProvider).getMyProfile();
+      // Guarda en local para uso offline futuro
       await ref.read(authServiceProvider).guardarPerfilLocal(data);
       return Perfil.fromJson(data);
     } catch (e, stackTrace) {
       debugPrint('❌ Error cargando perfil: $e');
       debugPrint('📍 STACK TRACE: $stackTrace');
+      // Fallback al perfil local si falla el servidor
       final perfilLocal = await ref.read(authServiceProvider).getPerfilLocal();
       if (perfilLocal != null) return Perfil.fromJson(perfilLocal);
       return null;
@@ -48,6 +52,7 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
     try {
       final hayRed = await _checkRed();
 
+      // Modo offline: permite login con perfil previamente cacheado
       if (!hayRed) {
         debugPrint('⚠️ Intento de login sin red. Buscando perfil local...');
         final perfilLocal = await ref

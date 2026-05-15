@@ -14,6 +14,7 @@ class ResumenSemanal extends StatelessWidget {
     final inicioSemana = ahora.subtract(Duration(days: ahora.weekday - 1));
     final finSemana = inicioSemana.add(const Duration(days: 6));
 
+    // Filtra partes que caen dentro de la semana actual (lunes a domingo)
     final partesSemana = partes.where((p) {
       return !p.fecha.isBefore(
             DateTime(inicioSemana.year, inicioSemana.month, inicioSemana.day),

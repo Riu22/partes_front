@@ -63,7 +63,10 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     _activo = widget.usuario['activo'] ?? true;
     _postventa = widget.usuario['postventa'] ?? false;
 
-    // Inicializar grupo profesional: ver si el valor actual está en la lista
+    // Inicializa el campo de grupo profesional:
+    // - Si está vacío → sin selección
+    // - Si está en la lista predefinida → lo selecciona
+    // - Si es un valor libre → marca "Otro" y rellena el campo personalizado
     final grupoActual = widget.usuario['grupo_profesional']?.toString() ?? '';
     if (grupoActual.isEmpty) {
       _grupoProfesionalSeleccionado = null;

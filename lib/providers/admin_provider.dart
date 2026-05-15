@@ -16,6 +16,8 @@ final misObrasProvider = FutureProvider<List<dynamic>>((ref) async {
   return await ref.read(apiServiceProvider).getMisObras();
 });
 
+// Convierte el mapa crudo del API a un Map<String, AusenciaInfo> tipado.
+// Cada entrada contiene: días sin parte, días con horas incompletas y total laborables.
 final diasSinParteProvider =
     FutureProvider.autoDispose<Map<String, AusenciaInfo>>((ref) async {
   final api = ref.read(apiServiceProvider);

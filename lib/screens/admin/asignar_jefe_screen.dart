@@ -92,7 +92,10 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
 
   @override
   Widget build(BuildContext context) {
-    // ── Filtro candidatos para subordinado ──
+    // Filtra los usuarios que pueden ser subordinados según el rol del jefe:
+    // JEFE_DE_OBRA → solo ENCARGADO
+    // ENCARGADO/GESTION → solo OPERARIO
+    // Excluye a los ya asignados y a sí mismo
     final posiblesSubordinados = widget.todos.where((u) {
       final yaAsignado = _subordinadosActuales.any((s) => s['id'] == u['id']);
       final esElMismo = u['id'] == widget.usuario['id'];

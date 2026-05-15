@@ -37,11 +37,12 @@ class AuthService {
     final accessToken = data['access_token'] as String;
     final refreshToken = data['refresh_token'] as String?;
 
-    _tokenCache = accessToken;
+    // Primero escribir en storage, luego actualizar cache
     await _storage.write(key: 'jwt', value: accessToken);
     if (refreshToken != null) {
       await _storage.write(key: 'refresh_token', value: refreshToken);
     }
+    _tokenCache = accessToken;
   }
 
   Future<String?> refrescarToken() async {
@@ -87,12 +88,12 @@ class AuthService {
   }
 
   Future<void> guardarToken(String token) async {
-    _tokenCache = token;
     await _storage.write(key: 'jwt', value: token);
+    _tokenCache = token;
   }
 
   Future<String?> getToken() async {
-    if (_tokenCache != null) return _tokenCache;
+    // Siempre lee de storage para evitar cache stale entre cambios de cuenta
     _tokenCache = await _storage.read(key: 'jwt');
     return _tokenCache;
   }

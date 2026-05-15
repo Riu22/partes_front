@@ -113,10 +113,12 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     }
   }
 
+  // Comprueba si una fecha está dentro de las fechas habilitadas por un gestor
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
 
+  // Un operario solo puede seleccionar: hoy o fechas que el gestor haya habilitado
   bool _predicate(DateTime dia, bool esGestor) {
     if (esGestor) return true;
     final ahora = DateTime.now();
@@ -151,6 +153,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
         lastDate = maxPermitida;
     }
 
+    // Si la fecha actual no está permitida, busca próxima fecha válida (adelante 60d, atrás 365d)
     if (!esGestor && !_predicate(initialDate, esGestor)) {
       DateTime? mejorFecha;
       for (int i = 1; i <= 60; i++) {

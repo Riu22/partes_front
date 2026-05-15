@@ -14,9 +14,9 @@ void main() async {
   // Si no encuentra el archivo .env, usará los valores por defecto que pusimos en Env
   try {
     await dotenv.load(fileName: ".env");
-    print("✅ Configuración cargada desde .env");
+    print("Configuración cargada desde .env");
   } catch (e) {
-    print("ℹ️ Usando configuración por defecto (No se encontró .env)");
+    print("Usando configuración por defecto (No se encontró .env)");
   }
 
   runApp(const ProviderScope(child: MyApp()));
@@ -57,9 +57,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('es', 'ES'),
-      ],
+      supportedLocales: const [Locale('es', 'ES')],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
@@ -68,7 +66,8 @@ class _MyAppState extends ConsumerState<MyApp> {
         useMaterial3: true,
       ),
       routerConfig: router,
-      // Builder para el banner de conexión
+      // Superpone un banner rojo "Sin conexión" sobre el contenido principal
+      // cuando no hay red. El Stack permite mostrar el banner sin desplazar el contenido.
       builder: (context, child) {
         return Stack(children: [child!, const _NoConnectionBanner()]);
       },
@@ -81,7 +80,6 @@ class _NoConnectionBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Nota: Asegúrate de tener definido este provider de conectividad
     final tieneConexion = ref.watch(conectividadProvider).valueOrNull ?? true;
 
     if (tieneConexion) return const SizedBox.shrink();
