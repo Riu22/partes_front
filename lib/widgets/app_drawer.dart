@@ -33,7 +33,7 @@ class AppDrawer extends ConsumerWidget {
             decoration: BoxDecoration(color: Theme.of(context).primaryColor),
           ),
 
-          // ── Partes ──────────────────────────────────────────────────────
+          // ── Partes ──────────────────────────────────────────
           ListTile(
             leading: const Icon(Icons.assignment),
             title: const Text('Mis partes'),
@@ -52,7 +52,7 @@ class AppDrawer extends ConsumerWidget {
               },
             ),
 
-          // ── Obras ────────────────────────────────────────────────────────
+          // ── Obras ────────────────────────────────────────────
           if (!perfil.esOperario)
             ListTile(
               leading: const Icon(Icons.business),
@@ -63,7 +63,7 @@ class AppDrawer extends ConsumerWidget {
               },
             ),
 
-          // ── Jefe de obra ─────────────────────────────────────────────────
+          // ── Jefe de obra ─────────────────────────────────────
           if (perfil.esJefeObra) ...[
             const Divider(),
             const Padding(
@@ -86,9 +86,17 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/contabilidad-detalle');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.assignment_outlined),
+              title: const Text('Informe de dedicación'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/partes-jefe/informe');
+              },
+            ),
           ],
 
-          // ── Admin / Gestión ──────────────────────────────────────────────
+          // ── Admin / Gestión ──────────────────────────────────
           if (perfil.esGestion || perfil.esAdmin) ...[
             const Divider(),
             const Padding(
@@ -151,9 +159,17 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/pdf-screen');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart_outlined),
+              title: const Text('Dedicación mensual'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/partes-jefe/resumen');
+              },
+            ),
           ],
 
-          // ── Sesión ───────────────────────────────────────────────────────
+          // ── Sesión ───────────────────────────────────────────
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),

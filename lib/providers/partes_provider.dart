@@ -10,19 +10,18 @@ final partesProvider = FutureProvider<List<ParteTrabajo>>((ref) async {
   final api = ref.read(apiServiceProvider);
   final prefs = await SharedPreferences.getInstance();
 
-    try {
-      final data = await api.getPartes();
-      await prefs.setString(_cacheKeyPartes, jsonEncode(data));
-      return data.map((e) => ParteTrabajo.fromJson(e)).toList();
-    } catch (e) {
-      // Fallback al caché local cuando no hay conexión
-      final cache = prefs.getString(_cacheKeyPartes);
-      if (cache != null) {
-        final List<dynamic> lista = jsonDecode(cache);
-        return lista.map((e) => ParteTrabajo.fromJson(e)).toList();
-      }
-      return [];
+  try {
+    final data = await api.getPartes();
+    await prefs.setString(_cacheKeyPartes, jsonEncode(data));
+    return data.map((e) => ParteTrabajo.fromJson(e)).toList();
+  } catch (e) {
+    final cache = prefs.getString(_cacheKeyPartes);
+    if (cache != null) {
+      final List<dynamic> lista = jsonDecode(cache);
+      return lista.map((e) => ParteTrabajo.fromJson(e)).toList();
     }
+    return [];
+  }
 });
 
 final partesJefeProvider = FutureProvider<List<dynamic>>((ref) async {
@@ -45,7 +44,6 @@ final busquedaPartesProvider =
           );
     });
 
-// ── NUEVO: fechas que el gestor ha habilitado para el operario ──
 final fechasPermitidasProvider = FutureProvider<List<DateTime>>((ref) async {
   try {
     return await ref.read(apiServiceProvider).getMisFechasLibres();
@@ -53,3 +51,12 @@ final fechasPermitidasProvider = FutureProvider<List<DateTime>>((ref) async {
     return [];
   }
 });
+
+final resumenMensualJefeProvider =
+    FutureProvider.family<Map<String, dynamic>, ({int anio, int mes})>((
+      ref,
+      params,
+    ) async {
+      final api = ref.read(apiServiceProvider);
+      return api.getResumenMensualJefe(params.anio, params.mes);
+    });

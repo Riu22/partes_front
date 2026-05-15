@@ -310,6 +310,15 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
+  Future<Map<String, dynamic>> getResumenMensualJefe(int anio, int mes) async {
+    final response = await _dio.get(
+      '/partes/resumen-mensual-jefe',
+      queryParameters: {'anio': anio, 'mes': mes},
+      options: await _authHeaders(),
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   // ─────────────────────────────────────────
   // Fechas con parte — para el DatePicker
   // ─────────────────────────────────────────
@@ -594,9 +603,16 @@ class ApiService {
     return Uint8List.fromList(response.data!);
   }
 
-  Future<Map<String, dynamic>> getInformeParteJefe(int parteId) async {
+  Future<Map<String, dynamic>> getInformeParteJefePorRango({
+    required DateTime fechaInicio,
+    required DateTime fechaFin,
+  }) async {
     final response = await _dio.get(
-      '/partes/informe_jefe/$parteId',
+      '/partes/informe-jefe-rango',
+      queryParameters: {
+        'desde': _fmtDate(fechaInicio),
+        'hasta': _fmtDate(fechaFin),
+      },
       options: await _authHeaders(),
     );
     return response.data as Map<String, dynamic>;

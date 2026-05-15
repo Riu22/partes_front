@@ -20,8 +20,9 @@ import '../screens/admin/dias_quincena_screen.dart';
 import '../screens/admin/fecha_libre_screen.dart';
 import '../screens/pdf/pdf_screen.dart';
 import '../screens/admin/admin_home_screen.dart';
+import '../screens/partes/informe_jefe_screen.dart';
+import '../screens/partes/resumen_mensual_jefe_screen.dart';
 
-/// Notifica a GoRouter cada vez que cambia el estado de autenticación.
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(this._ref) {
     _ref.listen(authProvider, (_, __) => notifyListeners());
@@ -29,52 +30,35 @@ class _AuthNotifier extends ChangeNotifier {
   final Ref _ref;
 }
 
-/// El GoRouter se crea UNA sola vez gracias a Provider.
-/// El refreshListenable se encarga de reevaluar los redirects
-/// cuando el authProvider cambia (loading -> data -> unauthenticated).
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthNotifier(ref);
-
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: notifier,
-    // Redirect global: protege rutas según autenticación y rol del usuario
     redirect: (context, state) {
       final location = state.matchedLocation;
-
       if (location == '/nueva-password') return null;
-
       final auth = ref.read(authProvider);
-
-      // Mientras carga, no redirigir
       if (auth.isLoading) return null;
-
       final perfil = auth.valueOrNull;
       final isLoggedIn = perfil != null;
-
       if (!isLoggedIn && location != '/login') return '/login';
-
       if (isLoggedIn && location == '/login') {
         if (perfil.esAdmin || perfil.esGestion) return '/admin';
         return '/partes';
       }
-
       if (location == '/usuarios' &&
           perfil != null &&
           !perfil.esGestion &&
-          !perfil.esAdmin) {
+          !perfil.esAdmin)
         return '/partes';
-      }
-
       if (location == '/quincena' &&
           perfil != null &&
           !perfil.esGestion &&
-          !perfil.esAdmin) {
+          !perfil.esAdmin)
         return '/partes';
-      }
-
       return null;
     },
     routes: [
@@ -84,7 +68,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NuevaPasswordScreen(),
       ),
 
-      // ── Shell principal con barra de navegación ──
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -124,7 +107,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // ── Rutas independientes (sin shell / barra inferior) ──
       GoRoute(
         path: '/partes/nuevo',
         builder: (context, state) {
@@ -210,6 +192,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
+            return '/partes';
+          }
+          return null;
+        },
+      ),
+      GoRoute(
+        path: '/partes-jefe/informe',
+        builder: (context, state) => const InformeJefeScreen(),
+        redirect: (context, state) {
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null ||
+              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
+            return '/partes';
+          }
+          return null;
+        },
+      ),
+      GoRoute(
+        path: '/partes-jefe/resumen',
+        builder: (context, state) => const ResumenMensualJefeScreen(),
+        redirect: (context, state) {
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null ||
+              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
             return '/partes';
           }
           return null;
