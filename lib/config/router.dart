@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/app_shell.dart';
@@ -7,7 +8,7 @@ import '../screens/login_screen.dart';
 import '../screens/partes/partes_screen.dart';
 import '../screens/partes/crear_parte_screen.dart';
 import '../screens/partes/editar_partes_screen.dart';
-import '../screens/partes/editar_parte_jefe_screen.dart';
+import '../screens/partes/editar_partes_jefe_screen.dart';
 import '../screens/obras/obras_screen.dart';
 import '../screens/admin/usuarios_screen.dart';
 import '../screens/admin/crear_usuarios_screen.dart';
