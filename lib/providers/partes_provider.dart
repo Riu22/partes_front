@@ -60,3 +60,12 @@ final resumenMensualJefeProvider =
       final api = ref.read(apiServiceProvider);
       return api.getResumenMensualJefe(params.anio, params.mes);
     });
+
+final resumenMensualPorUsuarioProvider =
+    FutureProvider.family<List<dynamic>, ({int anio, int mes})>((
+      ref,
+      params,
+    ) async {
+      final api = ref.read(apiServiceProvider);
+      return api.getResumenMensualPorJefe(params.anio, params.mes);
+    });

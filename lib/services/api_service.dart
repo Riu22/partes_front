@@ -618,6 +618,15 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<List<dynamic>> getResumenMensualPorJefe(int anio, int mes) async {
+    final response = await _dio.get(
+      '/partes/resumen-mensual-por-usuario',
+      queryParameters: {'anio': anio, 'mes': mes},
+      options: await _authHeaders(),
+    );
+    return (response.data as List?) ?? [];
+  }
+
   // ─────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────

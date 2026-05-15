@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import '../../helpers/tema_constants.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/partes_provider.dart';
 
 class ResumenMensualJefeScreen extends ConsumerStatefulWidget {
@@ -59,17 +58,15 @@ class _ResumenMensualJefeScreenState
     }
   });
 
-  String _fmtFecha(String? fecha) {
-    if (fecha == null) return '—';
-    final d = DateTime.tryParse(fecha);
-    if (d == null) return fecha;
-    return DateFormat('dd/MM/yyyy').format(d);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final perfil = ref.watch(authProvider).valueOrNull;
+    final esAdmin = perfil?.esAdmin == true || perfil?.esGestion == true;
     final params = (anio: _anio, mes: _mes);
-    final resumenAsync = ref.watch(resumenMensualJefeProvider(params));
+
+    final asyncData = esAdmin
+        ? ref.watch(resumenMensualPorUsuarioProvider(params))
+        : ref.watch(resumenMensualJefeProvider(params)).whenData((r) => [r]);
 
     return Scaffold(
       backgroundColor: bgPage,
@@ -88,7 +85,7 @@ class _ResumenMensualJefeScreenState
       ),
       body: Column(
         children: [
-          // ── Selector mes ────────────────────────────────────
+          // ── Selector mes ──────────────────────────────────
           Container(
             color: bgCard,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -116,9 +113,8 @@ class _ResumenMensualJefeScreenState
           ),
           const Divider(height: 1, color: cardBorder),
 
-          // ── Contenido ───────────────────────────────────────
           Expanded(
-            child: resumenAsync.when(
+            child: asyncData.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Text(
@@ -126,106 +122,118 @@ class _ResumenMensualJefeScreenState
                   style: const TextStyle(color: Colors.red),
                 ),
               ),
-              data: (resumen) {
-                final obras = (resumen['obras'] as List?) ?? [];
-                final partes = (resumen['partes'] as List?) ?? [];
-                final totalHoras = resumen['total_horas_laborables'] as num?;
-
-                if (partes.isEmpty) {
+              data: (usuarios) {
+                if (usuarios.isEmpty) {
                   return const Center(
                     child: Text(
-                      'Sin partes este mes',
+                      'Sin dedicación este mes',
                       style: TextStyle(color: textSecondary),
                     ),
                   );
                 }
 
-                return SingleChildScrollView(
+                return ListView.separated(
                   padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── Total horas ──────────────────────
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          color: bgCard,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: cardBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: bluePill,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.schedule_outlined,
-                                color: blue,
-                                size: 20,
+                  itemCount: usuarios.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (_, i) {
+                    final u = usuarios[i] as Map<String, dynamic>;
+                    final nombre = u['nombre'] as String? ?? '—';
+                    final totalHoras = u['total_horas_laborables'] as num?;
+                    final obras = (u['obras'] as List?) ?? [];
+
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: bgCard,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: cardBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Cabecera usuario ──────────────
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(color: cardBorder),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                const Text(
-                                  'Total horas laborables',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: textSecondary,
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: bluePill,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_outline,
+                                    color: blue,
+                                    size: 18,
                                   ),
                                 ),
-                                Text(
-                                  '${totalHoras?.toStringAsFixed(1) ?? '—'} h',
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: textPrimary,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    nombre,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: bluePill,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${totalHoras?.toStringAsFixed(1) ?? '—'} h',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: blue,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // ── Dedicación por obra ──────────────
-                      const Text(
-                        'DEDICACIÓN POR OBRA',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: textSecondary,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (obras.isEmpty)
-                        const Text(
-                          'Sin obras este mes',
-                          style: TextStyle(color: textSecondary, fontSize: 13),
-                        )
-                      else
-                        Container(
-                          decoration: BoxDecoration(
-                            color: bgCard,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: cardBorder),
                           ),
-                          child: Column(
-                            children: obras.asMap().entries.map((e) {
-                              final i = e.key;
+
+                          // ── Obras ─────────────────────────
+                          if (obras.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: Text(
+                                'Sin obras',
+                                style: TextStyle(
+                                  color: textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          else ...[
+                            ...obras.asMap().entries.map((e) {
                               final o = e.value as Map<String, dynamic>;
-                              final esUltimo = i == obras.length - 1;
+                              final esUltimo = e.key == obras.length - 1;
+                              final hE =
+                                  (o['horas_electricas'] as num?)
+                                      ?.toStringAsFixed(1) ??
+                                  '0';
+                              final hM =
+                                  (o['horas_mecanicas'] as num?)
+                                      ?.toStringAsFixed(1) ??
+                                  '0';
                               final pctE =
                                   (o['porcentaje_electrico'] as num?)
                                       ?.toStringAsFixed(1) ??
@@ -234,8 +242,6 @@ class _ResumenMensualJefeScreenState
                                   (o['porcentaje_mecanico'] as num?)
                                       ?.toStringAsFixed(1) ??
                                   '0';
-                              final hE = o['horas_electricas'] ?? 0;
-                              final hM = o['horas_mecanicas'] ?? 0;
 
                               return Container(
                                 decoration: BoxDecoration(
@@ -247,7 +253,7 @@ class _ResumenMensualJefeScreenState
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 14,
-                                  vertical: 12,
+                                  vertical: 10,
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,15 +262,15 @@ class _ResumenMensualJefeScreenState
                                       children: [
                                         const Icon(
                                           Icons.business_outlined,
-                                          size: 14,
+                                          size: 13,
                                           color: blue,
                                         ),
-                                        const SizedBox(width: 6),
+                                        const SizedBox(width: 5),
                                         Expanded(
                                           child: Text(
                                             o['nombre_obra'] ?? '—',
                                             style: const TextStyle(
-                                              fontSize: 13,
+                                              fontSize: 12,
                                               fontWeight: FontWeight.w600,
                                               color: textPrimary,
                                             ),
@@ -272,21 +278,21 @@ class _ResumenMensualJefeScreenState
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 6),
                                     Row(
                                       children: [
-                                        _dedicacionChip(
+                                        _chip(
                                           '⚡',
-                                          '$hE h',
                                           '$pctE%',
+                                          '$hE h',
                                           orangePill,
                                           orange,
                                         ),
                                         const SizedBox(width: 8),
-                                        _dedicacionChip(
+                                        _chip(
                                           '🔧',
-                                          '$hM h',
                                           '$pctM%',
+                                          '$hM h',
                                           bluePill,
                                           blue,
                                         ),
@@ -295,91 +301,174 @@ class _ResumenMensualJefeScreenState
                                   ],
                                 ),
                               );
-                            }).toList(),
-                          ),
-                        ),
+                            }),
 
-                      const SizedBox(height: 24),
+                            // ── Totales ───────────────────────
+                            Builder(
+                              builder: (_) {
+                                double totalE = obras.fold(
+                                  0.0,
+                                  (s, o) =>
+                                      s +
+                                      ((o
+                                                      as Map<
+                                                        String,
+                                                        dynamic
+                                                      >)['horas_electricas']
+                                                  as num? ??
+                                              0)
+                                          .toDouble(),
+                                );
+                                double totalM = obras.fold(
+                                  0.0,
+                                  (s, o) =>
+                                      s +
+                                      ((o
+                                                      as Map<
+                                                        String,
+                                                        dynamic
+                                                      >)['horas_mecanicas']
+                                                  as num? ??
+                                              0)
+                                          .toDouble(),
+                                );
+                                final base = (totalHoras ?? 0).toDouble();
+                                final pctE = base > 0
+                                    ? ((totalE / base) * 100)
+                                    : 0.0;
+                                final pctM = base > 0
+                                    ? ((totalM / base) * 100)
+                                    : 0.0;
+                                final pctTotal = pctE + pctM;
+                                final esCien = (pctTotal - 100.0).abs() < 0.1;
 
-                      // ── Partes del mes ───────────────────
-                      const Text(
-                        'PARTES DEL MES',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: textSecondary,
-                          letterSpacing: 0.8,
-                        ),
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 10,
+                                  ),
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      top: BorderSide(color: cardBorder),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // fila ⚡ + 🔧 + total combinado
+                                      Row(
+                                        children: [
+                                          const Text(
+                                            'Total',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _chip(
+                                            '⚡',
+                                            '${pctE.toStringAsFixed(1)}%',
+                                            '${totalE.toStringAsFixed(1)} h',
+                                            orangePill,
+                                            orange,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _chip(
+                                            '🔧',
+                                            '${pctM.toStringAsFixed(1)}%',
+                                            '${totalM.toStringAsFixed(1)} h',
+                                            bluePill,
+                                            blue,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      // fila total combinado + indicador
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: esCien
+                                                    ? const Color(0xFFE8F5E9)
+                                                    : const Color(0xFFFFF3E0),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: esCien
+                                                      ? const Color(0xFF81C784)
+                                                      : const Color(0xFFFFB74D),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    esCien
+                                                        ? Icons
+                                                              .check_circle_outline
+                                                        : Icons
+                                                              .warning_amber_rounded,
+                                                    size: 16,
+                                                    color: esCien
+                                                        ? const Color(
+                                                            0xFF388E3C,
+                                                          )
+                                                        : const Color(
+                                                            0xFFE65100,
+                                                          ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    'Total dedicación: ${pctTotal.toStringAsFixed(1)}%',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: esCien
+                                                          ? const Color(
+                                                              0xFF388E3C,
+                                                            )
+                                                          : const Color(
+                                                              0xFFE65100,
+                                                            ),
+                                                    ),
+                                                  ),
+                                                  if (!esCien) ...[
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      '(faltan ${(100.0 - pctTotal).toStringAsFixed(1)}%)',
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: Color(
+                                                          0xFFE65100,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      ...partes.map((p) {
-                        final parte = p as Map<String, dynamic>;
-                        return Card(
-                          color: bgCard,
-                          elevation: 0,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: const BorderSide(color: cardBorder),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            leading: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: bgStat,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.assignment_outlined,
-                                size: 18,
-                                color: blue,
-                              ),
-                            ),
-                            title: Text(
-                              '${_fmtFecha(parte['fecha_inicio']?.toString())} → ${_fmtFecha(parte['fecha_fin']?.toString())}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: textPrimary,
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${parte['total_horas_laborables'] ?? '—'} h  ·  ${parte['descripcion'] ?? ''}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: textSecondary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: TextButton(
-                              style: TextButton.styleFrom(
-                                foregroundColor: blue,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                              ),
-                              onPressed: () => context.push(
-                                '/partes-jefe/informe/${parte['id']}',
-                                extra: _fmtFecha(
-                                  parte['fecha_inicio']?.toString(),
-                                ),
-                              ),
-                              child: const Text(
-                                'Ver',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             ),
@@ -389,10 +478,11 @@ class _ResumenMensualJefeScreenState
     );
   }
 
-  Widget _dedicacionChip(
+  // pct es el valor grande (principal), horas es el pequeño (secundario)
+  Widget _chip(
     String emoji,
-    String horas,
     String pct,
+    String horas,
     Color bgColor,
     Color textColor,
   ) => Expanded(
@@ -410,15 +500,15 @@ class _ResumenMensualJefeScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                horas,
+                pct,
                 style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
                   color: textColor,
                 ),
               ),
               Text(
-                pct,
+                horas,
                 style: TextStyle(
                   fontSize: 11,
                   color: textColor.withOpacity(0.7),
