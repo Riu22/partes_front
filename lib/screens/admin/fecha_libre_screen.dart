@@ -242,8 +242,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
                                 SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Puedes añadir días sueltos para que un operario pueda registrar partes fuera del límite. '
-                                    'Los permisos se pierden si el servidor se reinicia.',
+                                    'Puedes añadir días sueltos para que un operario pueda registrar partes fuera del límite.',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.blue,
