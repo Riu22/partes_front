@@ -103,7 +103,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/quincena',
-                builder: (context, state) => const QuincenaScreen(),
+                builder: (context, state) => const ContabilidadScreen(),
               ),
             ],
           ),
@@ -194,7 +194,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/contabilidad-detalle',
-        builder: (context, state) => const ContabilidadScreen(),
+        builder: (context, state) => const QuincenaScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
