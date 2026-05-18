@@ -154,7 +154,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     if (_rangoSeleccionado == null || _datosPrevia.isEmpty) return;
     setState(() => _exportandoPdf = true);
     try {
-      // Genera la lista completa de días entre las fechas seleccionadas
       final List<DateTime> dias = [];
       DateTime temp = _rangoSeleccionado!.start;
       while (!temp.isAfter(_rangoSeleccionado!.end)) {
@@ -162,7 +161,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         temp = temp.add(const Duration(days: 1));
       }
 
-      // Aplica el filtro de obras/operarios seleccionados
       final datosFiltrados = _esJefeObra
           ? _datosPrevia
                 .where(
@@ -183,7 +181,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         return;
       }
 
-      // Cabeceras
       final List<String> columnas = [
         'Codigo',
         'Operario',
@@ -193,11 +190,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         'Total',
       ];
 
-      // Construir filas y marcar subtotales
       final List<List<String>> filas = [];
       final Set<int> indicesSubtotal = {};
 
-      //Para jefe de obra: agrupa por obra, cada obra tiene sus filas de detalle + subtotal
       if (_esJefeObra) {
         final Map<String, List<dynamic>> porObra = {};
         for (final f in datosFiltrados) {
@@ -209,7 +204,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
         for (final obra in obras) {
           final filasObra = porObra[obra]!;
-          // Filas de detalle de cada operario en esta obra
           for (final f in filasObra) {
             final hpd = f['horas_por_dia'] as Map<String, dynamic>;
             filas.add([
@@ -227,7 +221,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               f['total_horas'].toStringAsFixed(1),
             ]);
           }
-          // Fila de subtotal: suma de todas las horas de la obra por día
           final Map<String, double> totDia = {};
           double totGen = 0;
           for (final f in filasObra) {
@@ -257,7 +250,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           ]);
         }
       } else {
-        // Para admin/gestion: agrupa por operario, con filas de detalle + subtotal
         final Map<String, List<dynamic>> porOp = {};
         for (final f in datosFiltrados) {
           porOp.putIfAbsent(f['operario']?.toString() ?? '', () => []).add(f);
@@ -285,7 +277,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               f['total_horas'].toStringAsFixed(1),
             ]);
           }
-          // Fila de subtotal del operario
           final Map<String, double> totDia = {};
           double totGen = 0;
           for (final f in filasOp) {
@@ -393,26 +384,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         ),
         backgroundColor: Colors.indigo,
         elevation: 0,
-        actions: [
-          if (_datosPrevia.isNotEmpty)
-            _exportandoPdf
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    ),
-                  )
-                : IconButton(
-                    icon: const Icon(Icons.picture_as_pdf_outlined),
-                    tooltip: 'Exportar PDF / Imprimir',
-                    onPressed: _exportarPdf,
-                  ),
-        ],
+        // ← AppBar sin botones, se han movido al header
       ),
       body: Column(
         children: [
@@ -452,6 +424,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
+              // Selector de rango de fechas
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _seleccionarFechas(context),
@@ -463,17 +436,41 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              if (hayDatos)
+              if (hayDatos) ...[
+                const SizedBox(width: 8),
+                // Botón CSV
                 ElevatedButton.icon(
                   onPressed: _cargando ? null : _ejecutarDescarga,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[700],
                     foregroundColor: Colors.white,
                   ),
-                  icon: const Icon(Icons.download),
+                  icon: const Icon(Icons.download, size: 18),
                   label: const Text('CSV'),
                 ),
+                const SizedBox(width: 8),
+                // Botón PDF ← movido aquí desde el AppBar
+                ElevatedButton.icon(
+                  onPressed: (_exportandoPdf || _cargando)
+                      ? null
+                      : _exportarPdf,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[700],
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: _exportandoPdf
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                  label: const Text('PDF'),
+                ),
+              ],
             ],
           ),
           if (hayDatos) ...[
@@ -534,8 +531,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
   Widget _buildBotonesQuincena() {
     final ahora = DateTime.now();
-    // Calcula las 4 quincenas predefinidas (2 del mes actual, 2 del anterior)
-    // Usa DateTime(year, month+1, 0) para obtener el último día del mes
     final quincenas = [
       _Quincena(
         label: '1a Q mes actual',
@@ -609,7 +604,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   );
 
   // ─────────────────────────────────────────────────────────────────
-  //  TABLA (vista en pantalla, sin cambios respecto a version anterior)
+  //  TABLA
   // ─────────────────────────────────────────────────────────────────
 
   Widget _buildTablaDetalle(bool esJefe) {
@@ -673,7 +668,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
 
     DataRow subtotalObra(String nombre, List<dynamic> filas) {
-      // Calcula el total por día sumando las horas de todos los operarios en esta obra
       final Map<String, double> totDia = {};
       double tot = 0;
       for (final f in filas) {
@@ -830,7 +824,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
 
     DataRow subtotalOp(String nombre, List<dynamic> filas) {
-      // Calcula el total por día sumando todas las horas de este operario en distintas obras
       final Map<String, double> totDia = {};
       double tot = 0;
       for (final f in filas) {

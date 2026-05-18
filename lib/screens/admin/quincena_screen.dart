@@ -20,6 +20,16 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   final _fmt = DateFormat('dd/MM/yy');
   final _fmtApi = DateFormat('yyyy-MM-dd');
 
+  String _nombreCompleto(Map d) {
+    final apellido = (d['apellidos'] ?? '').toString().trim();
+    final nombre = (d['nombre'] ?? '').toString().trim();
+    if (apellido.isEmpty) return nombre;
+    if (nombre.isEmpty) return apellido;
+    return '$apellido, $nombre';
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+
   Map<String, List<dynamic>> _agruparPorObra() {
     final Map<String, List<dynamic>> grupos = {};
     for (var d in _datos) {
@@ -199,7 +209,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       ),
       child: Column(
         children: [
-          _buildBotonesQuincena(), // ← chips añadidos
+          _buildBotonesQuincena(),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -322,7 +332,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                   (t) => ListTile(
                     dense: true,
                     leading: const Icon(Icons.person_outline, size: 20),
-                    title: Text(t['nombre'] ?? ''),
+                    title: Text(_nombreCompleto(t)), // ← apellido, nombre
                     subtitle: Text('Cód. Operario: ${t['codigo'] ?? 'N/A'}'),
                     trailing: Text(
                       '${(t['total_horas'] as num).toStringAsFixed(1)}h',
