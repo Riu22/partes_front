@@ -385,14 +385,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     final esJefe = ref.watch(authProvider).valueOrNull?.esJefeObra == true;
 
     return Scaffold(
-      drawer: const AppDrawer(),
-      appBar: AppBar(
-        title: Text(
-          esJefe ? 'Mis obras - Detalle horas' : 'Exportacion Contable',
-        ),
-        backgroundColor: Colors.indigo,
-        elevation: 0,
-      ),
       body: Column(
         children: [
           _buildSelectorHeader(),

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../helpers/capture_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/app_drawer.dart';
 
 class QuincenaScreen extends ConsumerStatefulWidget {
   const QuincenaScreen({super.key});
@@ -440,6 +441,14 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     final esJefe = perfil?.esJefeObra == true;
 
     return Scaffold(
+      drawer: const AppDrawer(),
+      appBar: AppBar(
+        title: Text(
+          esJefe ? 'Mis obras - Detalle horas' : 'Exportacion Contable',
+        ),
+        backgroundColor: Colors.indigo,
+        elevation: 0,
+      ),
       body: Column(
         children: [
           _buildSelectorHeader(esJefe),

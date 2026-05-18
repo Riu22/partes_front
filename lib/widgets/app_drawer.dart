@@ -129,7 +129,7 @@ class AppDrawer extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.calculate),
-              title: const Text('Resumen Quincena'),
+              title: const Text('Quincena'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/quincena');
@@ -137,7 +137,7 @@ class AppDrawer extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.analytics),
-              title: const Text('Quincena'),
+              title: const Text('Resumen Quincena'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/contabilidad-detalle');
