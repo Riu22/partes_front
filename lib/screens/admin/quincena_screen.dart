@@ -6,14 +6,14 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
 
-class ContabilidadScreen extends ConsumerStatefulWidget {
-  const ContabilidadScreen({super.key});
+class QuincenaScreen extends ConsumerStatefulWidget {
+  const QuincenaScreen({super.key});
 
   @override
-  ConsumerState<ContabilidadScreen> createState() => _ContabilidadScreenState();
+  ConsumerState<QuincenaScreen> createState() => _QuincenaScreenState();
 }
 
-class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
+class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   final ApiService _apiService = ApiService();
 
   final ScrollController _verticalController = ScrollController();
@@ -41,6 +41,64 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
   bool get _esJefeObra =>
       ref.read(authProvider).valueOrNull?.esJefeObra == true;
+
+  // ── Helper ausencias ──────────────────────────────────────────────
+
+  /// Devuelve null si no hay ausencia en esa fecha,
+  /// o un record con color de fondo, color de texto y letra (B/V).
+  ({Color bg, Color fg, String letra})? _infoAusencia(
+    Map<String, dynamic> fila,
+    String isoFecha,
+  ) {
+    final ausencias = fila['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
+    final tipo = ausencias[isoFecha]?.toString();
+    if (tipo == null) return null;
+    if (tipo == 'BAJA') {
+      return (bg: Colors.red.shade100, fg: Colors.red.shade800, letra: 'B');
+    }
+    // VACACIONES
+    return (bg: Colors.amber.shade100, fg: Colors.amber.shade800, letra: 'V');
+  }
+
+  // ── Celda de horas con soporte ausencia ───────────────────────────
+
+  DataCell _celdaH(double v, String isoFecha, Map<String, dynamic> f) {
+    final aus = _infoAusencia(f, isoFecha);
+    if (aus != null) {
+      return DataCell(
+        Container(
+          width: 35,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: aus.bg,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            aus.letra,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: aus.fg,
+            ),
+          ),
+        ),
+      );
+    }
+    return DataCell(
+      Container(
+        width: 35,
+        alignment: Alignment.center,
+        child: Text(
+          v > 0 ? v.toStringAsFixed(1) : '-',
+          style: TextStyle(
+            fontSize: 11,
+            color: v > 0 ? Colors.black87 : Colors.grey[600],
+            fontWeight: v > 0 ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
 
   // ── Seleccion de fechas ───────────────────────────────────────────
 
@@ -206,6 +264,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           final filasObra = porObra[obra]!;
           for (final f in filasObra) {
             final hpd = f['horas_por_dia'] as Map<String, dynamic>;
+            final aus = f['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
             filas.add([
               f['codigo']?.toString() ?? '',
               f['operario'] ?? '',
@@ -213,6 +272,8 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               f['obra'] ?? '',
               ...dias.map((d) {
                 final iso = DateFormat('yyyy-MM-dd').format(d);
+                if (aus[iso] == 'BAJA') return 'B';
+                if (aus[iso] == 'VACACIONES') return 'V';
                 final h = hpd[iso];
                 if (h == null) return '-';
                 final double v = h is int ? h.toDouble() : h as double;
@@ -262,6 +323,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           final filasOp = porOp[op]!;
           for (final f in filasOp) {
             final hpd = f['horas_por_dia'] as Map<String, dynamic>;
+            final aus = f['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
             filas.add([
               f['codigo']?.toString() ?? '',
               f['operario'] ?? '',
@@ -269,6 +331,8 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               f['obra'] ?? '',
               ...dias.map((d) {
                 final iso = DateFormat('yyyy-MM-dd').format(d);
+                if (aus[iso] == 'BAJA') return 'B';
+                if (aus[iso] == 'VACACIONES') return 'V';
                 final h = hpd[iso];
                 if (h == null) return '-';
                 final double v = h is int ? h.toDouble() : h as double;
@@ -379,12 +443,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(
-          esJefe ? 'Mis obras - Detalle horas' : 'Exportacion Contable',
-        ),
+        title: Text(esJefe ? 'Mis obras' : 'Exportación Contable'),
         backgroundColor: Colors.indigo,
         elevation: 0,
-        // ← AppBar sin botones, se han movido al header
       ),
       body: Column(
         children: [
@@ -424,7 +485,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              // Selector de rango de fechas
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () => _seleccionarFechas(context),
@@ -438,7 +498,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               ),
               if (hayDatos) ...[
                 const SizedBox(width: 8),
-                // Botón CSV
                 ElevatedButton.icon(
                   onPressed: _cargando ? null : _ejecutarDescarga,
                   style: ElevatedButton.styleFrom(
@@ -449,7 +508,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                   label: const Text('CSV'),
                 ),
                 const SizedBox(width: 8),
-                // Botón PDF ← movido aquí desde el AppBar
                 ElevatedButton.icon(
                   onPressed: (_exportandoPdf || _cargando)
                       ? null
@@ -474,6 +532,23 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             ],
           ),
           if (hayDatos) ...[
+            const SizedBox(height: 8),
+            // ── Leyenda ausencias ──
+            Row(
+              children: [
+                _LeyendaCelda(
+                  color: Colors.red.shade100,
+                  letra: 'B',
+                  label: 'Baja',
+                ),
+                const SizedBox(width: 12),
+                _LeyendaCelda(
+                  color: Colors.amber.shade100,
+                  letra: 'V',
+                  label: 'Vacaciones',
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
@@ -652,21 +727,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         .where((o) => porObra.containsKey(o))
         .toList();
 
-    DataCell celdaH(double v) => DataCell(
-      Container(
-        width: 35,
-        alignment: Alignment.center,
-        child: Text(
-          v > 0 ? v.toStringAsFixed(1) : '-',
-          style: TextStyle(
-            fontSize: 11,
-            color: v > 0 ? Colors.black87 : Colors.grey[600],
-            fontWeight: v > 0 ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-
     DataRow subtotalObra(String nombre, List<dynamic> filas) {
       final Map<String, double> totDia = {};
       double tot = 0;
@@ -772,7 +832,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                 final double v = h != null
                     ? (h is int ? h.toDouble() : h as double)
                     : 0;
-                return celdaH(v);
+                return _celdaH(v, iso, f as Map<String, dynamic>);
               }),
               DataCell(
                 Container(
@@ -807,21 +867,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     final opsOrdenados = _operariosDisponibles
         .where((o) => porOp.containsKey(o))
         .toList();
-
-    DataCell celdaH(double v) => DataCell(
-      Container(
-        width: 35,
-        alignment: Alignment.center,
-        child: Text(
-          v > 0 ? v.toStringAsFixed(1) : '-',
-          style: TextStyle(
-            fontSize: 11,
-            color: v > 0 ? Colors.black87 : Colors.grey[600],
-            fontWeight: v > 0 ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
 
     DataRow subtotalOp(String nombre, List<dynamic> filas) {
       final Map<String, double> totDia = {};
@@ -928,7 +973,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                 final double v = h != null
                     ? (h is int ? h.toDouble() : h as double)
                     : 0;
-                return celdaH(v);
+                return _celdaH(v, iso, f as Map<String, dynamic>);
               }),
               DataCell(
                 Container(
@@ -1027,6 +1072,46 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Leyenda de ausencias
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _LeyendaCelda extends StatelessWidget {
+  final Color color;
+  final String letra;
+  final String label;
+
+  const _LeyendaCelda({
+    required this.color,
+    required this.letra,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            letra,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      ],
     );
   }
 }
