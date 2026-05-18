@@ -541,7 +541,7 @@ class ApiService {
   }
 
   // ─────────────────────────────────────────
-  // Ausencias
+  // Ausencias — incidencias
   // ─────────────────────────────────────────
 
   Future<Map<String, dynamic>> getDiasSinParte() async {
@@ -550,6 +550,54 @@ class ApiService {
       options: await _authHeaders(),
     );
     return response.data as Map<String, dynamic>;
+  }
+
+  // ─────────────────────────────────────────
+  // Ausencias laborales — baja / vacaciones
+  // ─────────────────────────────────────────
+
+  Future<Map<String, dynamic>> crearAusenciaLaboral({
+    required String perfilId,
+    required String tipo,
+    required DateTime fechaInicio,
+    required DateTime fechaFin,
+    String? observaciones,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/ausencias/laborales',
+        data: {
+          'perfil_id': perfilId,
+          'tipo': tipo,
+          'fecha_inicio': _fmtDate(fechaInicio),
+          'fecha_fin': _fmtDate(fechaFin),
+          if (observaciones != null) 'observaciones': observaciones,
+        },
+        options: await _authHeaders(),
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw e.response?.data?.toString() ?? 'Error al crear la ausencia';
+    }
+  }
+
+  Future<void> eliminarAusenciaLaboral(int id) async {
+    try {
+      await _dio.delete(
+        '/ausencias/laborales/$id',
+        options: await _authHeaders(),
+      );
+    } on DioException catch (e) {
+      throw e.response?.data?.toString() ?? 'Error al eliminar la ausencia';
+    }
+  }
+
+  Future<List<dynamic>> getAusenciasLaboralesDePerfil(String perfilId) async {
+    final response = await _dio.get(
+      '/ausencias/laborales/perfil/$perfilId',
+      options: await _authHeaders(),
+    );
+    return (response.data as List?) ?? [];
   }
 
   // ─────────────────────────────────────────
