@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-enum AusenciaTipo { BAJA, VACACIONES }
+enum AusenciaTipo { BAJA, VACACIONES, PATERNIDAD }
 
 class AusenciaLaboral {
   final int? id;

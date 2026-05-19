@@ -412,6 +412,44 @@ class _AusenciaCardState extends State<_AusenciaCard> {
     });
   }
 
+  // ── Helpers de tipo de ausencia ──────────────────────────────────────────
+
+  Color _colorFondoAusencia(String tipo, ColorScheme cs) {
+    return switch (tipo) {
+      'BAJA' => cs.errorContainer,
+      'VACACIONES' => cs.secondaryContainer,
+      'PATERNIDAD' => const Color(0xFFBFDBFE),
+      _ => cs.surfaceVariant,
+    };
+  }
+
+  Color _colorTextoAusencia(String tipo, ColorScheme cs) {
+    return switch (tipo) {
+      'BAJA' => cs.error,
+      'VACACIONES' => cs.secondary,
+      'PATERNIDAD' => const Color(0xFF1D4ED8),
+      _ => cs.onSurfaceVariant,
+    };
+  }
+
+  IconData _iconoAusencia(String tipo) {
+    return switch (tipo) {
+      'BAJA' => Icons.local_hospital_rounded,
+      'VACACIONES' => Icons.beach_access_rounded,
+      'PATERNIDAD' => Icons.child_friendly_rounded,
+      _ => Icons.event_busy_rounded,
+    };
+  }
+
+  String _labelAusencia(String tipo) {
+    return switch (tipo) {
+      'BAJA' => 'Baja',
+      'VACACIONES' => 'Vacaciones',
+      'PATERNIDAD' => 'Paternidad',
+      _ => tipo,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -462,7 +500,6 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                   onPressed: () =>
                       widget.onRegistrarAusencia(ausencia.perfilId, nombre),
                 ),
-                // ── Badge ──
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -518,28 +555,22 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                           decoration: BoxDecoration(
                             color: expandida
                                 ? colorScheme.inverseSurface
-                                : (a.tipo == 'BAJA'
-                                      ? colorScheme.errorContainer
-                                      : colorScheme.secondaryContainer),
+                                : _colorFondoAusencia(a.tipo, colorScheme),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                a.tipo == 'BAJA'
-                                    ? Icons.local_hospital_rounded
-                                    : Icons.beach_access_rounded,
+                                _iconoAusencia(a.tipo),
                                 size: 14,
                                 color: expandida
                                     ? colorScheme.onInverseSurface
-                                    : (a.tipo == 'BAJA'
-                                          ? colorScheme.error
-                                          : colorScheme.secondary),
+                                    : _colorTextoAusencia(a.tipo, colorScheme),
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                '${a.tipo == 'BAJA' ? 'Baja' : 'Vacaciones'}  '
+                                '${_labelAusencia(a.tipo)}  '
                                 '${widget.formatFecha(a.fechaInicio)} → '
                                 '${widget.formatFecha(a.fechaFin)}',
                                 style: textTheme.labelSmall?.copyWith(
@@ -917,7 +948,9 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _TipoChip(
                   label: 'Baja',
@@ -926,13 +959,19 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
                   color: colorScheme.error,
                   onTap: () => setState(() => _tipo = 'BAJA'),
                 ),
-                const SizedBox(width: 8),
                 _TipoChip(
                   label: 'Vacaciones',
                   icon: Icons.beach_access_rounded,
                   seleccionado: _tipo == 'VACACIONES',
                   color: colorScheme.secondary,
                   onTap: () => setState(() => _tipo = 'VACACIONES'),
+                ),
+                _TipoChip(
+                  label: 'Paternidad',
+                  icon: Icons.child_friendly_rounded,
+                  seleccionado: _tipo == 'PATERNIDAD',
+                  color: const Color(0xFF1D4ED8),
+                  onTap: () => setState(() => _tipo = 'PATERNIDAD'),
                 ),
               ],
             ),

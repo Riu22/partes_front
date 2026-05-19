@@ -28,6 +28,19 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   List<String> _obrasDisponibles = [];
   Set<String> _obrasSeleccionadas = {};
 
+  // ── Festivos nacionales fijos ─────────────────────────────────────
+  static const Set<(int, int)> _festivosFijos = {
+    (1, 1), // Año Nuevo
+    (1, 6), // Reyes
+    (5, 1), // Día del Trabajo
+    (8, 15), // Asunción
+    (10, 12), // Fiesta Nacional
+    (11, 1), // Todos los Santos
+    (12, 6), // Constitución
+    (12, 8), // Inmaculada
+    (12, 25), // Navidad
+  };
+
   @override
   void dispose() {
     _verticalController.dispose();
@@ -43,6 +56,11 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   bool _esFinDeSemana(DateTime d) =>
       d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
 
+  bool _esFestivo(DateTime d) => _festivosFijos.contains((d.month, d.day));
+
+  /// Días que se marcan en rojo: fines de semana Y festivos nacionales
+  bool _esDiaRojo(DateTime d) => _esFinDeSemana(d) || _esFestivo(d);
+
   ({Color bg, Color fg, String letra})? _infoAusencia(
     Map<String, dynamic> fila,
     String isoFecha,
@@ -53,6 +71,10 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     if (tipo == 'BAJA') {
       return (bg: Colors.red.shade100, fg: Colors.red.shade800, letra: 'B');
     }
+    if (tipo == 'PATERNIDAD') {
+      return (bg: Colors.blue.shade100, fg: Colors.blue.shade800, letra: 'P');
+    }
+    // VACACIONES (y cualquier otro tipo desconocido)
     return (bg: Colors.amber.shade100, fg: Colors.amber.shade800, letra: 'V');
   }
 
@@ -62,11 +84,11 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     double v,
     String isoFecha,
     Map<String, dynamic> f,
-    bool esFinSemana,
+    bool esDiaRojo,
   ) {
     final aus = _infoAusencia(f, isoFecha);
 
-    // Ausencia (B/V) tiene prioridad
+    // Ausencia (B/V/P) tiene prioridad sobre el color de día
     if (aus != null) {
       return DataCell(
         Container(
@@ -88,20 +110,27 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
     }
 
-    // Fin de semana con horas → solo número en rojo, sin fondo
-    if (esFinSemana && v > 0) {
+    // Fin de semana o festivo: fondo rojo siempre, texto rojo si hay horas
+    if (esDiaRojo) {
       return DataCell(
         Container(
           width: 35,
+          height: double.infinity,
           alignment: Alignment.center,
-          child: Text(
-            v.toStringAsFixed(1),
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: Colors.red.shade700,
-            ),
-          ),
+          color: Colors.red.shade50,
+          child: v > 0
+              ? Text(
+                  v.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red.shade700,
+                  ),
+                )
+              : Text(
+                  '-',
+                  style: TextStyle(fontSize: 11, color: Colors.red.shade200),
+                ),
         ),
       );
     }
@@ -277,6 +306,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               final iso = DateFormat('yyyy-MM-dd').format(d);
               if (aus[iso] == 'BAJA') return 'B';
               if (aus[iso] == 'VACACIONES') return 'V';
+              if (aus[iso] == 'PATERNIDAD') return 'P';
               final h = hpd[iso];
               if (h == null) return '-';
               final double v = h is int ? h.toDouble() : h as double;
@@ -411,7 +441,13 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -482,9 +518,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                 ),
                 const SizedBox(width: 12),
                 _LeyendaCelda(
-                  color: Colors.red.shade50,
-                  letra: 'S/D',
-                  label: 'Fin de semana',
+                  color: Colors.blue.shade100,
+                  letra: 'P',
+                  label: 'Paternidad',
                 ),
               ],
             ),
@@ -650,14 +686,14 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
         ),
       ),
-      // Columna por día: letra encima, número abajo; fondo rojo solo en S/D
+      // Columna por día: letra encima, número abajo; fondo rojo en S/D/festivo
       ...dias.map((d) {
-        final esFS = _esFinDeSemana(d);
+        final esDR = _esDiaRojo(d);
         final letra = letrasDia[d.weekday - 1];
         return DataColumn(
           label: Container(
             width: 35,
-            decoration: esFS
+            decoration: esDR
                 ? BoxDecoration(
                     color: Colors.red.shade100,
                     borderRadius: BorderRadius.circular(4),
@@ -666,22 +702,20 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Letra del día
                 Text(
                   letra,
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
-                    color: esFS ? Colors.red.shade800 : Colors.black54,
+                    color: esDR ? Colors.red.shade800 : Colors.black54,
                   ),
                 ),
-                // Número del día
                 Text(
                   '${d.day}',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: esFS ? Colors.red.shade700 : Colors.black87,
+                    color: esDR ? Colors.red.shade700 : Colors.black87,
                   ),
                 ),
               ],
@@ -733,15 +767,20 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
       double totalHorasObra = 0;
       final Map<String, double> totDiaObra = {};
+      int idxFila = 0;
 
       // Filas de operarios
       for (final f in filasObra) {
         final hpd = f['horas_por_dia'] as Map<String, dynamic>;
         final double totalPersona = (f['total_horas'] as num).toDouble();
         totalHorasObra += totalPersona;
+        final bool esPareja = idxFila++ % 2 == 0;
 
         filas.add(
           DataRow(
+            color: WidgetStateProperty.resolveWith((_) {
+              return esPareja ? Colors.white : Colors.grey.shade50;
+            }),
             cells: [
               DataCell(
                 Text(
@@ -771,7 +810,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                   v,
                   iso,
                   f as Map<String, dynamic>,
-                  _esFinDeSemana(d),
+                  _esDiaRojo(d),
                 );
               }),
               // Total persona
@@ -814,16 +853,21 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             ...dias.map((d) {
               final iso = DateFormat('yyyy-MM-dd').format(d);
               final t = totDiaObra[iso] ?? 0;
+              final esDR = _esDiaRojo(d);
               return DataCell(
                 Container(
                   width: 35,
+                  height: double.infinity,
                   alignment: Alignment.center,
+                  color: esDR ? Colors.red.shade50 : null,
                   child: Text(
                     t > 0 ? t.toStringAsFixed(1) : '-',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: t == 0
+                      color: esDR
+                          ? Colors.red.shade300
+                          : t == 0
                           ? Colors.grey[400]
                           : t < 8
                           ? Colors.orange[700]
@@ -872,7 +916,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                 child: DataTable(
                   columnSpacing: 15,
                   horizontalMargin: 12,
-                  headingRowHeight: 48,
+                  headingRowHeight: 52,
+                  dataRowMinHeight: 36,
+                  dataRowMaxHeight: 36,
                   headingRowColor: WidgetStateProperty.all(Colors.indigo[50]),
                   columns: columnas,
                   rows: filas,

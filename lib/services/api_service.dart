@@ -459,7 +459,7 @@ class ApiService {
     if (response.data != null) {
       saveAndLaunchFile(
         Uint8List.fromList(response.data),
-        'quincena_${desde}_$hasta.csv',
+        'quincena_${desde}_$hasta.xlsx',
       );
     }
   }
@@ -494,7 +494,7 @@ class ApiService {
       if (response.data != null) {
         saveAndLaunchFile(
           Uint8List.fromList(response.data),
-          'detalle_contabilidad_${desdeStr}_$hastaStr.csv',
+          'detalle_contabilidad_${desdeStr}_$hastaStr.xlsx',
         );
       }
     } catch (e) {
@@ -532,7 +532,7 @@ class ApiService {
       if (response.data != null) {
         saveAndLaunchFile(
           Uint8List.fromList(response.data),
-          'detalle_obras_${desdeStr}_$hastaStr.csv',
+          'detalle_obras_${desdeStr}_$hastaStr.xlsx',
         );
       }
     } catch (e) {
