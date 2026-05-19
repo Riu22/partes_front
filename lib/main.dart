@@ -7,11 +7,8 @@ import 'providers/sync_provider.dart';
 import 'providers/obras_provider.dart';
 
 void main() async {
-  // Garantizar que Flutter esté listo
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Cargar variables de entorno antes de runApp
-  // Si no encuentra el archivo .env, usará los valores por defecto que pusimos en Env
   try {
     await dotenv.load(fileName: ".env");
     print("Configuración cargada desde .env");
@@ -32,12 +29,10 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
-    // --- MOTOR DE SINCRONIZACIÓN Y DATOS ---
     ref.watch(syncProvider);
     ref.watch(obrasProvider);
     ref.watch(obrasActivasProvider);
 
-    // Escuchamos el contador de pendientes para debug
     ref.listen(pendientesOfflineProvider, (prev, next) {
       if (next.hasValue) {
         print(
@@ -66,10 +61,21 @@ class _MyAppState extends ConsumerState<MyApp> {
         useMaterial3: true,
       ),
       routerConfig: router,
-      // Superpone un banner rojo "Sin conexión" sobre el contenido principal
-      // cuando no hay red. El Stack permite mostrar el banner sin desplazar el contenido.
       builder: (context, child) {
-        return Stack(children: [child!, const _NoConnectionBanner()]);
+        final mq = MediaQuery.of(context);
+        final width = mq.size.width;
+
+        final double scale = switch (width) {
+          > 2200 => 1.45,
+          > 1600 => 1.25,
+          > 1024 => 1.10,
+          _ => 1.00,
+        };
+
+        return MediaQuery(
+          data: mq.copyWith(textScaler: TextScaler.linear(scale)),
+          child: Stack(children: [child!, const _NoConnectionBanner()]),
+        );
       },
     );
   }
