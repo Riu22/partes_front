@@ -41,6 +41,13 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       if (conectado) {
         ref.invalidate(obrasActivasProvider);
         ref.invalidate(obrasProvider);
+        // Precarga fechas permitidas para que el formulario las tenga listas
+        ref.invalidate(fechasPermitidasProvider);
+        try {
+          await ref.read(apiServiceProvider).getMisFechasLibres();
+        } catch (e) {
+          debugPrint('>>> error precarga fechas permitidas: $e');
+        }
       }
       if (!kIsWeb) _checkUpdate();
     });
@@ -108,6 +115,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     ref.invalidate(partesProvider);
     ref.invalidate(partesJefeProvider);
     ref.invalidate(pendientesOfflineProvider);
+    ref.invalidate(listaOfflineProvider); // también refresca la lista visual
     ref.invalidate(fechasPermitidasProvider);
   }
 
@@ -213,21 +221,30 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refrescar,
-              child: _resultadosBusqueda != null
-                  ? ListaPartes(
-                      partes: _resultadosBusqueda!
-                          .map((p) => ParteTrabajo.fromJson(p))
-                          .toList(),
-                      agruparPorOperario: true,
-                    )
-                  : perfil.esJefeObra
-                  ? const PartesJefeCombinadaView() // ← fix: combinada en vez de solo jefe
-                  : PartesNormalesView(
-                      agruparPorOperario:
-                          perfil.esEncargado ||
-                          perfil.esAdmin ||
-                          perfil.esGestion,
-                    ),
+              child: CustomScrollView(
+                slivers: [
+                  // ── Partes guardados offline ──────────────────────────────
+                  const SliverToBoxAdapter(child: _PartesPendientesOffline()),
+                  // ── Lista principal ───────────────────────────────────────
+                  SliverFillRemaining(
+                    child: _resultadosBusqueda != null
+                        ? ListaPartes(
+                            partes: _resultadosBusqueda!
+                                .map((p) => ParteTrabajo.fromJson(p))
+                                .toList(),
+                            agruparPorOperario: true,
+                          )
+                        : perfil.esJefeObra
+                        ? const PartesJefeCombinadaView()
+                        : PartesNormalesView(
+                            agruparPorOperario:
+                                perfil.esEncargado ||
+                                perfil.esAdmin ||
+                                perfil.esGestion,
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -349,6 +366,217 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Widget: sección de partes pendientes offline ─────────────────────────────
+
+class _PartesPendientesOffline extends ConsumerWidget {
+  const _PartesPendientesOffline();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final listaAsync = ref.watch(listaOfflineProvider);
+
+    return listaAsync.when(
+      // Mientras carga no ocupa espacio
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (partes) {
+        if (partes.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Cabecera de sección
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_off, size: 13, color: orange),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${partes.length} parte(s) pendiente(s) de envío',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: orange,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Tarjetas
+            ...partes.map((p) => _TarjetaParteOffline(data: p)),
+            const Divider(height: 1, thickness: 1),
+            const SizedBox(height: 4),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TarjetaParteOffline extends ConsumerWidget {
+  const _TarjetaParteOffline({required this.data});
+  final Map<String, dynamic> data;
+
+  Future<void> _borrar(BuildContext context, WidgetRef ref) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Eliminar parte'),
+        content: const Text(
+          '¿Seguro que quieres eliminar este parte pendiente? No se podrá recuperar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) return;
+
+    final queue = ref.read(offlineQueueProvider);
+    final esJefe = data['_tipo'] == 'jefe';
+
+    // Copia limpia sin la clave interna _tipo
+    final dataLimpia = Map<String, dynamic>.from(data)..remove('_tipo');
+
+    if (esJefe) {
+      await queue.borrarParteJefe(dataLimpia);
+    } else {
+      await queue.borrarParteNormal(dataLimpia);
+    }
+
+    ref.invalidate(pendientesOfflineProvider);
+    ref.invalidate(listaOfflineProvider);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fecha = data['fecha'] as String? ?? '—';
+    final horas = data['horas_normales'];
+    final descripcion = (data['descripcion'] as String? ?? '').trim();
+    final esPostVenta = data['es_post_venta'] == true;
+    final esJefe = data['_tipo'] == 'jefe';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.cloud_off, size: 15, color: orange),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      fecha,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    if (esPostVenta || esJefe)
+                      _Badge(
+                        label: esPostVenta ? 'Post Venta' : 'Jefe Obra',
+                        color: esPostVenta ? Colors.purple : Colors.teal,
+                      ),
+                    const Spacer(),
+                    Text(
+                      '${horas ?? 0} h',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    // ── Botón eliminar ──
+                    GestureDetector(
+                      onTap: () => _borrar(context, ref),
+                      child: const Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Icon(
+                          Icons.delete_outline,
+                          size: 16,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (descripcion.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    descripcion,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: textSecondary),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                const Text(
+                  'Pendiente de envío — se enviará al recuperar conexión',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: orange,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
