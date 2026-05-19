@@ -9,7 +9,10 @@ import '../../providers/sync_provider.dart';
 import '../../services/update_service.dart';
 import '../../providers/obras_provider.dart';
 import '../../helpers/tema_constants.dart';
-import '../../widgets/search_field.dart';
+import '../../widgets/buscador_obras_modal.dart';
+import '../../widgets/buscador_operarios_modal.dart';
+import '../../models/obra.dart';
+import '../../models/perfil.dart';
 import '../../widgets/lista_partes.dart';
 import '../../widgets/partes_views.dart';
 
@@ -23,14 +26,15 @@ class PartesScreen extends ConsumerStatefulWidget {
 class _PartesScreenState extends ConsumerState<PartesScreen> {
   final _obraCtrl = TextEditingController();
   final _operarioCtrl = TextEditingController();
+  Obra? _obraSeleccionada;
+  Perfil? _operarioSeleccionado;
   String? _especialidadFiltro;
-  bool _buscando = false;
-  List<dynamic>? _resultadosBusqueda;
+  List<ParteTrabajo>? _partesFiltradas;
   final _updateService = UpdateService();
 
   bool get _hayFiltros =>
-      _obraCtrl.text.isNotEmpty ||
-      _operarioCtrl.text.isNotEmpty ||
+      _obraSeleccionada != null ||
+      _operarioSeleccionado != null ||
       _especialidadFiltro != null;
 
   @override
@@ -85,30 +89,20 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
   }
 
-  Future<void> _buscar() async {
+  void _aplicarFiltro() {
     if (!_hayFiltros) {
-      setState(() => _resultadosBusqueda = null);
+      setState(() => _partesFiltradas = null);
       return;
     }
-    setState(() => _buscando = true);
-    try {
-      final r = await ref
-          .read(apiServiceProvider)
-          .buscarPartes(
-            obra: _obraCtrl.text,
-            operario: _operarioCtrl.text,
-            especialidad: _especialidadFiltro,
-          );
-      setState(() => _resultadosBusqueda = r);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    } finally {
-      setState(() => _buscando = false);
-    }
+    final partes = ref.read(partesProvider).valueOrNull ?? [];
+    final filtradas = partes.where((p) {
+      if (_obraSeleccionada != null && p.obraNombre != _obraSeleccionada!.nombre) return false;
+      if (_operarioSeleccionado != null &&
+          p.operarioNombreCompleto != _operarioSeleccionado!.nombreApellidoCompleto) return false;
+      if (_especialidadFiltro != null && p.especialidad != _especialidadFiltro) return false;
+      return true;
+    }).toList();
+    setState(() => _partesFiltradas = filtradas);
   }
 
   Future<void> _refrescar() async {
@@ -123,8 +117,10 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     _obraCtrl.clear();
     _operarioCtrl.clear();
     setState(() {
+      _obraSeleccionada = null;
+      _operarioSeleccionado = null;
       _especialidadFiltro = null;
-      _resultadosBusqueda = null;
+      _partesFiltradas = null;
     });
   }
 
@@ -227,11 +223,9 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                   const SliverToBoxAdapter(child: _PartesPendientesOffline()),
                   // ── Lista principal ───────────────────────────────────────
                   SliverFillRemaining(
-                    child: _resultadosBusqueda != null
+                    child: _partesFiltradas != null
                         ? ListaPartes(
-                            partes: _resultadosBusqueda!
-                                .map((p) => ParteTrabajo.fromJson(p))
-                                .toList(),
+                            partes: _partesFiltradas!,
                             agruparPorOperario: true,
                           )
                         : perfil.esJefeObra
@@ -267,23 +261,9 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: SearchField(
-                  controller: _obraCtrl,
-                  hint: 'Obra',
-                  icon: Icons.business_outlined,
-                  onSubmit: (_) => _buscar(),
-                ),
-              ),
+              Expanded(child: _buildSelectorObra()),
               const SizedBox(width: 8),
-              Expanded(
-                child: SearchField(
-                  controller: _operarioCtrl,
-                  hint: 'Operario',
-                  icon: Icons.person_outline,
-                  onSubmit: (_) => _buscar(),
-                ),
-              ),
+              Expanded(child: _buildSelectorOperario()),
             ],
           ),
           const SizedBox(height: 8),
@@ -323,7 +303,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: _buscando ? null : _buscar,
+                onTap: _aplicarFiltro,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -334,28 +314,19 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: cardBorder),
                   ),
-                  child: _buscando
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: blue,
-                          ),
-                        )
-                      : const Row(
-                          children: [
-                            Icon(Icons.search, size: 16, color: textPrimary),
-                            SizedBox(width: 6),
-                            Text(
-                              'Buscar',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: textPrimary,
-                              ),
-                            ),
-                          ],
+                  child: const Row(
+                    children: [
+                      Icon(Icons.search, size: 16, color: textPrimary),
+                      SizedBox(width: 6),
+                      Text(
+                        'Buscar',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: textPrimary,
                         ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (_hayFiltros)
@@ -366,6 +337,162 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  List<Obra> _obrasDesdePartes(List<ParteTrabajo> partes) {
+    final nombres = partes.map((p) => p.obraNombre).toSet().toList()..sort();
+    return nombres
+        .map((n) => Obra(
+              id: 0,
+              nombre: n,
+              ubicacion: '',
+              municipio: '',
+              codigo: '',
+              activa: true,
+            ))
+        .toList();
+  }
+
+  Widget _buildSelectorObra() {
+    return Container(
+      decoration: BoxDecoration(
+        color: bgCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cardBorder),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          final partes = ref.read(partesProvider).valueOrNull ?? [];
+          final obras = _obrasDesdePartes(partes);
+          abrirBuscadorObras(context, obras, (o) {
+            setState(() {
+              _obraSeleccionada = o;
+              _obraCtrl.text = o.nombre;
+            });
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.business_outlined, size: 18, color: textSecondary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _obraSeleccionada?.nombre ?? 'Obra',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _obraSeleccionada != null ? textPrimary : textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (_obraSeleccionada != null)
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _obraSeleccionada = null;
+                    _obraCtrl.clear();
+                  }),
+                  child: const Icon(Icons.clear, size: 16, color: textSecondary),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Perfil> _operariosDesdePartes(List<ParteTrabajo> partes) {
+    final map = <String, Perfil>{};
+    for (final p in partes) {
+      final key = p.operarioId ?? p.operarioNombreCompleto;
+      map.putIfAbsent(key, () => Perfil(
+            id: p.operarioId ?? key,
+            email: '',
+            nombre: p.operarioNombre,
+            apellidos: p.operarioApellidos,
+            rol: 'OPERARIO',
+            activo: true,
+          ));
+    }
+    final sorted = map.values.toList();
+    sorted.sort((a, b) => a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto));
+    return sorted;
+  }
+
+  Widget _buildSelectorOperario() {
+    return Container(
+      decoration: BoxDecoration(
+        color: bgCard,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: cardBorder),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          final partes = ref.read(partesProvider).valueOrNull ?? [];
+          final perfiles = _operariosDesdePartes(partes);
+          _abrirBuscadorOperarios(context, perfiles);
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.person_outline, size: 18, color: textSecondary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _operarioSeleccionado?.nombreApellidoCompleto ?? 'Operario',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _operarioSeleccionado != null ? textPrimary : textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (_operarioSeleccionado != null)
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _operarioSeleccionado = null;
+                    _operarioCtrl.clear();
+                  }),
+                  child: const Icon(Icons.clear, size: 16, color: textSecondary),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _abrirBuscadorOperarios(BuildContext context, List<Perfil> perfiles) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: CuerpoBuscadorOperarios(
+            perfiles: perfiles,
+            scrollController: scrollController,
+            alSeleccionar: (p) {
+              setState(() {
+                _operarioSeleccionado = p;
+                _operarioCtrl.text = p.nombreApellidoCompleto;
+              });
+            },
+          ),
+        ),
       ),
     );
   }
