@@ -96,10 +96,16 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
     final partes = ref.read(partesProvider).valueOrNull ?? [];
     final filtradas = partes.where((p) {
-      if (_obraSeleccionada != null && p.obraNombre != _obraSeleccionada!.nombre) return false;
+      if (_obraSeleccionada != null && p.obraNombre != _obraSeleccionada!.nombre) {
+        return false;
+      }
       if (_operarioSeleccionado != null &&
-          p.operarioNombreCompleto != _operarioSeleccionado!.nombreApellidoCompleto) return false;
-      if (_especialidadFiltro != null && p.especialidad != _especialidadFiltro) return false;
+          p.operarioNombreCompleto != _operarioSeleccionado!.nombreApellidoCompleto) {
+        return false;
+      }
+      if (_especialidadFiltro != null && p.especialidad != _especialidadFiltro) {
+        return false;
+      }
       return true;
     }).toList();
     setState(() => _partesFiltradas = filtradas);
