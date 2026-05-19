@@ -19,7 +19,7 @@ class InformePartesScreen extends ConsumerStatefulWidget {
 }
 
 class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
-  DateTime _desde = DateTime.now().subtract(const Duration(days: 30));
+  DateTime _desde = DateTime.now().subtract(const Duration(days: 15));
   DateTime _hasta = DateTime.now();
 
   final Set<int> _obrasSeleccionadas = {};
