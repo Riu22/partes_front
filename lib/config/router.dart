@@ -37,31 +37,35 @@ final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthNotifier(ref);
   ref.onDispose(notifier.dispose);
 
+  // Helper: devuelve true si el perfil es admin o gestión
+  bool esAdminOGestion(dynamic perfil) =>
+      perfil != null && (perfil.esAdmin || perfil.esGestion);
+
   return GoRouter(
     initialLocation: '/login',
     refreshListenable: notifier,
     redirect: (context, state) {
       final location = state.matchedLocation;
       if (location == '/nueva-password') return null;
+
       final auth = ref.read(authProvider);
       if (auth.isLoading) return null;
+
       final perfil = auth.valueOrNull;
       final isLoggedIn = perfil != null;
+
+      // Sin sesión → login
       if (!isLoggedIn && location != '/login') return '/login';
+
+      // Con sesión en login → redirigir a home según rol
       if (isLoggedIn && location == '/login') {
-        if (perfil.esAdmin || perfil.esGestion) return '/admin';
-        return '/partes';
+        return esAdminOGestion(perfil) ? '/admin' : '/partes';
       }
-      if (location == '/usuarios' &&
-          perfil != null &&
-          !perfil.esGestion &&
-          !perfil.esAdmin)
-        return '/partes';
-      if (location == '/quincena' &&
-          perfil != null &&
-          !perfil.esGestion &&
-          !perfil.esAdmin)
-        return '/partes';
+
+      // Operario sin permisos intenta entrar en rutas restringidas → /partes
+      if (location == '/usuarios' && !esAdminOGestion(perfil)) return '/partes';
+      if (location == '/quincena' && !esAdminOGestion(perfil)) return '/partes';
+
       return null;
     },
     routes: [
@@ -131,14 +135,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // ── Editar parte jefe ─────────────────────────────────────────
       GoRoute(
         path: '/partes/editar-jefe/:id',
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
-            return '/partes';
+            // Admin/gestión → /admin; el resto → /partes
+            return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
         },
@@ -181,14 +185,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+
       GoRoute(
         path: '/admin',
         builder: (context, state) => const AdminHomeScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
-          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
-            return '/partes';
-          }
+          if (!esAdminOGestion(perfil)) return '/partes';
           return null;
         },
       ),
@@ -199,7 +202,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
-            return '/partes';
+            return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
         },
@@ -209,9 +212,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const FechaLibreScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
-          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
-            return '/partes';
-          }
+          if (!esAdminOGestion(perfil)) return '/partes';
           return null;
         },
       ),
@@ -220,9 +221,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const InformePartesScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
-          if (perfil == null || (!perfil.esAdmin && !perfil.esGestion)) {
-            return '/partes';
-          }
+          if (!esAdminOGestion(perfil)) return '/partes';
           return null;
         },
       ),
@@ -233,7 +232,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
-            return '/partes';
+            return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
         },
@@ -245,7 +244,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
-            return '/partes';
+            return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
         },

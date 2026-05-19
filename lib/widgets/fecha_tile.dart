@@ -1,22 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-class FechaTile extends StatelessWidget {
-  final String label;
-  final DateTime fecha;
-  final VoidCallback onTap;
+class RangoFechaTile extends StatelessWidget {
+  final DateTime desde;
+  final DateTime hasta;
+  final ValueChanged<DateTimeRange> onChanged;
 
-  const FechaTile({
+  const RangoFechaTile({
     super.key,
-    required this.label,
-    required this.fecha,
-    required this.onTap,
+    required this.desde,
+    required this.hasta,
+    required this.onChanged,
   });
+
+  Future<void> _pickRango(BuildContext context) async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: DateTimeRange(start: desde, end: hasta),
+    );
+    if (picked == null) return;
+    onChanged(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _pickRango(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
@@ -24,27 +35,31 @@ class FechaTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            const Icon(
+              Icons.calendar_today,
+              size: 16,
+              color: Color(0xFF1565C0),
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today,
-                  size: 14,
-                  color: Color(0xFF1565C0),
+            const SizedBox(width: 10),
+            Text(
+              '${DateFormat('dd/MM/yyyy').format(desde)}',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Text(
+                '→',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  DateFormat('dd/MM/yyyy').format(fecha),
-                  style: const TextStyle(fontWeight: FontWeight.w500),
-                ),
-              ],
+              ),
+            ),
+            Text(
+              DateFormat('dd/MM/yyyy').format(hasta),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ],
         ),

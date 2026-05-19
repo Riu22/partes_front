@@ -4,7 +4,7 @@ import '../../models/pdf_export_params.dart';
 import '../../providers/obras_provider.dart';
 import '../../providers/perfiles_provider.dart';
 import '../../widgets/app_drawer.dart';
-import '../../widgets/fecha_tile.dart';
+import '../../widgets/fecha_tile.dart' show RangoFechaTile;
 import '../../widgets/modo_tile.dart';
 import '../../widgets/obras_selector.dart';
 import '../../widgets/perfiles_selector.dart';
@@ -29,36 +29,25 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
 
   PdfParams? _params;
 
-  Future<void> _pickFecha({required bool esDe}) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: esDe ? _desde : _hasta,
-      firstDate: esDe ? DateTime(2020) : _desde,
-      lastDate: esDe ? _hasta : DateTime.now(),
-    );
-    if (picked == null) return;
+  void _onRangoChanged(DateTimeRange rango) {
     setState(() {
-      if (esDe) {
-        _desde = picked;
-        if (_hasta.isBefore(_desde)) {
-          _hasta = _desde;
-        }
-      } else {
-        _hasta = picked;
-      }
+      _desde = rango.start;
+      _hasta = rango.end;
       _params = null;
     });
   }
 
   void _generarInforme() {
+    final params = PdfParams(
+      desde: _desde,
+      hasta: _hasta,
+      obraIds: _obrasSeleccionadas.toList(),
+      perfilIds: _perfilesSeleccionados.toList(),
+      modo: _modo,
+    );
+    ref.invalidate(exportProvider(params));
     setState(() {
-      _params = PdfParams(
-        desde: _desde,
-        hasta: _hasta,
-        obraIds: _obrasSeleccionadas.toList(),
-        perfilIds: _perfilesSeleccionados.toList(),
-        modo: _modo,
-      );
+      _params = params;
     });
   }
 
@@ -83,24 +72,10 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FechaTile(
-                          label: 'Desde',
-                          fecha: _desde,
-                          onTap: () => _pickFecha(esDe: true),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FechaTile(
-                          label: 'Hasta',
-                          fecha: _hasta,
-                          onTap: () => _pickFecha(esDe: false),
-                        ),
-                      ),
-                    ],
+                  RangoFechaTile(
+                    desde: _desde,
+                    hasta: _hasta,
+                    onChanged: _onRangoChanged,
                   ),
                   const SizedBox(height: 20),
                   obrasAsync.when(
