@@ -10,9 +10,7 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: _titleForLocation(context),
-      ),
+      appBar: AppBar(title: _titleForLocation(context)),
       drawer: const AppDrawer(),
       body: navigationShell,
     );

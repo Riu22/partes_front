@@ -51,6 +51,14 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
   bool _cargandoFechas = false;
   List<DateTime> _fechasPermitidas = [];
 
+  // Redirige a /admin si es admin/gestión, o a /partes si no
+  void _volverAHome() {
+    final perfil = ref.read(authProvider).valueOrNull;
+    final esAdminOGestion =
+        perfil != null && (perfil.esAdmin || perfil.esGestion);
+    context.go(esAdminOGestion ? '/admin' : '/partes');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -113,12 +121,10 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     }
   }
 
-  // Comprueba si una fecha está dentro de las fechas habilitadas por un gestor
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
 
-  // Un operario solo puede seleccionar: hoy o fechas que el gestor haya habilitado
   bool _predicate(DateTime dia, bool esGestor) {
     if (esGestor) return true;
     final ahora = DateTime.now();
@@ -153,7 +159,6 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
         lastDate = maxPermitida;
     }
 
-    // Si la fecha actual no está permitida, busca próxima fecha válida (adelante 60d, atrás 365d)
     if (!esGestor && !_predicate(initialDate, esGestor)) {
       DateTime? mejorFecha;
       for (int i = 1; i <= 60; i++) {
@@ -242,7 +247,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.go('/partes'),
+          onPressed: _volverAHome,
         ),
       ),
       body: SingleChildScrollView(
@@ -637,7 +642,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
               duration: Duration(seconds: 4),
             ),
           );
-          context.go('/partes');
+          _volverAHome();
         }
         return;
       }
@@ -650,7 +655,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
             content: Text('Parte post venta enviado correctamente'),
           ),
         );
-        context.go('/partes');
+        _volverAHome();
       }
     } on DioException catch (_) {
       await ref.read(offlineQueueProvider).guardarParteOffline(data);
@@ -662,7 +667,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
             backgroundColor: Colors.orange,
           ),
         );
-        context.go('/partes');
+        _volverAHome();
       }
     } catch (e) {
       if (mounted) {

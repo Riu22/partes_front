@@ -63,6 +63,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Operario sin permisos intenta entrar en rutas restringidas → /partes
+      if (location == '/admin' && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/usuarios' && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/quincena' && !esAdminOGestion(perfil)) return '/partes';
 
@@ -79,6 +80,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: [
+          // Rama 0: admin (pantalla inicial para admins/gestión)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/admin',
+                builder: (context, state) => const AdminHomeScreen(),
+              ),
+            ],
+          ),
+          // Rama 1: partes (pantalla inicial para operarios)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -141,7 +152,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
-            // Admin/gestión → /admin; el resto → /partes
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
@@ -186,15 +196,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      GoRoute(
-        path: '/admin',
-        builder: (context, state) => const AdminHomeScreen(),
-        redirect: (context, state) {
-          final perfil = ref.read(authProvider).valueOrNull;
-          if (!esAdminOGestion(perfil)) return '/partes';
-          return null;
-        },
-      ),
       GoRoute(
         path: '/contabilidad-detalle',
         builder: (context, state) => const QuincenaScreen(),
