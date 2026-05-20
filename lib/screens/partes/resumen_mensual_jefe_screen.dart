@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../helpers/tema_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/partes_provider.dart';
+import '../../widgets/app_drawer.dart';
 
 class ResumenMensualJefeScreen extends ConsumerStatefulWidget {
   const ResumenMensualJefeScreen({super.key});
@@ -69,6 +70,8 @@ class _ResumenMensualJefeScreenState
         : ref.watch(resumenMensualJefeProvider(params)).whenData((r) => [r]);
 
     return Scaffold(
+      drawer: const AppDrawer(),
+
       backgroundColor: bgPage,
       appBar: AppBar(
         backgroundColor: bgCard,
