@@ -44,8 +44,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
 
   // ── Helper ausencias ──────────────────────────────────────────────
 
-  /// Devuelve null si no hay ausencia en esa fecha,
-  /// o un record con color de fondo, color de texto y letra (B/V).
   ({Color bg, Color fg, String letra})? _infoAusencia(
     Map<String, dynamic> fila,
     String isoFecha,
@@ -56,7 +54,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     if (tipo == 'BAJA') {
       return (bg: Colors.red.shade100, fg: Colors.red.shade800, letra: 'B');
     }
-    // VACACIONES
     return (bg: Colors.amber.shade100, fg: Colors.amber.shade800, letra: 'V');
   }
 
@@ -149,6 +146,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             );
 
       if (_esJefeObra) {
+        // Para jefe de obra filtramos por obras no vacías
         final obras =
             data
                 .map((f) => f['obra']?.toString() ?? '')
@@ -162,6 +160,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           _obrasSeleccionadas = obras.toSet();
         });
       } else {
+        // Para administración: incluimos TODOS los operarios, incluso sin partes
         final operarios =
             data
                 .map((f) => f['operario']?.toString() ?? '')
@@ -533,7 +532,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           ),
           if (hayDatos) ...[
             const SizedBox(height: 8),
-            // ── Leyenda ausencias ──
             Row(
               children: [
                 _LeyendaCelda(
@@ -824,7 +822,10 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                 ),
               ),
               DataCell(
-                Text(f['obra'] ?? '', style: const TextStyle(fontSize: 11)),
+                Text(
+                  (f['obra'] as String?)?.isNotEmpty == true ? f['obra'] : '-',
+                  style: const TextStyle(fontSize: 11),
+                ),
               ),
               ...dias.map((d) {
                 final iso = DateFormat('yyyy-MM-dd').format(d);
@@ -964,8 +965,12 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                   style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]),
                 ),
               ),
+              // Operarios sin partes tienen obra = "" → mostramos '-'
               DataCell(
-                Text(f['obra'] ?? '', style: const TextStyle(fontSize: 11)),
+                Text(
+                  (f['obra'] as String?)?.isNotEmpty == true ? f['obra'] : '-',
+                  style: const TextStyle(fontSize: 11),
+                ),
               ),
               ...dias.map((d) {
                 final iso = DateFormat('yyyy-MM-dd').format(d);
@@ -979,7 +984,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                 Container(
                   alignment: Alignment.center,
                   child: Text(
-                    f['total_horas'].toStringAsFixed(1),
+                    (f['total_horas'] as num).toStringAsFixed(1),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.indigo,

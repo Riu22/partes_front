@@ -137,7 +137,7 @@ class AppDrawer extends ConsumerWidget {
             ),
             ListTile(
               leading: const Icon(Icons.analytics),
-              title: const Text('Resumen Quincena'),
+              title: const Text('Personal Activo'),
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/contabilidad-detalle');

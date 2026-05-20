@@ -96,14 +96,17 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
     final partes = ref.read(partesProvider).valueOrNull ?? [];
     final filtradas = partes.where((p) {
-      if (_obraSeleccionada != null && p.obraNombre != _obraSeleccionada!.nombre) {
+      if (_obraSeleccionada != null &&
+          p.obraNombre != _obraSeleccionada!.nombre) {
         return false;
       }
       if (_operarioSeleccionado != null &&
-          p.operarioNombreCompleto != _operarioSeleccionado!.nombreApellidoCompleto) {
+          p.operarioNombreCompleto !=
+              _operarioSeleccionado!.nombreApellidoCompleto) {
         return false;
       }
-      if (_especialidadFiltro != null && p.especialidad != _especialidadFiltro) {
+      if (_especialidadFiltro != null &&
+          p.especialidad != _especialidadFiltro) {
         return false;
       }
       return true;
@@ -115,7 +118,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     ref.invalidate(partesProvider);
     ref.invalidate(partesJefeProvider);
     ref.invalidate(pendientesOfflineProvider);
-    ref.invalidate(listaOfflineProvider); // también refresca la lista visual
+    ref.invalidate(listaOfflineProvider);
     ref.invalidate(fechasPermitidasProvider);
   }
 
@@ -326,10 +329,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                       SizedBox(width: 6),
                       Text(
                         'Buscar',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: textPrimary,
-                        ),
+                        style: TextStyle(fontSize: 14, color: textPrimary),
                       ),
                     ],
                   ),
@@ -350,14 +350,16 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   List<Obra> _obrasDesdePartes(List<ParteTrabajo> partes) {
     final nombres = partes.map((p) => p.obraNombre).toSet().toList()..sort();
     return nombres
-        .map((n) => Obra(
-              id: 0,
-              nombre: n,
-              ubicacion: '',
-              municipio: '',
-              codigo: '',
-              activa: true,
-            ))
+        .map(
+          (n) => Obra(
+            id: 0,
+            nombre: n,
+            ubicacion: '',
+            municipio: '',
+            codigo: '',
+            activa: true,
+          ),
+        )
         .toList();
   }
 
@@ -384,14 +386,20 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              const Icon(Icons.business_outlined, size: 18, color: textSecondary),
+              const Icon(
+                Icons.business_outlined,
+                size: 18,
+                color: textSecondary,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _obraSeleccionada?.nombre ?? 'Obra',
                   style: TextStyle(
                     fontSize: 14,
-                    color: _obraSeleccionada != null ? textPrimary : textSecondary,
+                    color: _obraSeleccionada != null
+                        ? textPrimary
+                        : textSecondary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -402,7 +410,11 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     _obraSeleccionada = null;
                     _obraCtrl.clear();
                   }),
-                  child: const Icon(Icons.clear, size: 16, color: textSecondary),
+                  child: const Icon(
+                    Icons.clear,
+                    size: 16,
+                    color: textSecondary,
+                  ),
                 ),
             ],
           ),
@@ -415,17 +427,22 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     final map = <String, Perfil>{};
     for (final p in partes) {
       final key = p.operarioId ?? p.operarioNombreCompleto;
-      map.putIfAbsent(key, () => Perfil(
-            id: p.operarioId ?? key,
-            email: '',
-            nombre: p.operarioNombre,
-            apellidos: p.operarioApellidos,
-            rol: 'OPERARIO',
-            activo: true,
-          ));
+      map.putIfAbsent(
+        key,
+        () => Perfil(
+          id: p.operarioId ?? key,
+          email: '',
+          nombre: p.operarioNombre,
+          apellidos: p.operarioApellidos,
+          rol: 'OPERARIO',
+          activo: true,
+        ),
+      );
     }
     final sorted = map.values.toList();
-    sorted.sort((a, b) => a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto));
+    sorted.sort(
+      (a, b) => a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto),
+    );
     return sorted;
   }
 
@@ -454,7 +471,9 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                   _operarioSeleccionado?.nombreApellidoCompleto ?? 'Operario',
                   style: TextStyle(
                     fontSize: 14,
-                    color: _operarioSeleccionado != null ? textPrimary : textSecondary,
+                    color: _operarioSeleccionado != null
+                        ? textPrimary
+                        : textSecondary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -465,7 +484,11 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     _operarioSeleccionado = null;
                     _operarioCtrl.clear();
                   }),
-                  child: const Icon(Icons.clear, size: 16, color: textSecondary),
+                  child: const Icon(
+                    Icons.clear,
+                    size: 16,
+                    color: textSecondary,
+                  ),
                 ),
             ],
           ),
