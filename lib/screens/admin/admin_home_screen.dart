@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../models/ausencia_info.dart';
 import '../../providers/admin_provider.dart';
 import '../../services/api_service.dart';
-import '../../widgets/app_drawer.dart';
 
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
@@ -38,7 +37,6 @@ class AdminHomeScreen extends ConsumerWidget {
     final ausenciasAsync = ref.watch(diasSinParteProvider);
 
     return Scaffold(
-      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Panel de Administración'),
         centerTitle: false,
