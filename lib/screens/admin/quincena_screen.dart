@@ -1146,11 +1146,25 @@ class _FiltroBottomSheet extends StatefulWidget {
 
 class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
   late Set<String> _sel;
+  String _busqueda = '';
+  final _ctrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _sel = Set.from(widget.seleccionados);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  List<String> get _filtradas {
+    if (_busqueda.isEmpty) return widget.disponibles;
+    final q = _busqueda.toLowerCase();
+    return widget.disponibles.where((s) => s.toLowerCase().contains(q)).toList();
   }
 
   @override
@@ -1208,26 +1222,51 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
             ),
           ),
           const Divider(height: 1),
-          Expanded(
-            child: ListView.builder(
-              controller: scrollController,
-              itemCount: widget.disponibles.length,
-              itemBuilder: (context, i) {
-                final item = widget.disponibles[i];
-                return CheckboxListTile(
-                  value: _sel.contains(item),
-                  activeColor: Colors.indigo,
-                  title: Text(item, style: const TextStyle(fontSize: 14)),
-                  onChanged: (v) {
-                    setState(
-                      () => v == true ? _sel.add(item) : _sel.remove(item),
-                    );
-                    widget.onChanged(_sel);
-                  },
-                );
-              },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _ctrl,
+              decoration: InputDecoration(
+                hintText: 'Buscar...',
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+                isDense: true,
+                suffixIcon: _busqueda.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _ctrl.clear();
+                          setState(() => _busqueda = '');
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (v) => setState(() => _busqueda = v),
             ),
           ),
+          Expanded(
+            child: _filtradas.isEmpty
+                ? const Center(child: Text('Sin resultados'))
+                : ListView.builder(
+                    controller: scrollController,
+                    itemCount: _filtradas.length,
+                    itemBuilder: (context, i) {
+                      final item = _filtradas[i];
+                      return CheckboxListTile(
+                        value: _sel.contains(item),
+                        activeColor: Colors.indigo,
+                        title: Text(item, style: const TextStyle(fontSize: 14)),
+                        onChanged: (v) {
+                          setState(
+                            () => v == true ? _sel.add(item) : _sel.remove(item),
+                          );
+                          widget.onChanged(_sel);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: SizedBox(
