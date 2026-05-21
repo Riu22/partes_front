@@ -148,16 +148,15 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
+  /// Usa el endpoint unificado /asignar_subordinado.
+  /// El rolJefe ya no determina el endpoint: el backend valida los roles.
   Future<void> asignarJefe(
-    String usuarioId,
+    String subordinadoId,
     String jefeId,
-    String rolJefe,
+    String rolJefe, // se mantiene el parámetro para no romper las llamadas existentes
   ) async {
-    final endpoint = (rolJefe == 'JEFE_DE_OBRA')
-        ? 'asignar_encargado'
-        : 'asignar_operario';
     await _dio.put(
-      '/asignaciones/$endpoint/$usuarioId/$jefeId',
+      '/asignaciones/asignar_subordinado/$subordinadoId/$jefeId',
       options: await _authHeaders(),
     );
   }
@@ -207,10 +206,43 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
+  /// Asigna múltiples subordinados a un jefe en una sola llamada (endpoint batch).
+  Future<void> asignarSubordinadosBatch(
+      String jefeId, List<String> subordinadoIds) async {
+    final token = await _authService.getToken();
+    await _dio.put(
+      '/asignaciones/asignar_subordinados_batch/$jefeId',
+      data: subordinadoIds,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ),
+    );
+  }
+
   Future<void> asignarPerfilAObra(String perfilId, int obraId) async {
     await _dio.post(
       '/asignaciones/asignar_a_obra/$perfilId/$obraId',
       options: await _authHeaders(),
+    );
+  }
+
+  /// Asigna un perfil a múltiples obras en una sola llamada (endpoint batch).
+  /// [obraIds] es la lista de IDs de las obras a asignar.
+  Future<void> asignarTodasLasObras(
+      String perfilId, List<int> obraIds) async {
+    final token = await _authService.getToken();
+    await _dio.post(
+      '/asignaciones/asignar_obras_batch/$perfilId',
+      data: obraIds,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ),
     );
   }
 
