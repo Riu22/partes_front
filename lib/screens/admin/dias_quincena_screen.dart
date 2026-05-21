@@ -1015,7 +1015,9 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
   List<String> get _filtradas {
     if (_busqueda.isEmpty) return widget.disponibles;
     final q = _busqueda.toLowerCase();
-    return widget.disponibles.where((s) => s.toLowerCase().contains(q)).toList();
+    return widget.disponibles
+        .where((s) => s.toLowerCase().contains(q))
+        .toList();
   }
 
   @override
@@ -1102,19 +1104,20 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
                     itemCount: _filtradas.length,
                     itemBuilder: (context, i) {
                       final item = _filtradas[i];
-                return CheckboxListTile(
-                  value: _sel.contains(item),
-                  activeColor: Colors.indigo,
-                  title: Text(item, style: const TextStyle(fontSize: 14)),
-                  onChanged: (v) {
-                    setState(
-                      () => v == true ? _sel.add(item) : _sel.remove(item),
-                    );
-                    widget.onChanged(_sel);
-                  },
-                );
-              },
-            ),
+                      return CheckboxListTile(
+                        value: _sel.contains(item),
+                        activeColor: Colors.indigo,
+                        title: Text(item, style: const TextStyle(fontSize: 14)),
+                        onChanged: (v) {
+                          setState(
+                            () =>
+                                v == true ? _sel.add(item) : _sel.remove(item),
+                          );
+                          widget.onChanged(_sel);
+                        },
+                      );
+                    },
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
