@@ -4,7 +4,6 @@ import '../config/env.dart';
 import '../models/parte_trabajo.dart';
 import 'dart:typed_data';
 import '../helpers/download_helper.dart';
-import '../providers/partes_provider.dart';
 
 class ApiService {
   late final Dio _dio;

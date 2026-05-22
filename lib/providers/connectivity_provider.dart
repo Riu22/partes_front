@@ -1,10 +1,8 @@
-import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/offline_queue_service.dart';
 import 'auth_provider.dart';
 import 'partes_provider.dart';
-import '../services/api_service.dart';
 import '../services/auth_service.dart';
 
 final offlineQueueProvider = Provider((ref) => OfflineQueueService());

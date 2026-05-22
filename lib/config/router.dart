@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,7 +23,6 @@ import '../screens/pdf/pdf_screen.dart';
 import '../screens/admin/admin_home_screen.dart';
 import '../screens/partes/informe_jefe_screen.dart';
 import '../screens/partes/resumen_mensual_jefe_screen.dart';
-import '../providers/partes_provider.dart';
 
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(this._ref) {

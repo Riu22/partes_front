@@ -1,4 +1,3 @@
-import 'package:intl/intl.dart';
 
 enum AusenciaTipo { BAJA, VACACIONES, PATERNIDAD }
 
