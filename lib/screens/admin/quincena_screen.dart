@@ -42,6 +42,15 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   bool get _esJefeObra =>
       ref.read(authProvider).valueOrNull?.esJefeObra == true;
 
+  // ── Helper día de semana ──────────────────────────────────────────
+
+  String _letraDia(DateTime d) {
+    const letras = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+    return letras[d.weekday - 1]; // weekday: 1=lunes … 7=domingo
+  }
+
+  bool _esFinDeSemana(DateTime d) => d.weekday >= 6;
+
   // ── Helper ausencias ──────────────────────────────────────────────
 
   ({Color bg, Color fg, String letra})? _infoAusencia(
@@ -146,7 +155,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             );
 
       if (_esJefeObra) {
-        // Para jefe de obra filtramos por obras no vacías
         final obras =
             data
                 .map((f) => f['obra']?.toString() ?? '')
@@ -160,7 +168,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           _obrasSeleccionadas = obras.toSet();
         });
       } else {
-        // Para administración: incluimos TODOS los operarios, incluso sin partes
         final operarios =
             data
                 .map((f) => f['operario']?.toString() ?? '')
@@ -243,7 +250,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         'Operario',
         'Categoria',
         'Obra',
-        ...dias.map((d) => '${d.day}/${d.month}'),
+        ...dias.map((d) => '${_letraDia(d)}\n${d.day}/${d.month}'),
         'Total',
       ];
 
@@ -965,7 +972,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                   style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]),
                 ),
               ),
-              // Operarios sin partes tienen obra = "" → mostramos '-'
               DataCell(
                 Text(
                   (f['obra'] as String?)?.isNotEmpty == true ? f['obra'] : '-',
@@ -1024,7 +1030,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                 child: DataTable(
                   columnSpacing: 15,
                   horizontalMargin: 12,
-                  headingRowHeight: 45,
+                  headingRowHeight: 52, // un poco más alto para las dos líneas
                   headingRowColor: WidgetStateProperty.all(Colors.indigo[50]),
                   columns: [
                     const DataColumn(
@@ -1051,14 +1057,36 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
+                    // ── Columnas de días con letra + número ──
                     ...dias.map(
                       (d) => DataColumn(
                         label: Container(
                           width: 35,
                           alignment: Alignment.center,
-                          child: Text(
-                            '${d.day}/${d.month}',
-                            style: const TextStyle(fontSize: 10),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _letraDia(d),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: _esFinDeSemana(d)
+                                      ? Colors.red[400]
+                                      : Colors.indigo[400],
+                                ),
+                              ),
+                              Text(
+                                '${d.day}/${d.month}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: _esFinDeSemana(d)
+                                      ? Colors.red[600]
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
