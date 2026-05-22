@@ -36,235 +36,47 @@ class AdminHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ausenciasAsync = ref.watch(diasSinParteProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Panel de Administración'),
-        centerTitle: false,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Actualizar',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => ref.invalidate(diasSinParteProvider),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Panel de Administración'),
+          centerTitle: false,
+          elevation: 0,
+          actions: [
+            IconButton(
+              tooltip: 'Actualizar',
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () => ref.invalidate(diasSinParteProvider),
+            ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(
+                icon: Icon(Icons.assignment_late_outlined),
+                text: 'Partes',
+              ),
+              Tab(
+                icon: Icon(Icons.event_busy_rounded),
+                text: 'Ausencias',
+              ),
+            ],
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(diasSinParteProvider),
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Text(
-                  DateFormat(
-                    "EEEE, d 'de' MMMM 'de' yyyy",
-                    'es',
-                  ).format(DateTime.now()),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
+        ),
+        body: TabBarView(
+          children: [
+            // ── Pestaña 1: Partes ──
+            _PartesTab(
+              ausenciasAsync: ausenciasAsync,
+              formatFecha: _formatFecha,
+              fechaParaRuta: _fechaParaRuta,
+              ref: ref,
             ),
-
-            SliverToBoxAdapter(
-              child: ausenciasAsync.when(
-                loading: () => const _ResumenCard(
-                  cargando: true,
-                  totalPersonas: 0,
-                  totalSin: 0,
-                  totalIncompletos: 0,
-                ),
-                error: (_, __) => const _ResumenCard(
-                  cargando: false,
-                  totalPersonas: 0,
-                  totalSin: 0,
-                  totalIncompletos: 0,
-                  hayError: true,
-                ),
-                data: (ausencias) {
-                  final fechasSin = ausencias.values
-                      .expand((a) => a.diasSin)
-                      .toSet();
-                  final fechasIncompletas = ausencias.values
-                      .expand((a) => a.diasIncompletos.map((d) => d.fecha))
-                      .toSet();
-                  return _ResumenCard(
-                    cargando: false,
-                    totalPersonas: ausencias.length,
-                    totalSin: fechasSin.length,
-                    totalIncompletos: fechasIncompletas.length,
-                  );
-                },
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Text(
-                  'Incidencias — histórico completo',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-
-            ausenciasAsync.when(
-              loading: () => const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (error, _) => SliverFillRemaining(
-                child: _ErrorView(
-                  mensaje: 'Error al cargar ausencias: $error',
-                  onRetry: () => ref.invalidate(diasSinParteProvider),
-                ),
-              ),
-              data: (ausencias) {
-                if (ausencias.isEmpty) {
-                  return const SliverFillRemaining(child: _EmptyView());
-                }
-                final lista = ausencias.values.toList();
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                  sliver: SliverList.separated(
-                    itemCount: lista.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) => _AusenciaCard(
-                      ausencia: lista[index],
-                      formatFecha: _formatFecha,
-                      onHabilitarFecha: (perfilId, fecha) async {
-                        final dt = DateTime.parse(_fechaParaRuta(fecha));
-                        try {
-                          await ApiService().habilitarFechas(perfilId, [dt]);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Fecha $fecha habilitada correctamente',
-                                ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            ref.invalidate(diasSinParteProvider);
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      onCrearParte: (perfilId, nombre, fecha) {
-                        context.go(
-                          '/partes/nuevo',
-                          extra: {
-                            'perfilId': perfilId,
-                            'nombre': nombre,
-                            'fecha': _fechaParaRuta(fecha),
-                          },
-                        );
-                      },
-                      onRegistrarAusencia: (perfilId, nombre) async {
-                        await showDialog(
-                          context: context,
-                          builder: (_) => _DialogoAusencia(
-                            perfilId: perfilId,
-                            nombre: nombre,
-                            onGuardar: (tipo, inicio, fin, obs) async {
-                              await ApiService().crearAusenciaLaboral(
-                                perfilId: perfilId,
-                                tipo: tipo,
-                                fechaInicio: inicio,
-                                fechaFin: fin,
-                                observaciones: obs,
-                              );
-                              ref.invalidate(diasSinParteProvider);
-                            },
-                          ),
-                        );
-                      },
-                      onEditarAusencia: (ausencia, perfilId, nombre) async {
-                        await showDialog(
-                          context: context,
-                          builder: (_) => _DialogoAusencia(
-                            perfilId: perfilId,
-                            nombre: nombre,
-                            ausenciaExistente: ausencia,
-                            onGuardar: (tipo, inicio, fin, obs) async {
-                              await ApiService().eliminarAusenciaLaboral(
-                                ausencia.id!,
-                              );
-                              await ApiService().crearAusenciaLaboral(
-                                perfilId: perfilId,
-                                tipo: tipo,
-                                fechaInicio: inicio,
-                                fechaFin: fin,
-                                observaciones: obs,
-                              );
-                              ref.invalidate(diasSinParteProvider);
-                            },
-                          ),
-                        );
-                      },
-                      onEliminarAusencia: (ausenciaId) async {
-                        final confirmar = await showDialog<bool>(
-                          context: context,
-                          builder: (_) => AlertDialog(
-                            title: const Text('Eliminar ausencia'),
-                            content: const Text(
-                              '¿Seguro que quieres eliminar esta ausencia?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(false),
-                                child: const Text('Cancelar'),
-                              ),
-                              FilledButton(
-                                onPressed: () =>
-                                    Navigator.of(context).pop(true),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.error,
-                                ),
-                                child: const Text('Eliminar'),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirmar == true && context.mounted) {
-                          try {
-                            await ApiService().eliminarAusenciaLaboral(
-                              ausenciaId,
-                            );
-                            ref.invalidate(diasSinParteProvider);
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error al eliminar: $e'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                );
-              },
+            // ── Pestaña 2: Ausencias ──
+            _AusenciasTab(
+              ausenciasAsync: ausenciasAsync,
+              formatFecha: _formatFecha,
+              ref: ref,
             ),
           ],
         ),
@@ -274,11 +86,365 @@ class AdminHomeScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────
-// Tarjeta resumen
+// Pestaña 1 — Partes (días sin parte + incompletos)
 // ─────────────────────────────────────────────
 
-class _ResumenCard extends StatelessWidget {
-  const _ResumenCard({
+class _PartesTab extends StatelessWidget {
+  const _PartesTab({
+    required this.ausenciasAsync,
+    required this.formatFecha,
+    required this.fechaParaRuta,
+    required this.ref,
+  });
+
+  final AsyncValue<Map<String, AusenciaInfo>> ausenciasAsync;
+  final String Function(String) formatFecha;
+  final String Function(String) fechaParaRuta;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(diasSinParteProvider),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'es')
+                    .format(DateTime.now()),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+
+          // Tarjeta resumen
+          SliverToBoxAdapter(
+            child: ausenciasAsync.when(
+              loading: () => const _ResumenPartes(
+                cargando: true,
+                totalPersonas: 0,
+                totalSin: 0,
+                totalIncompletos: 0,
+              ),
+              error: (_, __) => const _ResumenPartes(
+                cargando: false,
+                totalPersonas: 0,
+                totalSin: 0,
+                totalIncompletos: 0,
+                hayError: true,
+              ),
+              data: (ausencias) {
+                // Solo personas con incidencias de partes
+                final conPartes = ausencias.values
+                    .where((a) =>
+                        a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty)
+                    .toList();
+                final fechasSin =
+                    conPartes.expand((a) => a.diasSin).toSet();
+                final fechasInc = conPartes
+                    .expand((a) => a.diasIncompletos.map((d) => d.fecha))
+                    .toSet();
+                return _ResumenPartes(
+                  cargando: false,
+                  totalPersonas: conPartes.length,
+                  totalSin: fechasSin.length,
+                  totalIncompletos: fechasInc.length,
+                );
+              },
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                'Incidencias de partes — histórico completo',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          ),
+
+          ausenciasAsync.when(
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (error, _) => SliverFillRemaining(
+              child: _ErrorView(
+                mensaje: 'Error al cargar datos: $error',
+                onRetry: () => ref.invalidate(diasSinParteProvider),
+              ),
+            ),
+            data: (ausencias) {
+              // Filtramos solo personas con incidencias de partes
+              final lista = ausencias.values
+                  .where((a) =>
+                      a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty)
+                  .toList();
+
+              if (lista.isEmpty) {
+                return const SliverFillRemaining(
+                  child: _EmptyView(
+                    mensaje:
+                        'Todos los operarios tienen\nsus partes al día.',
+                  ),
+                );
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                sliver: SliverList.separated(
+                  itemCount: lista.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) => _AusenciaCard(
+                    ausencia: lista[index],
+                    formatFecha: formatFecha,
+                    mostrarAusencias: false, // solo partes
+                    onHabilitarFecha: (perfilId, fecha) async {
+                      final dt = DateTime.parse(fechaParaRuta(fecha));
+                      try {
+                        await ApiService().habilitarFechas(perfilId, [dt]);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content:
+                                  Text('Fecha $fecha habilitada correctamente'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          ref.invalidate(diasSinParteProvider);
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    onCrearParte: (perfilId, nombre, fecha) {
+                      context.go(
+                        '/partes/nuevo',
+                        extra: {
+                          'perfilId': perfilId,
+                          'nombre': nombre,
+                          'fecha': fechaParaRuta(fecha),
+                        },
+                      );
+                    },
+                    onRegistrarAusencia: (perfilId, nombre) async {
+                      await showDialog(
+                        context: context,
+                        builder: (_) => _DialogoAusencia(
+                          perfilId: perfilId,
+                          nombre: nombre,
+                          onGuardar: (tipo, inicio, fin, obs) async {
+                            await ApiService().crearAusenciaLaboral(
+                              perfilId: perfilId,
+                              tipo: tipo,
+                              fechaInicio: inicio,
+                              fechaFin: fin,
+                              observaciones: obs,
+                            );
+                            ref.invalidate(diasSinParteProvider);
+                          },
+                        ),
+                      );
+                    },
+                    onEditarAusencia: null,
+                    onEliminarAusencia: null,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Pestaña 2 — Ausencias laborales
+// ─────────────────────────────────────────────
+
+class _AusenciasTab extends StatelessWidget {
+  const _AusenciasTab({
+    required this.ausenciasAsync,
+    required this.formatFecha,
+    required this.ref,
+  });
+
+  final AsyncValue<Map<String, AusenciaInfo>> ausenciasAsync;
+  final String Function(String) formatFecha;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(diasSinParteProvider),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                'Ausencias laborales registradas',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          ),
+
+          ausenciasAsync.when(
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (error, _) => SliverFillRemaining(
+              child: _ErrorView(
+                mensaje: 'Error al cargar datos: $error',
+                onRetry: () => ref.invalidate(diasSinParteProvider),
+              ),
+            ),
+            data: (ausencias) {
+              // Filtramos solo personas con ausencias registradas
+              final lista = ausencias.values
+                  .where((a) => a.ausenciasActivas.isNotEmpty)
+                  .toList();
+
+              if (lista.isEmpty) {
+                return const SliverFillRemaining(
+                  child: _EmptyView(
+                    icono: Icons.beach_access_rounded,
+                    mensaje: 'No hay ausencias\nlaborales registradas.',
+                  ),
+                );
+              }
+
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                sliver: SliverList.separated(
+                  itemCount: lista.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) => _AusenciaCard(
+                    ausencia: lista[index],
+                    formatFecha: formatFecha,
+                    mostrarAusencias: true, // solo ausencias
+                    onHabilitarFecha: null,
+                    onCrearParte: null,
+                    onRegistrarAusencia: (perfilId, nombre) async {
+                      await showDialog(
+                        context: context,
+                        builder: (_) => _DialogoAusencia(
+                          perfilId: perfilId,
+                          nombre: nombre,
+                          onGuardar: (tipo, inicio, fin, obs) async {
+                            await ApiService().crearAusenciaLaboral(
+                              perfilId: perfilId,
+                              tipo: tipo,
+                              fechaInicio: inicio,
+                              fechaFin: fin,
+                              observaciones: obs,
+                            );
+                            ref.invalidate(diasSinParteProvider);
+                          },
+                        ),
+                      );
+                    },
+                    onEditarAusencia: (ausencia, perfilId, nombre) async {
+                      await showDialog(
+                        context: context,
+                        builder: (_) => _DialogoAusencia(
+                          perfilId: perfilId,
+                          nombre: nombre,
+                          ausenciaExistente: ausencia,
+                          onGuardar: (tipo, inicio, fin, obs) async {
+                            await ApiService()
+                                .eliminarAusenciaLaboral(ausencia.id!);
+                            await ApiService().crearAusenciaLaboral(
+                              perfilId: perfilId,
+                              tipo: tipo,
+                              fechaInicio: inicio,
+                              fechaFin: fin,
+                              observaciones: obs,
+                            );
+                            ref.invalidate(diasSinParteProvider);
+                          },
+                        ),
+                      );
+                    },
+                    onEliminarAusencia: (ausenciaId) async {
+                      final confirmar = await showDialog<bool>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: const Text('Eliminar ausencia'),
+                          content: const Text(
+                              '¿Seguro que quieres eliminar esta ausencia?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pop(false),
+                              child: const Text('Cancelar'),
+                            ),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pop(true),
+                              style: FilledButton.styleFrom(
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.error,
+                              ),
+                              child: const Text('Eliminar'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmar == true && context.mounted) {
+                        try {
+                          await ApiService()
+                              .eliminarAusenciaLaboral(ausenciaId);
+                          ref.invalidate(diasSinParteProvider);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al eliminar: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Tarjeta resumen (solo partes)
+// ─────────────────────────────────────────────
+
+class _ResumenPartes extends StatelessWidget {
+  const _ResumenPartes({
     required this.cargando,
     required this.totalPersonas,
     required this.totalSin,
@@ -302,30 +468,38 @@ class _ResumenCard extends StatelessWidget {
       subtitulo = 'Cargando...';
     } else if (hayError) {
       subtitulo = 'No disponible';
+    } else if (totalPersonas == 0) {
+      subtitulo = 'Sin incidencias de partes';
     } else {
-      final partesPersonas =
-          '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
-      final partesSin =
-          '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
-      final partesInc =
+      final p = '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
+      final s = '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
+      final i =
           '$totalIncompletos ${totalIncompletos == 1 ? 'día incompleto' : 'días incompletos'}';
-      subtitulo = '$partesPersonas · $partesSin · $partesInc';
+      subtitulo = '$p · $s · $i';
     }
+
+    final sinIncidencias = !cargando && !hayError && totalPersonas == 0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Card(
         elevation: 0,
-        color: colorScheme.errorContainer,
+        color: sinIncidencias
+            ? colorScheme.primaryContainer
+            : colorScheme.errorContainer,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
               Icon(
-                Icons.warning_amber_rounded,
+                sinIncidencias
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.warning_amber_rounded,
                 size: 36,
-                color: colorScheme.onErrorContainer,
+                color: sinIncidencias
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onErrorContainer,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -333,9 +507,13 @@ class _ResumenCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Incidencias detectadas',
+                      sinIncidencias
+                          ? 'Todo al día'
+                          : 'Partes pendientes',
                       style: textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onErrorContainer,
+                        color: sinIncidencias
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onErrorContainer,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -343,7 +521,9 @@ class _ResumenCard extends StatelessWidget {
                     Text(
                       subtitulo,
                       style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onErrorContainer,
+                        color: sinIncidencias
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onErrorContainer,
                       ),
                     ),
                   ],
@@ -358,13 +538,14 @@ class _ResumenCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Tarjeta por persona
+// Tarjeta por persona (unificada, con flag)
 // ─────────────────────────────────────────────
 
 class _AusenciaCard extends StatefulWidget {
   const _AusenciaCard({
     required this.ausencia,
     required this.formatFecha,
+    required this.mostrarAusencias,
     required this.onHabilitarFecha,
     required this.onCrearParte,
     required this.onRegistrarAusencia,
@@ -374,18 +555,20 @@ class _AusenciaCard extends StatefulWidget {
 
   final AusenciaInfo ausencia;
   final String Function(String) formatFecha;
-  final Future<void> Function(String perfilId, String fecha) onHabilitarFecha;
-  final void Function(String perfilId, String nombre, String fecha)
-  onCrearParte;
-  final Future<void> Function(String perfilId, String nombre)
-  onRegistrarAusencia;
+
+  /// true  → pestaña Ausencias (muestra ausencias laborales, oculta partes)
+  /// false → pestaña Partes    (muestra días sin parte / incompletos, oculta ausencias)
+  final bool mostrarAusencias;
+
+  final Future<void> Function(String perfilId, String fecha)? onHabilitarFecha;
+  final void Function(String perfilId, String nombre, String fecha)?
+      onCrearParte;
+  final Future<void> Function(String perfilId, String nombre)?
+      onRegistrarAusencia;
   final Future<void> Function(
-    AusenciaLaboral ausencia,
-    String perfilId,
-    String nombre,
-  )
-  onEditarAusencia;
-  final Future<void> Function(int ausenciaId) onEliminarAusencia;
+          AusenciaLaboral ausencia, String perfilId, String nombre)?
+      onEditarAusencia;
+  final Future<void> Function(int ausenciaId)? onEliminarAusencia;
 
   @override
   State<_AusenciaCard> createState() => _AusenciaCardState();
@@ -396,57 +579,43 @@ class _AusenciaCardState extends State<_AusenciaCard> {
   int? _ausenciaActivaId;
   bool _habilitando = false;
 
-  void _toggleFecha(String fecha) {
-    setState(() {
-      _fechaActiva = _fechaActiva == fecha ? null : fecha;
-      _ausenciaActivaId = null;
-    });
-  }
+  void _toggleFecha(String fecha) => setState(() {
+        _fechaActiva = _fechaActiva == fecha ? null : fecha;
+        _ausenciaActivaId = null;
+      });
 
-  void _toggleAusencia(int id) {
-    setState(() {
-      _ausenciaActivaId = _ausenciaActivaId == id ? null : id;
-      _fechaActiva = null;
-    });
-  }
+  void _toggleAusencia(int id) => setState(() {
+        _ausenciaActivaId = _ausenciaActivaId == id ? null : id;
+        _fechaActiva = null;
+      });
 
-  // ── Helpers de tipo de ausencia ──────────────────────────────────────────
+  Color _colorFondoAusencia(String tipo, ColorScheme cs) => switch (tipo) {
+        'BAJA' => cs.errorContainer,
+        'VACACIONES' => cs.secondaryContainer,
+        'PATERNIDAD' => const Color(0xFFBFDBFE),
+        _ => cs.surfaceVariant,
+      };
 
-  Color _colorFondoAusencia(String tipo, ColorScheme cs) {
-    return switch (tipo) {
-      'BAJA' => cs.errorContainer,
-      'VACACIONES' => cs.secondaryContainer,
-      'PATERNIDAD' => const Color(0xFFBFDBFE),
-      _ => cs.surfaceVariant,
-    };
-  }
+  Color _colorTextoAusencia(String tipo, ColorScheme cs) => switch (tipo) {
+        'BAJA' => cs.error,
+        'VACACIONES' => cs.secondary,
+        'PATERNIDAD' => const Color(0xFF1D4ED8),
+        _ => cs.onSurfaceVariant,
+      };
 
-  Color _colorTextoAusencia(String tipo, ColorScheme cs) {
-    return switch (tipo) {
-      'BAJA' => cs.error,
-      'VACACIONES' => cs.secondary,
-      'PATERNIDAD' => const Color(0xFF1D4ED8),
-      _ => cs.onSurfaceVariant,
-    };
-  }
+  IconData _iconoAusencia(String tipo) => switch (tipo) {
+        'BAJA' => Icons.local_hospital_rounded,
+        'VACACIONES' => Icons.beach_access_rounded,
+        'PATERNIDAD' => Icons.child_friendly_rounded,
+        _ => Icons.event_busy_rounded,
+      };
 
-  IconData _iconoAusencia(String tipo) {
-    return switch (tipo) {
-      'BAJA' => Icons.local_hospital_rounded,
-      'VACACIONES' => Icons.beach_access_rounded,
-      'PATERNIDAD' => Icons.child_friendly_rounded,
-      _ => Icons.event_busy_rounded,
-    };
-  }
-
-  String _labelAusencia(String tipo) {
-    return switch (tipo) {
-      'BAJA' => 'Baja',
-      'VACACIONES' => 'Vacaciones',
-      'PATERNIDAD' => 'Paternidad',
-      _ => tipo,
-    };
-  }
+  String _labelAusencia(String tipo) => switch (tipo) {
+        'BAJA' => 'Baja',
+        'VACACIONES' => 'Vacaciones',
+        'PATERNIDAD' => 'Paternidad',
+        _ => tipo,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -454,6 +623,11 @@ class _AusenciaCardState extends State<_AusenciaCard> {
     final textTheme = Theme.of(context).textTheme;
     final ausencia = widget.ausencia;
     final nombre = ausencia.nombre;
+
+    // Conteo del badge según pestaña
+    final badgeCount = widget.mostrarAusencias
+        ? ausencia.ausenciasActivas.length
+        : ausencia.diasSin.length + ausencia.diasIncompletos.length;
 
     return Card(
       elevation: 0,
@@ -482,41 +656,35 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                 Expanded(
                   child: Text(
                     nombre,
-                    style: textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: textTheme.bodyLarge
+                        ?.copyWith(fontWeight: FontWeight.w600),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Registrar baja o vacaciones',
-                  icon: Icon(
-                    Icons.event_busy_rounded,
-                    size: 20,
-                    color: colorScheme.secondary,
+                // Botón registrar ausencia (visible en ambas pestañas)
+                if (widget.onRegistrarAusencia != null)
+                  IconButton(
+                    tooltip: 'Registrar baja o vacaciones',
+                    icon: Icon(Icons.event_busy_rounded,
+                        size: 20, color: colorScheme.secondary),
+                    onPressed: () =>
+                        widget.onRegistrarAusencia!(ausencia.perfilId, nombre),
                   ),
-                  onPressed: () =>
-                      widget.onRegistrarAusencia(ausencia.perfilId, nombre),
-                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                      horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: ausencia.soloAusencias
+                    color: widget.mostrarAusencias
                         ? colorScheme.secondaryContainer
                         : colorScheme.error,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    ausencia.soloAusencias
-                        ? '${ausencia.ausenciasActivas.length} '
-                              '${ausencia.ausenciasActivas.length == 1 ? 'ausencia' : 'ausencias'}'
-                        : '${ausencia.totalIncidencias} '
-                              '${ausencia.totalIncidencias == 1 ? 'incidencia' : 'incidencias'}',
+                    widget.mostrarAusencias
+                        ? '$badgeCount ${badgeCount == 1 ? 'ausencia' : 'ausencias'}'
+                        : '$badgeCount ${badgeCount == 1 ? 'incidencia' : 'incidencias'}',
                     style: textTheme.labelSmall?.copyWith(
-                      color: ausencia.soloAusencias
+                      color: widget.mostrarAusencias
                           ? colorScheme.onSecondaryContainer
                           : colorScheme.onError,
                       fontWeight: FontWeight.bold,
@@ -526,8 +694,9 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ],
             ),
 
-            // ── Ausencias laborales activas ──
-            if (ausencia.ausenciasActivas.isNotEmpty) ...[
+            // ── Ausencias laborales (solo pestaña Ausencias) ──
+            if (widget.mostrarAusencias &&
+                ausencia.ausenciasActivas.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
                 icon: Icons.event_busy_rounded,
@@ -547,9 +716,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 7,
-                          ),
+                              horizontal: 10, vertical: 7),
                           decoration: BoxDecoration(
                             color: expandida
                                 ? colorScheme.inverseSurface
@@ -559,13 +726,12 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                _iconoAusencia(a.tipo),
-                                size: 14,
-                                color: expandida
-                                    ? colorScheme.onInverseSurface
-                                    : _colorTextoAusencia(a.tipo, colorScheme),
-                              ),
+                              Icon(_iconoAusencia(a.tipo),
+                                  size: 14,
+                                  color: expandida
+                                      ? colorScheme.onInverseSurface
+                                      : _colorTextoAusencia(
+                                          a.tipo, colorScheme)),
                               const SizedBox(width: 6),
                               Text(
                                 '${_labelAusencia(a.tipo)}  '
@@ -587,7 +753,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                     style: textTheme.labelSmall?.copyWith(
                                       color: expandida
                                           ? colorScheme.onInverseSurface
-                                                .withOpacity(0.7)
+                                              .withOpacity(0.7)
                                           : colorScheme.onSurfaceVariant,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -619,8 +785,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                     color: colorScheme.surface,
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                      color: colorScheme.outlineVariant,
-                                    ),
+                                        color: colorScheme.outlineVariant),
                                   ),
                                   child: IntrinsicWidth(
                                     child: Column(
@@ -628,92 +793,81 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                           CrossAxisAlignment.stretch,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        InkWell(
-                                          onTap: () {
-                                            setState(
-                                              () => _ausenciaActivaId = null,
-                                            );
-                                            widget.onEditarAusencia(
-                                              a,
-                                              ausencia.perfilId,
-                                              nombre,
-                                            );
-                                          },
-                                          borderRadius:
-                                              const BorderRadius.vertical(
-                                                top: Radius.circular(10),
-                                              ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 10,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.edit_rounded,
-                                                  size: 15,
-                                                  color: colorScheme.primary,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  'Editar ausencia',
-                                                  style: textTheme.labelSmall
-                                                      ?.copyWith(
+                                        if (widget.onEditarAusencia != null)
+                                          InkWell(
+                                            onTap: () {
+                                              setState(() =>
+                                                  _ausenciaActivaId = null);
+                                              widget.onEditarAusencia!(
+                                                  a, ausencia.perfilId, nombre);
+                                            },
+                                            borderRadius:
+                                                const BorderRadius.vertical(
+                                                    top: Radius.circular(10)),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 10),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.edit_rounded,
+                                                      size: 15,
+                                                      color:
+                                                          colorScheme.primary),
+                                                  const SizedBox(width: 6),
+                                                  Text('Editar ausencia',
+                                                      style: textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
                                                         color:
                                                             colorScheme.primary,
                                                         fontWeight:
                                                             FontWeight.w600,
-                                                      ),
-                                                ),
-                                              ],
+                                                      )),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
                                         Divider(
-                                          height: 1,
-                                          color: colorScheme.outlineVariant,
-                                        ),
-                                        InkWell(
-                                          onTap: () {
-                                            setState(
-                                              () => _ausenciaActivaId = null,
-                                            );
-                                            widget.onEliminarAusencia(a.id!);
-                                          },
-                                          borderRadius:
-                                              const BorderRadius.vertical(
-                                                bottom: Radius.circular(10),
-                                              ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 10,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(
-                                                  Icons.delete_rounded,
-                                                  size: 15,
-                                                  color: colorScheme.error,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  'Eliminar ausencia',
-                                                  style: textTheme.labelSmall
-                                                      ?.copyWith(
-                                                        color:
-                                                            colorScheme.error,
+                                            height: 1,
+                                            color: colorScheme.outlineVariant),
+                                        if (widget.onEliminarAusencia != null)
+                                          InkWell(
+                                            onTap: () {
+                                              setState(() =>
+                                                  _ausenciaActivaId = null);
+                                              widget.onEliminarAusencia!(a.id!);
+                                            },
+                                            borderRadius:
+                                                const BorderRadius.vertical(
+                                                    bottom:
+                                                        Radius.circular(10)),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 10),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.delete_rounded,
+                                                      size: 15,
+                                                      color: colorScheme.error),
+                                                  const SizedBox(width: 6),
+                                                  Text('Eliminar ausencia',
+                                                      style: textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                        color: colorScheme.error,
                                                         fontWeight:
                                                             FontWeight.w600,
-                                                      ),
-                                                ),
-                                              ],
+                                                      )),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
                                       ],
                                     ),
                                   ),
@@ -727,8 +881,8 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               }),
             ],
 
-            // ── Días sin parte ──
-            if (ausencia.diasSin.isNotEmpty) ...[
+            // ── Días sin parte (solo pestaña Partes) ──
+            if (!widget.mostrarAusencias && ausencia.diasSin.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
                 icon: Icons.cancel_outlined,
@@ -748,31 +902,39 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     chipColor: colorScheme.errorContainer,
                     chipTextColor: colorScheme.onErrorContainer,
                     onTap: () => _toggleFecha(fecha),
-                    onHabilitar: () async {
-                      setState(() => _habilitando = true);
-                      await widget.onHabilitarFecha(ausencia.perfilId, fecha);
-                      if (mounted) {
-                        setState(() {
-                          _habilitando = false;
-                          _fechaActiva = null;
-                        });
-                      }
-                    },
-                    onCrearParte: () {
-                      setState(() => _fechaActiva = null);
-                      widget.onCrearParte(ausencia.perfilId, nombre, fecha);
-                    },
+                    onHabilitar: widget.onHabilitarFecha == null
+                        ? null
+                        : () async {
+                            setState(() => _habilitando = true);
+                            await widget.onHabilitarFecha!(
+                                ausencia.perfilId, fecha);
+                            if (mounted) {
+                              setState(() {
+                                _habilitando = false;
+                                _fechaActiva = null;
+                              });
+                            }
+                          },
+                    onCrearParte: widget.onCrearParte == null
+                        ? null
+                        : () {
+                            setState(() => _fechaActiva = null);
+                            widget.onCrearParte!(
+                                ausencia.perfilId, nombre, fecha);
+                          },
                   );
                 }).toList(),
               ),
             ],
 
-            // ── Días incompletos ──
-            if (ausencia.diasIncompletos.isNotEmpty) ...[
+            // ── Días incompletos (solo pestaña Partes) ──
+            if (!widget.mostrarAusencias &&
+                ausencia.diasIncompletos.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
                 icon: Icons.schedule_outlined,
-                label: 'Horas incompletas (${ausencia.diasIncompletos.length})',
+                label:
+                    'Horas incompletas (${ausencia.diasIncompletos.length})',
                 color: colorScheme.tertiary,
               ),
               const SizedBox(height: 6),
@@ -788,20 +950,26 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     chipColor: colorScheme.tertiaryContainer,
                     chipTextColor: colorScheme.onTertiaryContainer,
                     onTap: () => _toggleFecha(d.fecha),
-                    onHabilitar: () async {
-                      setState(() => _habilitando = true);
-                      await widget.onHabilitarFecha(ausencia.perfilId, d.fecha);
-                      if (mounted) {
-                        setState(() {
-                          _habilitando = false;
-                          _fechaActiva = null;
-                        });
-                      }
-                    },
-                    onCrearParte: () {
-                      setState(() => _fechaActiva = null);
-                      widget.onCrearParte(ausencia.perfilId, nombre, d.fecha);
-                    },
+                    onHabilitar: widget.onHabilitarFecha == null
+                        ? null
+                        : () async {
+                            setState(() => _habilitando = true);
+                            await widget.onHabilitarFecha!(
+                                ausencia.perfilId, d.fecha);
+                            if (mounted) {
+                              setState(() {
+                                _habilitando = false;
+                                _fechaActiva = null;
+                              });
+                            }
+                          },
+                    onCrearParte: widget.onCrearParte == null
+                        ? null
+                        : () {
+                            setState(() => _fechaActiva = null);
+                            widget.onCrearParte!(
+                                ausencia.perfilId, nombre, d.fecha);
+                          },
                   );
                 }).toList(),
               ),
@@ -829,12 +997,7 @@ class _DialogoAusencia extends StatefulWidget {
   final String nombre;
   final AusenciaLaboral? ausenciaExistente;
   final Future<void> Function(
-    String tipo,
-    DateTime inicio,
-    DateTime fin,
-    String? obs,
-  )
-  onGuardar;
+      String tipo, DateTime inicio, DateTime fin, String? obs) onGuardar;
 
   @override
   State<_DialogoAusencia> createState() => _DialogoAusenciaState();
@@ -899,7 +1062,8 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
       return;
     }
     if (_fin!.isBefore(_inicio!)) {
-      setState(() => _error = 'La fecha fin no puede ser anterior al inicio');
+      setState(
+          () => _error = 'La fecha fin no puede ser anterior al inicio');
       return;
     }
     setState(() {
@@ -911,7 +1075,9 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
         _tipo,
         _inicio!,
         _fin!,
-        _obsController.text.trim().isEmpty ? null : _obsController.text.trim(),
+        _obsController.text.trim().isEmpty
+            ? null
+            : _obsController.text.trim(),
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -930,21 +1096,16 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
     final esEdicion = widget.ausenciaExistente != null;
 
     return AlertDialog(
-      title: Text(
-        esEdicion ? 'Editar ausencia' : 'Registrar ausencia',
-        style: textTheme.titleMedium,
-      ),
+      title: Text(esEdicion ? 'Editar ausencia' : 'Registrar ausencia',
+          style: textTheme.titleMedium),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.nombre,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
+            Text(widget.nombre,
+                style: textTheme.bodySmall
+                    ?.copyWith(color: colorScheme.onSurfaceVariant)),
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
@@ -1005,10 +1166,9 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 10),
-              Text(
-                _error!,
-                style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
-              ),
+              Text(_error!,
+                  style: textTheme.bodySmall
+                      ?.copyWith(color: colorScheme.error)),
             ],
           ],
         ),
@@ -1058,25 +1218,31 @@ class _TipoChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: seleccionado ? color.withOpacity(0.15) : Colors.transparent,
+          color: seleccionado
+              ? color.withOpacity(0.15)
+              : Colors.transparent,
           border: Border.all(
-            color: seleccionado ? color : Theme.of(context).dividerColor,
-          ),
+              color: seleccionado
+                  ? color
+                  : Theme.of(context).dividerColor),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: seleccionado ? color : null),
+            Icon(icon,
+                size: 14, color: seleccionado ? color : null),
             const SizedBox(width: 6),
             Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: seleccionado ? color : null,
-                fontWeight: seleccionado ? FontWeight.bold : null,
-              ),
+                    color: seleccionado ? color : null,
+                    fontWeight:
+                        seleccionado ? FontWeight.bold : null,
+                  ),
             ),
           ],
         ),
@@ -1105,14 +1271,14 @@ class _FechaBoton extends StatelessWidget {
       label: Text(
         fecha ?? label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: fecha != null
-              ? colorScheme.onSurface
-              : colorScheme.onSurfaceVariant,
-        ),
+              color: fecha != null
+                  ? colorScheme.onSurface
+                  : colorScheme.onSurfaceVariant,
+            ),
       ),
       style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      ),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
     );
   }
 }
@@ -1139,8 +1305,8 @@ class _ChipConAcciones extends StatelessWidget {
   final Color chipColor;
   final Color chipTextColor;
   final VoidCallback onTap;
-  final VoidCallback onHabilitar;
-  final VoidCallback onCrearParte;
+  final VoidCallback? onHabilitar;
+  final VoidCallback? onCrearParte;
 
   @override
   Widget build(BuildContext context) {
@@ -1155,7 +1321,8 @@ class _ChipConAcciones extends StatelessWidget {
           onTap: onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: activa ? colorScheme.inverseSurface : chipColor,
               borderRadius: BorderRadius.circular(20),
@@ -1169,7 +1336,9 @@ class _ChipConAcciones extends StatelessWidget {
                     color: activa
                         ? colorScheme.onInverseSurface
                         : chipTextColor,
-                    fontWeight: activa ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: activa
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -1178,7 +1347,9 @@ class _ChipConAcciones extends StatelessWidget {
                       ? Icons.keyboard_arrow_up_rounded
                       : Icons.keyboard_arrow_down_rounded,
                   size: 14,
-                  color: activa ? colorScheme.onInverseSurface : chipTextColor,
+                  color: activa
+                      ? colorScheme.onInverseSurface
+                      : chipTextColor,
                 ),
               ],
             ),
@@ -1194,84 +1365,92 @@ class _ChipConAcciones extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: colorScheme.surface,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: colorScheme.outlineVariant),
+                      border: Border.all(
+                          color: colorScheme.outlineVariant),
                     ),
                     child: IntrinsicWidth(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.stretch,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          InkWell(
-                            onTap: habilitando ? null : onHabilitar,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(10),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
+                          if (onHabilitar != null)
+                            InkWell(
+                              onTap:
+                                  habilitando ? null : onHabilitar,
+                              borderRadius:
+                                  const BorderRadius.vertical(
+                                      top: Radius.circular(10)),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (habilitando)
+                                      SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child:
+                                            CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colorScheme.primary,
+                                        ),
+                                      )
+                                    else
+                                      Icon(
+                                          Icons.lock_open_rounded,
+                                          size: 15,
+                                          color: colorScheme.primary),
+                                    const SizedBox(width: 6),
+                                    Text('Habilitar día',
+                                        style: textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: colorScheme.primary,
+                                          fontWeight:
+                                              FontWeight.w600,
+                                        )),
+                                  ],
+                                ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (habilitando)
-                                    SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: colorScheme.primary,
-                                      ),
-                                    )
-                                  else
+                            ),
+                          if (onHabilitar != null && onCrearParte != null)
+                            Divider(
+                                height: 1,
+                                color: colorScheme.outlineVariant),
+                          if (onCrearParte != null)
+                            InkWell(
+                              onTap: onCrearParte,
+                              borderRadius:
+                                  const BorderRadius.vertical(
+                                      bottom: Radius.circular(10)),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                     Icon(
-                                      Icons.lock_open_rounded,
-                                      size: 15,
-                                      color: colorScheme.primary,
-                                    ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Habilitar día',
-                                    style: textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
+                                        Icons
+                                            .add_circle_outline_rounded,
+                                        size: 15,
+                                        color: colorScheme.tertiary),
+                                    const SizedBox(width: 6),
+                                    Text('Crear parte',
+                                        style: textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: colorScheme.tertiary,
+                                          fontWeight:
+                                              FontWeight.w600,
+                                        )),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          Divider(height: 1, color: colorScheme.outlineVariant),
-                          InkWell(
-                            onTap: onCrearParte,
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(10),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.add_circle_outline_rounded,
-                                    size: 15,
-                                    color: colorScheme.tertiary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Crear parte',
-                                    style: textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.tertiary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -1308,9 +1487,9 @@ class _SectionLabel extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w600,
-          ),
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
         ),
       ],
     );
@@ -1318,7 +1497,13 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _EmptyView extends StatelessWidget {
-  const _EmptyView();
+  const _EmptyView({
+    this.icono = Icons.check_circle_outline_rounded,
+    required this.mensaje,
+  });
+
+  final IconData icono;
+  final String mensaje;
 
   @override
   Widget build(BuildContext context) {
@@ -1327,25 +1512,21 @@ class _EmptyView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.check_circle_outline_rounded,
-            size: 64,
-            color: colorScheme.primary,
-          ),
+          Icon(icono, size: 64, color: colorScheme.primary),
           const SizedBox(height: 16),
           Text(
             'Sin incidencias',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Todos los operarios tienen parte\nen el histórico completo.',
+            mensaje,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
           ),
         ],
       ),
@@ -1368,14 +1549,15 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_rounded, size: 56, color: colorScheme.error),
+            Icon(Icons.cloud_off_rounded,
+                size: 56, color: colorScheme.error),
             const SizedBox(height: 16),
             Text(
               mensaje,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
