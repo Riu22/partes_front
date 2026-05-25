@@ -45,10 +45,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       if (location == '/nueva-password') return null;
 
-      final auth     = ref.read(authProvider);
+      final auth      = ref.read(authProvider);
       if (auth.isLoading) return null;
 
-      final perfil    = auth.valueOrNull;
+      final perfil     = auth.valueOrNull;
       final isLoggedIn = perfil != null;
 
       if (!isLoggedIn && location != '/login') return '/login';
@@ -87,18 +87,68 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
-          // Rama 1: partes — incluye subruta /partes/:id para abrir uno concreto
+          // Rama 1: partes
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/partes',
                 builder: (context, state) => const PartesScreen(),
                 routes: [
-                  // Navegación desde contabilidad: muestra solo ese parte
+                  // ── Rutas estáticas ANTES que :id ──────────────────────
+                  GoRoute(
+                    path: 'nuevo',
+                    builder: (context, state) {
+                      final extra = state.extra as Map<String, dynamic>?;
+                      return CrearParteScreen(
+                        perfilIdPreseleccionado:
+                            extra?['perfilId'] as String?,
+                        nombrePreseleccionado:
+                            extra?['nombre'] as String?,
+                        fechaPreseleccionada: extra?['fecha'] != null
+                            ? DateTime.parse(extra!['fecha'] as String)
+                            : null,
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'editar',
+                    builder: (context, state) {
+                      final parte = state.extra as ParteTrabajo;
+                      return EditarParteScreen(parte: parte);
+                    },
+                  ),
+                  GoRoute(
+                    path: 'editar-jefe/:id',
+                    redirect: (context, state) {
+                      final perfil = ref.read(authProvider).valueOrNull;
+                      if (perfil == null ||
+                          (!perfil.esAdmin &&
+                           !perfil.esGestion &&
+                           !perfil.esJefeObra)) {
+                        return esAdminOGestion(perfil) ? '/admin' : '/partes';
+                      }
+                      return null;
+                    },
+                    builder: (context, state) {
+                      final parte =
+                          state.extra as Map<String, dynamic>?;
+                      if (parte == null) {
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => context.go('/partes'),
+                        );
+                        return const Scaffold(
+                          body:
+                              Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      return EditarParteJefeScreen(parte: parte);
+                    },
+                  ),
+
+                  // ── Ruta dinámica :id AL FINAL ─────────────────────────
                   GoRoute(
                     path: ':id',
                     redirect: (context, state) {
-                      // Rechaza IDs no numéricos
                       final id = state.pathParameters['id'];
                       if (int.tryParse(id ?? '') == null) return '/partes';
                       return null;
@@ -114,6 +164,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
 
+          // Rama 2: obras
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -122,6 +173,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+
+          // Rama 3: usuarios
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -130,6 +183,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+
+          // Rama 4: quincena
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -141,54 +196,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // ── Rutas flotantes (fuera del shell) ────────────────────────────────
-
-      GoRoute(
-        path: '/partes/nuevo',
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return CrearParteScreen(
-            perfilIdPreseleccionado: extra?['perfilId'] as String?,
-            nombrePreseleccionado:   extra?['nombre']   as String?,
-            fechaPreseleccionada: extra?['fecha'] != null
-                ? DateTime.parse(extra!['fecha'] as String)
-                : null,
-          );
-        },
-      ),
-      GoRoute(
-        path: '/partes/editar',
-        builder: (context, state) {
-          final parte = state.extra as ParteTrabajo;
-          return EditarParteScreen(parte: parte);
-        },
-      ),
-
-      GoRoute(
-        path: '/partes/editar-jefe/:id',
-        redirect: (context, state) {
-          final perfil = ref.read(authProvider).valueOrNull;
-          if (perfil == null ||
-              (!perfil.esAdmin &&
-               !perfil.esGestion &&
-               !perfil.esJefeObra)) {
-            return esAdminOGestion(perfil) ? '/admin' : '/partes';
-          }
-          return null;
-        },
-        builder: (context, state) {
-          final parte = state.extra as Map<String, dynamic>?;
-          if (parte == null) {
-            WidgetsBinding.instance.addPostFrameCallback(
-              (_) => context.go('/partes'),
-            );
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return EditarParteJefeScreen(parte: parte);
-        },
-      ),
+      // ── Rutas flotantes (fuera del shell) ─────────────────────────────────
 
       GoRoute(
         path: '/configuracion',
@@ -215,10 +223,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-
       GoRoute(
         path: '/contabilidad-detalle',
-        builder: (context, state) => const QuincenaScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
@@ -229,28 +235,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return null;
         },
+        builder: (context, state) => const QuincenaScreen(),
       ),
       GoRoute(
         path: '/fecha-libre',
-        builder: (context, state) => const FechaLibreScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (!esAdminOGestion(perfil)) return '/partes';
           return null;
         },
+        builder: (context, state) => const FechaLibreScreen(),
       ),
       GoRoute(
         path: '/pdf-screen',
-        builder: (context, state) => const InformePartesScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (!esAdminOGestion(perfil)) return '/partes';
           return null;
         },
+        builder: (context, state) => const InformePartesScreen(),
       ),
       GoRoute(
         path: '/partes-jefe/informe',
-        builder: (context, state) => const InformeJefeScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
@@ -261,10 +267,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return null;
         },
+        builder: (context, state) => const InformeJefeScreen(),
       ),
       GoRoute(
         path: '/partes-jefe/resumen',
-        builder: (context, state) => const ResumenMensualJefeScreen(),
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
@@ -275,6 +281,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return null;
         },
+        builder: (context, state) => const ResumenMensualJefeScreen(),
       ),
     ],
   );
