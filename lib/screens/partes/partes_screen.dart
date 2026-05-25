@@ -8,6 +8,7 @@ import '../../models/parte_trabajo.dart';
 import '../../providers/sync_provider.dart';
 import '../../services/update_service.dart';
 import '../../providers/obras_provider.dart';
+import '../../providers/perfiles_provider.dart';
 import '../../helpers/tema_constants.dart';
 import '../../widgets/buscador_obras_modal.dart';
 import '../../widgets/buscador_operarios_modal.dart';
@@ -79,21 +80,19 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   // ── Carga de parte concreto ───────────────────────────────────────
 
   Future<void> _cargarParteConcreto(int parteId) async {
-  setState(() => _cargandoParte = true);
-  try {
-    // Espera a que el provider tenga datos
-    final partes = await ref.read(partesProvider.future);
-    final parte = partes.where((p) => p.id == parteId).toList();
-
-    if (mounted) {
-      setState(() => _partesFiltradas = parte.isNotEmpty ? parte : null);
+    setState(() => _cargandoParte = true);
+    try {
+      final partes = await ref.read(partesProvider.future);
+      final parte = partes.where((p) => p.id == parteId).toList();
+      if (mounted) {
+        setState(() => _partesFiltradas = parte.isNotEmpty ? parte : null);
+      }
+    } catch (e) {
+      debugPrint('>>> error cargando parte $parteId: $e');
+    } finally {
+      if (mounted) setState(() => _cargandoParte = false);
     }
-  } catch (e) {
-    debugPrint('>>> error cargando parte $parteId: $e');
-  } finally {
-    if (mounted) setState(() => _cargandoParte = false);
   }
-}
 
   // ── Actualización ─────────────────────────────────────────────────
 
@@ -132,23 +131,36 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
 
   // ── Filtros ───────────────────────────────────────────────────────
 
-  void _aplicarFiltro() {
+  /// Llama al endpoint /partes/buscar del backend con los filtros activos.
+  Future<void> _aplicarFiltro() async {
     if (!_hayFiltros) {
       setState(() => _partesFiltradas = null);
       return;
     }
-    final partes = ref.read(partesProvider).valueOrNull ?? [];
-    final filtradas = partes.where((p) {
-      if (_obraSeleccionada != null &&
-          p.obraNombre != _obraSeleccionada!.nombre) return false;
-      if (_operarioSeleccionado != null &&
-          p.operarioNombreCompleto !=
-              _operarioSeleccionado!.nombreApellidoCompleto) return false;
-      if (_especialidadFiltro != null &&
-          p.especialidad != _especialidadFiltro) return false;
-      return true;
-    }).toList();
-    setState(() => _partesFiltradas = filtradas);
+
+    setState(() => _cargandoParte = true);
+    try {
+      final resultado = await ref.read(
+        busquedaPartesProvider({
+          'obra':         _obraSeleccionada?.nombre,
+          'operario':     _operarioSeleccionado?.nombreCompleto,
+          'especialidad': _especialidadFiltro,
+        }).future,
+      );
+      if (mounted) {
+        setState(() => _partesFiltradas =
+            resultado.map((e) => ParteTrabajo.fromJson(e)).toList());
+      }
+    } on Exception catch (e) {
+      debugPrint('>>> error buscando partes: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al buscar partes')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cargandoParte = false);
+    }
   }
 
   Future<void> _refrescar() async {
@@ -163,10 +175,10 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     _obraCtrl.clear();
     _operarioCtrl.clear();
     setState(() {
-      _obraSeleccionada    = null;
+      _obraSeleccionada     = null;
       _operarioSeleccionado = null;
-      _especialidadFiltro  = null;
-      _partesFiltradas     = null;
+      _especialidadFiltro   = null;
+      _partesFiltradas      = null;
     });
   }
 
@@ -193,7 +205,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         backgroundColor: bgPage,
         elevation: 0,
         iconTheme: const IconThemeData(color: textPrimary),
-        // Banner "viendo parte concreto" con botón para volver a la lista
         title: _partesFiltradas != null && widget.parteIdInicial != null
             ? Row(
                 children: [
@@ -385,8 +396,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                       Icon(Icons.search, size: 16, color: textPrimary),
                       SizedBox(width: 6),
                       Text('Buscar',
-                          style:
-                              TextStyle(fontSize: 14, color: textPrimary)),
+                          style: TextStyle(fontSize: 14, color: textPrimary)),
                     ],
                   ),
                 ),
@@ -404,21 +414,11 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  List<Obra> _obrasDesdePartes(List<ParteTrabajo> partes) {
-    final nombres = partes.map((p) => p.obraNombre).toSet().toList()..sort();
-    return nombres
-        .map((n) => Obra(
-              id: 0,
-              nombre: n,
-              ubicacion: '',
-              municipio: '',
-              codigo: '',
-              activa: true,
-            ))
-        .toList();
-  }
+  // ── Selector obra — carga desde obrasProvider (todas, no solo las locales) ──
 
   Widget _buildSelectorObra() {
+    final obras = ref.watch(obrasProvider).valueOrNull ?? [];
+
     return Container(
       decoration: BoxDecoration(
         color: bgCard,
@@ -428,8 +428,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          final partes = ref.read(partesProvider).valueOrNull ?? [];
-          abrirBuscadorObras(context, _obrasDesdePartes(partes), (o) {
+          abrirBuscadorObras(context, obras, (o) {
             setState(() {
               _obraSeleccionada = o;
               _obraCtrl.text    = o.nombre;
@@ -437,8 +436,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
           });
         },
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               const Icon(Icons.business_outlined,
@@ -472,29 +470,14 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  List<Perfil> _operariosDesdePartes(List<ParteTrabajo> partes) {
-    final map = <String, Perfil>{};
-    for (final p in partes) {
-      final key = p.operarioId ?? p.operarioNombreCompleto;
-      map.putIfAbsent(
-        key,
-        () => Perfil(
-          id: p.operarioId ?? key,
-          email: '',
-          nombre: p.operarioNombre,
-          apellidos: p.operarioApellidos,
-          rol: 'OPERARIO',
-          activo: true,
-        ),
-      );
-    }
-    final sorted = map.values.toList()
-      ..sort((a, b) =>
-          a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto));
-    return sorted;
-  }
+  // ── Selector operario — carga desde perfilesProvider (todos los usuarios) ──
 
   Widget _buildSelectorOperario() {
+    final perfiles = ref.watch(perfilesProvider).valueOrNull ?? [];
+    final operarios = perfiles.where((p) => p.activo).toList()
+      ..sort((a, b) =>
+          a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto));
+
     return Container(
       decoration: BoxDecoration(
         color: bgCard,
@@ -503,14 +486,9 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          final partes = ref.read(partesProvider).valueOrNull ?? [];
-          _abrirBuscadorOperarios(
-              context, _operariosDesdePartes(partes));
-        },
+        onTap: () => _abrirBuscadorOperarios(context, operarios),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
               const Icon(Icons.person_outline,
@@ -518,8 +496,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _operarioSeleccionado?.nombreApellidoCompleto ??
-                      'Operario',
+                  _operarioSeleccionado?.nombreApellidoCompleto ?? 'Operario',
                   style: TextStyle(
                     fontSize: 14,
                     color: _operarioSeleccionado != null
@@ -650,8 +627,8 @@ class _TarjetaParteOffline extends ConsumerWidget {
 
     if (confirmar != true) return;
 
-    final queue   = ref.read(offlineQueueProvider);
-    final esJefe  = data['_tipo'] == 'jefe';
+    final queue      = ref.read(offlineQueueProvider);
+    final esJefe     = data['_tipo'] == 'jefe';
     final dataLimpia = Map<String, dynamic>.from(data)..remove('_tipo');
 
     if (esJefe) {
