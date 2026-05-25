@@ -68,12 +68,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   }
 
   // ── Celda de horas ────────────────────────────────────────────────
-  //
-  // Si la fila trae parte_id para ese día, la celda se convierte en
-  // un InkWell que navega a /partes/<id>.
-  // El JSON de horas_por_dia puede ser:
-  //   - número directo (formato antiguo):  "2026-05-14": 4.0
-  //   - objeto (formato nuevo):            "2026-05-14": {"horas": 4.0, "parte_id": 1042}
 
   static double _extractHoras(dynamic raw) {
     if (raw == null) return 0;
@@ -93,11 +87,10 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     Map<String, dynamic> fila,
     BuildContext context,
   ) {
-    final aus     = _infoAusencia(fila, isoFecha);
+    final aus      = _infoAusencia(fila, isoFecha);
     final double v = _extractHoras(raw);
     final int? parteId = _extractParteId(raw);
 
-    // Ausencia tiene prioridad visual — nunca es navegable
     if (aus != null) {
       return DataCell(
         Container(
@@ -119,7 +112,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       );
     }
 
-    // Contenido de la celda
     Widget contenido = Container(
       width: 35,
       alignment: Alignment.center,
@@ -133,7 +125,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       ),
     );
 
-    // Si tiene parte_id → envolver en InkWell navegable
     if (parteId != null && v > 0) {
       contenido = Tooltip(
         message: 'Ver parte #$parteId',
@@ -227,8 +218,8 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             .toList()
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         setState(() {
-          _datosPrevia      = data;
-          _obrasDisponibles = obras;
+          _datosPrevia        = data;
+          _obrasDisponibles   = obras;
           _obrasSeleccionadas = obras.toSet();
         });
       } else {
@@ -239,9 +230,9 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             .toList()
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         setState(() {
-          _datosPrevia             = data;
-          _operariosDisponibles    = operarios;
-          _operariosSeleccionados  = operarios.toSet();
+          _datosPrevia            = data;
+          _operariosDisponibles   = operarios;
+          _operariosSeleccionados = operarios.toSet();
         });
       }
     } catch (e) {
@@ -312,7 +303,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         'Total',
       ];
 
-      final List<List<String>> filas       = [];
+      final List<List<String>> filas           = [];
       final Set<int>           indicesSubtotal = {};
 
       String _horaStr(dynamic raw) {
@@ -327,9 +318,10 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
               .putIfAbsent(f[agrupador]?.toString() ?? '', () => [])
               .add(f);
         }
-        final claves = (_esJefeObra ? _obrasDisponibles : _operariosDisponibles)
-            .where((k) => porGrupo.containsKey(k))
-            .toList();
+        final claves =
+            (_esJefeObra ? _obrasDisponibles : _operariosDisponibles)
+                .where((k) => porGrupo.containsKey(k))
+                .toList();
 
         for (final clave in claves) {
           final fg = porGrupo[clave]!;
@@ -549,7 +541,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                     letra: 'V',
                     label: 'Vacaciones'),
                 const SizedBox(width: 12),
-                // Leyenda celda navegable
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -566,8 +557,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                     ),
                     const SizedBox(width: 4),
                     const Text('Abrir parte',
-                        style:
-                            TextStyle(fontSize: 11, color: Colors.grey)),
+                        style: TextStyle(fontSize: 11, color: Colors.grey)),
                   ],
                 ),
               ],
@@ -962,96 +952,106 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     return _wrapTabla(dias, filas);
   }
 
-  // ── Wrapper tabla ─────────────────────────────────────────────────
+  // ── Wrapper tabla — FIX pantalla grande ───────────────────────────
 
   Widget _wrapTabla(List<DateTime> dias, List<DataRow> filas) {
-    return ScrollConfiguration(
-      behavior:
-          ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      child: Scrollbar(
-        controller: _verticalController,
-        thumbVisibility: true,
-        thickness: 8,
-        child: Scrollbar(
-          controller: _horizontalController,
-          thumbVisibility: true,
-          thickness: 8,
-          notificationPredicate: (n) => n.depth == 1,
-          child: SingleChildScrollView(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ScrollConfiguration(
+          behavior:
+              ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: Scrollbar(
             controller: _verticalController,
-            child: SingleChildScrollView(
+            thumbVisibility: true,
+            thickness: 8,
+            child: Scrollbar(
               controller: _horizontalController,
-              scrollDirection: Axis.horizontal,
-              child: Padding(
-                padding:
-                    const EdgeInsets.only(bottom: 16, right: 16),
-                child: DataTable(
-                  columnSpacing: 15,
-                  horizontalMargin: 12,
-                  headingRowHeight: 52,
-                  headingRowColor:
-                      WidgetStateProperty.all(Colors.indigo[50]),
-                  columns: [
-                    const DataColumn(
-                        label: Text('Codigo',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold))),
-                    const DataColumn(
-                        label: Text('Operario',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold))),
-                    const DataColumn(
-                        label: Text('Categoria',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold))),
-                    const DataColumn(
-                        label: Text('Obra',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold))),
-                    ...dias.map((d) => DataColumn(
-                          label: Container(
-                            width: 35,
-                            alignment: Alignment.center,
-                            child: Column(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _letraDia(d),
+              thumbVisibility: true,
+              thickness: 8,
+              notificationPredicate: (n) => n.depth == 1,
+              child: SingleChildScrollView(
+                controller: _verticalController,
+                child: SingleChildScrollView(
+                  controller: _horizontalController,
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    // ← FIX: fuerza ancho mínimo igual al ancho disponible
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth,
+                    ),
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.only(bottom: 16, right: 16),
+                      child: DataTable(
+                        columnSpacing: 15,
+                        horizontalMargin: 12,
+                        headingRowHeight: 52,
+                        headingRowColor:
+                            WidgetStateProperty.all(Colors.indigo[50]),
+                        columns: [
+                          const DataColumn(
+                              label: Text('Codigo',
                                   style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: _esFinDeSemana(d)
-                                        ? Colors.red[400]
-                                        : Colors.indigo[400],
+                                      fontWeight: FontWeight.bold))),
+                          const DataColumn(
+                              label: Text('Operario',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold))),
+                          const DataColumn(
+                              label: Text('Categoria',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold))),
+                          const DataColumn(
+                              label: Text('Obra',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold))),
+                          ...dias.map((d) => DataColumn(
+                                label: Container(
+                                  width: 35,
+                                  alignment: Alignment.center,
+                                  child: Column(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        _letraDia(d),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: _esFinDeSemana(d)
+                                              ? Colors.red[400]
+                                              : Colors.indigo[400],
+                                        ),
+                                      ),
+                                      Text(
+                                        '${d.day}/${d.month}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: _esFinDeSemana(d)
+                                              ? Colors.red[600]
+                                              : Colors.black87,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  '${d.day}/${d.month}',
+                              )),
+                          const DataColumn(
+                              label: Text('Total',
                                   style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: _esFinDeSemana(d)
-                                        ? Colors.red[600]
-                                        : Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )),
-                    const DataColumn(
-                        label: Text('Total',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold))),
-                  ],
-                  rows: filas,
+                                      fontWeight: FontWeight.bold))),
+                        ],
+                        rows: filas,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

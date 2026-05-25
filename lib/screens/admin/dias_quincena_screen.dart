@@ -70,7 +70,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     return (bg: Colors.amber.shade100,  fg: Colors.amber.shade800, letra: 'V');
   }
 
-  // ── Helpers de extracción (formato antiguo número / nuevo objeto) ─
+  // ── Helpers de extracción ─────────────────────────────────────────
 
   static double _extractHoras(dynamic raw) {
     if (raw == null) return 0;
@@ -93,11 +93,10 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     bool esDiaRojo,
     BuildContext context,
   ) {
-    final aus     = _infoAusencia(f, isoFecha);
+    final aus      = _infoAusencia(f, isoFecha);
     final double v = _extractHoras(raw);
     final int? parteId = _extractParteId(raw);
 
-    // Ausencia tiene prioridad — nunca navegable
     if (aus != null) {
       return DataCell(
         Container(
@@ -119,9 +118,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
     }
 
-    // Día rojo (finde/festivo)
     if (esDiaRojo) {
-      // En día rojo con parte_id también es navegable, pero con estilo rojo
       if (parteId != null && v > 0) {
         return DataCell(
           Tooltip(
@@ -177,7 +174,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
     }
 
-    // Día normal con parte_id → navegable
     if (parteId != null && v > 0) {
       return DataCell(
         Tooltip(
@@ -215,7 +211,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
     }
 
-    // Día normal sin parte_id
     return DataCell(
       Container(
         width: 35,
@@ -348,7 +343,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         'Total',
       ];
 
-      final List<List<String>> filas       = [];
+      final List<List<String>> filas           = [];
       final Set<int>           indicesSubtotal = {};
 
       for (final obra in obrasOrdenadas) {
@@ -492,9 +487,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   // ── Header ────────────────────────────────────────────────────────
 
   Widget _buildSelectorHeader() {
-    final hayDatos        = _datosPrevia.isNotEmpty;
-    final seleccionadas   = _obrasSeleccionadas.length;
-    final totalObras      = _obrasDisponibles.length;
+    final hayDatos      = _datosPrevia.isNotEmpty;
+    final seleccionadas = _obrasSeleccionadas.length;
+    final totalObras    = _obrasDisponibles.length;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -568,7 +563,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                 _LeyendaCelda(
                     color: Colors.blue.shade100,  letra: 'P', label: 'Paternidad'),
                 const SizedBox(width: 12),
-                // Leyenda celda navegable
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -585,8 +579,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                     ),
                     const SizedBox(width: 4),
                     const Text('Abrir parte',
-                        style:
-                            TextStyle(fontSize: 11, color: Colors.grey)),
+                        style: TextStyle(fontSize: 11, color: Colors.grey)),
                   ],
                 ),
               ],
@@ -710,7 +703,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
 
   // ─────────────────────────────────────────────────────────────────
-  //  TABLA
+  //  TABLA — FIX pantalla grande
   // ─────────────────────────────────────────────────────────────────
 
   Widget _buildTabla() {
@@ -894,42 +887,52 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       ));
     }
 
-    return ScrollConfiguration(
-      behavior:
-          ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      child: Scrollbar(
-        controller: _verticalController,
-        thumbVisibility: true,
-        thickness: 8,
-        child: Scrollbar(
-          controller: _horizontalController,
-          thumbVisibility: true,
-          thickness: 8,
-          notificationPredicate: (n) => n.depth == 1,
-          child: SingleChildScrollView(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ScrollConfiguration(
+          behavior:
+              ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: Scrollbar(
             controller: _verticalController,
-            child: SingleChildScrollView(
+            thumbVisibility: true,
+            thickness: 8,
+            child: Scrollbar(
               controller: _horizontalController,
-              scrollDirection: Axis.horizontal,
-              child: Padding(
-                padding:
-                    const EdgeInsets.only(bottom: 16, right: 16),
-                child: DataTable(
-                  columnSpacing: 15,
-                  horizontalMargin: 12,
-                  headingRowHeight: 52,
-                  dataRowMinHeight: 36,
-                  dataRowMaxHeight: 36,
-                  headingRowColor:
-                      WidgetStateProperty.all(Colors.indigo[50]),
-                  columns: columnas,
-                  rows: filas,
+              thumbVisibility: true,
+              thickness: 8,
+              notificationPredicate: (n) => n.depth == 1,
+              child: SingleChildScrollView(
+                controller: _verticalController,
+                child: SingleChildScrollView(
+                  controller: _horizontalController,
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    // ← FIX: fuerza ancho mínimo igual al ancho disponible
+                    constraints: BoxConstraints(
+                      minWidth: constraints.maxWidth,
+                    ),
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.only(bottom: 16, right: 16),
+                      child: DataTable(
+                        columnSpacing: 15,
+                        horizontalMargin: 12,
+                        headingRowHeight: 52,
+                        dataRowMinHeight: 36,
+                        dataRowMaxHeight: 36,
+                        headingRowColor:
+                            WidgetStateProperty.all(Colors.indigo[50]),
+                        columns: columnas,
+                        rows: filas,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
