@@ -35,7 +35,6 @@ final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthNotifier(ref);
   ref.onDispose(notifier.dispose);
 
-  // Helper: devuelve true si el perfil es admin o gestión
   bool esAdminOGestion(dynamic perfil) =>
       perfil != null && (perfil.esAdmin || perfil.esGestion);
 
@@ -46,29 +45,29 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       if (location == '/nueva-password') return null;
 
-      final auth = ref.read(authProvider);
+      final auth     = ref.read(authProvider);
       if (auth.isLoading) return null;
 
-      final perfil = auth.valueOrNull;
+      final perfil    = auth.valueOrNull;
       final isLoggedIn = perfil != null;
 
-      // Sin sesión → login
       if (!isLoggedIn && location != '/login') return '/login';
 
-      // Con sesión en login → redirigir a home según rol
       if (isLoggedIn && location == '/login') {
         return esAdminOGestion(perfil) ? '/admin' : '/partes';
       }
 
-      // Operario sin permisos intenta entrar en rutas restringidas → /partes
-      if (location == '/admin' && !esAdminOGestion(perfil)) return '/partes';
+      if (location == '/admin'    && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/usuarios' && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/quincena' && !esAdminOGestion(perfil)) return '/partes';
 
       return null;
     },
     routes: [
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
       GoRoute(
         path: '/nueva-password',
         builder: (context, state) => const NuevaPasswordScreen(),
@@ -78,7 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
         branches: [
-          // Rama 0: admin (pantalla inicial para admins/gestión)
+          // Rama 0: admin
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -87,15 +86,34 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Rama 1: partes (pantalla inicial para operarios)
+
+          // Rama 1: partes — incluye subruta /partes/:id para abrir uno concreto
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/partes',
                 builder: (context, state) => const PartesScreen(),
+                routes: [
+                  // Navegación desde contabilidad: muestra solo ese parte
+                  GoRoute(
+                    path: ':id',
+                    redirect: (context, state) {
+                      // Rechaza IDs no numéricos
+                      final id = state.pathParameters['id'];
+                      if (int.tryParse(id ?? '') == null) return '/partes';
+                      return null;
+                    },
+                    builder: (context, state) {
+                      final id = int.tryParse(
+                          state.pathParameters['id'] ?? '');
+                      return PartesScreen(parteIdInicial: id);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
+
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -123,13 +141,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
+      // ── Rutas flotantes (fuera del shell) ────────────────────────────────
+
       GoRoute(
         path: '/partes/nuevo',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
           return CrearParteScreen(
             perfilIdPreseleccionado: extra?['perfilId'] as String?,
-            nombrePreseleccionado: extra?['nombre'] as String?,
+            nombrePreseleccionado:   extra?['nombre']   as String?,
             fechaPreseleccionada: extra?['fecha'] != null
                 ? DateTime.parse(extra!['fecha'] as String)
                 : null,
@@ -149,7 +169,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
-              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
+              (!perfil.esAdmin &&
+               !perfil.esGestion &&
+               !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
@@ -189,7 +211,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>;
           return AsignarJefeScreen(
             usuario: extra['usuario'] as Map<String, dynamic>,
-            todos: extra['todos'] as List<dynamic>,
+            todos:   extra['todos']   as List<dynamic>,
           );
         },
       ),
@@ -200,7 +222,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
-              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
+              (!perfil.esAdmin &&
+               !perfil.esGestion &&
+               !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
@@ -230,7 +254,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
-              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
+              (!perfil.esAdmin &&
+               !perfil.esGestion &&
+               !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
@@ -242,7 +268,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
-              (!perfil.esAdmin && !perfil.esGestion && !perfil.esJefeObra)) {
+              (!perfil.esAdmin &&
+               !perfil.esGestion &&
+               !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;

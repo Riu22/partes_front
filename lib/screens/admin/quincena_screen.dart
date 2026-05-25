@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../helpers/capture_helper.dart';
 import '../../providers/auth_provider.dart';
@@ -16,21 +17,18 @@ class QuincenaScreen extends ConsumerStatefulWidget {
 class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   final ApiService _apiService = ApiService();
 
-  final ScrollController _verticalController = ScrollController();
+  final ScrollController _verticalController   = ScrollController();
   final ScrollController _horizontalController = ScrollController();
 
   DateTimeRange? _rangoSeleccionado;
-  bool _cargando = false;
+  bool _cargando      = false;
   bool _exportandoPdf = false;
   List<dynamic> _datosPrevia = [];
 
-  // ADMINISTRACION: filtro por operario
   List<String> _operariosDisponibles = [];
-  Set<String> _operariosSeleccionados = {};
-
-  // JEFE DE OBRA: filtro por obra
+  Set<String>  _operariosSeleccionados = {};
   List<String> _obrasDisponibles = [];
-  Set<String> _obrasSeleccionadas = {};
+  Set<String>  _obrasSeleccionadas = {};
 
   @override
   void dispose() {
@@ -42,34 +40,64 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   bool get _esJefeObra =>
       ref.read(authProvider).valueOrNull?.esJefeObra == true;
 
-  // ── Helper día de semana ──────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────
 
   String _letraDia(DateTime d) {
     const letras = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    return letras[d.weekday - 1]; // weekday: 1=lunes … 7=domingo
+    return letras[d.weekday - 1];
   }
 
   bool _esFinDeSemana(DateTime d) => d.weekday >= 6;
-
-  // ── Helper ausencias ──────────────────────────────────────────────
 
   ({Color bg, Color fg, String letra})? _infoAusencia(
     Map<String, dynamic> fila,
     String isoFecha,
   ) {
-    final ausencias = fila['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
+    final ausencias =
+        fila['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
     final tipo = ausencias[isoFecha]?.toString();
     if (tipo == null) return null;
     if (tipo == 'BAJA') {
       return (bg: Colors.red.shade100, fg: Colors.red.shade800, letra: 'B');
     }
-    return (bg: Colors.amber.shade100, fg: Colors.amber.shade800, letra: 'V');
+    return (
+      bg: Colors.amber.shade100,
+      fg: Colors.amber.shade800,
+      letra: 'V',
+    );
   }
 
-  // ── Celda de horas con soporte ausencia ───────────────────────────
+  // ── Celda de horas ────────────────────────────────────────────────
+  //
+  // Si la fila trae parte_id para ese día, la celda se convierte en
+  // un InkWell que navega a /partes/<id>.
+  // El JSON de horas_por_dia puede ser:
+  //   - número directo (formato antiguo):  "2026-05-14": 4.0
+  //   - objeto (formato nuevo):            "2026-05-14": {"horas": 4.0, "parte_id": 1042}
 
-  DataCell _celdaH(double v, String isoFecha, Map<String, dynamic> f) {
-    final aus = _infoAusencia(f, isoFecha);
+  static double _extractHoras(dynamic raw) {
+    if (raw == null) return 0;
+    if (raw is num) return raw.toDouble();
+    if (raw is Map) return ((raw['horas'] as num?) ?? 0).toDouble();
+    return 0;
+  }
+
+  static int? _extractParteId(dynamic raw) {
+    if (raw is Map) return raw['parte_id'] as int?;
+    return null;
+  }
+
+  DataCell _celdaH(
+    dynamic raw,
+    String isoFecha,
+    Map<String, dynamic> fila,
+    BuildContext context,
+  ) {
+    final aus     = _infoAusencia(fila, isoFecha);
+    final double v = _extractHoras(raw);
+    final int? parteId = _extractParteId(raw);
+
+    // Ausencia tiene prioridad visual — nunca es navegable
     if (aus != null) {
       return DataCell(
         Container(
@@ -90,29 +118,66 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         ),
       );
     }
-    return DataCell(
-      Container(
-        width: 35,
-        alignment: Alignment.center,
-        child: Text(
-          v > 0 ? v.toStringAsFixed(1) : '-',
-          style: TextStyle(
-            fontSize: 11,
-            color: v > 0 ? Colors.black87 : Colors.grey[600],
-            fontWeight: v > 0 ? FontWeight.bold : FontWeight.normal,
-          ),
+
+    // Contenido de la celda
+    Widget contenido = Container(
+      width: 35,
+      alignment: Alignment.center,
+      child: Text(
+        v > 0 ? v.toStringAsFixed(1) : '-',
+        style: TextStyle(
+          fontSize: 11,
+          color: v > 0 ? Colors.black87 : Colors.grey[600],
+          fontWeight: v > 0 ? FontWeight.bold : FontWeight.normal,
         ),
       ),
     );
+
+    // Si tiene parte_id → envolver en InkWell navegable
+    if (parteId != null && v > 0) {
+      contenido = Tooltip(
+        message: 'Ver parte #$parteId',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () => context.push('/partes/$parteId'),
+          child: Container(
+            width: 35,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.indigo.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  v.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                  ),
+                ),
+                const SizedBox(width: 1),
+                const Icon(Icons.open_in_new_rounded,
+                    size: 8, color: Colors.indigo),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DataCell(contenido);
   }
 
-  // ── Seleccion de fechas ───────────────────────────────────────────
+  // ── Fechas ────────────────────────────────────────────────────────
 
   Future<void> _seleccionarFechas(BuildContext context) async {
     final DateTimeRange? nuevoRango = await showDateRangePicker(
       context: context,
-      initialDateRange:
-          _rangoSeleccionado ??
+      initialDateRange: _rangoSeleccionado ??
           DateTimeRange(
             start: DateTime.now().subtract(const Duration(days: 7)),
             end: DateTime.now(),
@@ -131,14 +196,14 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   }
 
   void _resetDatos() {
-    _datosPrevia = [];
-    _operariosDisponibles = [];
-    _operariosSeleccionados = {};
-    _obrasDisponibles = [];
-    _obrasSeleccionadas = {};
+    _datosPrevia             = [];
+    _operariosDisponibles    = [];
+    _operariosSeleccionados  = {};
+    _obrasDisponibles        = [];
+    _obrasSeleccionadas      = {};
   }
 
-  // ── Carga de datos ────────────────────────────────────────────────
+  // ── Carga ─────────────────────────────────────────────────────────
 
   Future<void> _cargarVistaPrevia() async {
     if (_rangoSeleccionado == null) return;
@@ -155,30 +220,28 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             );
 
       if (_esJefeObra) {
-        final obras =
-            data
-                .map((f) => f['obra']?.toString() ?? '')
-                .where((o) => o.isNotEmpty)
-                .toSet()
-                .toList()
-              ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        final obras = data
+            .map((f) => f['obra']?.toString() ?? '')
+            .where((o) => o.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         setState(() {
-          _datosPrevia = data;
+          _datosPrevia      = data;
           _obrasDisponibles = obras;
           _obrasSeleccionadas = obras.toSet();
         });
       } else {
-        final operarios =
-            data
-                .map((f) => f['operario']?.toString() ?? '')
-                .where((o) => o.isNotEmpty)
-                .toSet()
-                .toList()
-              ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        final operarios = data
+            .map((f) => f['operario']?.toString() ?? '')
+            .where((o) => o.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
         setState(() {
-          _datosPrevia = data;
-          _operariosDisponibles = operarios;
-          _operariosSeleccionados = operarios.toSet();
+          _datosPrevia             = data;
+          _operariosDisponibles    = operarios;
+          _operariosSeleccionados  = operarios.toSet();
         });
       }
     } catch (e) {
@@ -188,7 +251,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     }
   }
 
-  // ── Exportar CSV ──────────────────────────────────────────────────
+  // ── CSV ───────────────────────────────────────────────────────────
 
   Future<void> _ejecutarDescarga() async {
     if (_rangoSeleccionado == null) return;
@@ -212,7 +275,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     }
   }
 
-  // ── Exportar PDF ──────────────────────────────────────────────────
+  // ── PDF ───────────────────────────────────────────────────────────
 
   Future<void> _exportarPdf() async {
     if (_rangoSeleccionado == null || _datosPrevia.isEmpty) return;
@@ -227,18 +290,13 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
 
       final datosFiltrados = _esJefeObra
           ? _datosPrevia
-                .where(
-                  (f) =>
-                      _obrasSeleccionadas.contains(f['obra']?.toString() ?? ''),
-                )
-                .toList()
+              .where((f) =>
+                  _obrasSeleccionadas.contains(f['obra']?.toString() ?? ''))
+              .toList()
           : _datosPrevia
-                .where(
-                  (f) => _operariosSeleccionados.contains(
-                    f['operario']?.toString() ?? '',
-                  ),
-                )
-                .toList();
+              .where((f) => _operariosSeleccionados
+                  .contains(f['operario']?.toString() ?? ''))
+              .toList();
 
       if (datosFiltrados.isEmpty) {
         _mostrarError('No hay datos para exportar');
@@ -254,23 +312,31 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         'Total',
       ];
 
-      final List<List<String>> filas = [];
-      final Set<int> indicesSubtotal = {};
+      final List<List<String>> filas       = [];
+      final Set<int>           indicesSubtotal = {};
 
-      if (_esJefeObra) {
-        final Map<String, List<dynamic>> porObra = {};
-        for (final f in datosFiltrados) {
-          porObra.putIfAbsent(f['obra']?.toString() ?? '', () => []).add(f);
+      String _horaStr(dynamic raw) {
+        final v = _extractHoras(raw);
+        return v > 0 ? v.toStringAsFixed(1) : '-';
+      }
+
+      void _procesarFilas(List<dynamic> grupo, String agrupador) {
+        final Map<String, List<dynamic>> porGrupo = {};
+        for (final f in grupo) {
+          porGrupo
+              .putIfAbsent(f[agrupador]?.toString() ?? '', () => [])
+              .add(f);
         }
-        final obras = _obrasDisponibles
-            .where((o) => porObra.containsKey(o))
+        final claves = (_esJefeObra ? _obrasDisponibles : _operariosDisponibles)
+            .where((k) => porGrupo.containsKey(k))
             .toList();
 
-        for (final obra in obras) {
-          final filasObra = porObra[obra]!;
-          for (final f in filasObra) {
+        for (final clave in claves) {
+          final fg = porGrupo[clave]!;
+          for (final f in fg) {
             final hpd = f['horas_por_dia'] as Map<String, dynamic>;
-            final aus = f['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
+            final aus =
+                f['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
             filas.add([
               f['codigo']?.toString() ?? '',
               f['operario'] ?? '',
@@ -280,23 +346,19 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                 final iso = DateFormat('yyyy-MM-dd').format(d);
                 if (aus[iso] == 'BAJA') return 'B';
                 if (aus[iso] == 'VACACIONES') return 'V';
-                final h = hpd[iso];
-                if (h == null) return '-';
-                final double v = h is int ? h.toDouble() : h as double;
-                return v > 0 ? v.toStringAsFixed(1) : '-';
+                return _horaStr(hpd[iso]);
               }),
-              f['total_horas'].toStringAsFixed(1),
+              (f['total_horas'] as num).toStringAsFixed(1),
             ]);
           }
           final Map<String, double> totDia = {};
           double totGen = 0;
-          for (final f in filasObra) {
+          for (final f in fg) {
             final hpd = f['horas_por_dia'] as Map<String, dynamic>;
             for (final d in dias) {
               final iso = DateFormat('yyyy-MM-dd').format(d);
-              final h = hpd[iso];
-              if (h != null) {
-                final double v = h is int ? h.toDouble() : h as double;
+              final v   = _extractHoras(hpd[iso]);
+              if (v > 0) {
                 totDia[iso] = (totDia[iso] ?? 0) + v;
                 totGen += v;
               }
@@ -305,77 +367,20 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           indicesSubtotal.add(filas.length);
           filas.add([
             '',
+            _esJefeObra ? '' : 'Total $clave',
             '',
-            '',
-            'Total $obra',
+            _esJefeObra ? 'Total $clave' : '',
             ...dias.map((d) {
               final iso = DateFormat('yyyy-MM-dd').format(d);
-              final t = totDia[iso] ?? 0;
-              return t > 0 ? t.toStringAsFixed(1) : '-';
-            }),
-            totGen.toStringAsFixed(1),
-          ]);
-        }
-      } else {
-        final Map<String, List<dynamic>> porOp = {};
-        for (final f in datosFiltrados) {
-          porOp.putIfAbsent(f['operario']?.toString() ?? '', () => []).add(f);
-        }
-        final ops = _operariosDisponibles
-            .where((o) => porOp.containsKey(o))
-            .toList();
-
-        for (final op in ops) {
-          final filasOp = porOp[op]!;
-          for (final f in filasOp) {
-            final hpd = f['horas_por_dia'] as Map<String, dynamic>;
-            final aus = f['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
-            filas.add([
-              f['codigo']?.toString() ?? '',
-              f['operario'] ?? '',
-              f['categoria_profesional'] ?? '-',
-              f['obra'] ?? '',
-              ...dias.map((d) {
-                final iso = DateFormat('yyyy-MM-dd').format(d);
-                if (aus[iso] == 'BAJA') return 'B';
-                if (aus[iso] == 'VACACIONES') return 'V';
-                final h = hpd[iso];
-                if (h == null) return '-';
-                final double v = h is int ? h.toDouble() : h as double;
-                return v > 0 ? v.toStringAsFixed(1) : '-';
-              }),
-              f['total_horas'].toStringAsFixed(1),
-            ]);
-          }
-          final Map<String, double> totDia = {};
-          double totGen = 0;
-          for (final f in filasOp) {
-            final hpd = f['horas_por_dia'] as Map<String, dynamic>;
-            for (final d in dias) {
-              final iso = DateFormat('yyyy-MM-dd').format(d);
-              final h = hpd[iso];
-              if (h != null) {
-                final double v = h is int ? h.toDouble() : h as double;
-                totDia[iso] = (totDia[iso] ?? 0) + v;
-                totGen += v;
-              }
-            }
-          }
-          indicesSubtotal.add(filas.length);
-          filas.add([
-            '',
-            'Total $op',
-            '',
-            '',
-            ...dias.map((d) {
-              final iso = DateFormat('yyyy-MM-dd').format(d);
-              final t = totDia[iso] ?? 0;
+              final t   = totDia[iso] ?? 0;
               return t > 0 ? t.toStringAsFixed(1) : '-';
             }),
             totGen.toStringAsFixed(1),
           ]);
         }
       }
+
+      _procesarFilas(datosFiltrados, _esJefeObra ? 'obra' : 'operario');
 
       await generarYMostrarPdf(
         columnas: columnas,
@@ -400,42 +405,39 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   }
 
   void _mostrarError(String msj) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msj), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msj), backgroundColor: Colors.red));
   }
 
-  // ── Filtros ───────────────────────────────────────────────────────
-
   void _mostrarFiltroOperarios() => showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => _FiltroBottomSheet(
-      titulo: 'Filtrar operarios',
-      icono: Icons.people,
-      disponibles: _operariosDisponibles,
-      seleccionados: _operariosSeleccionados,
-      onChanged: (v) => setState(() => _operariosSeleccionados = v),
-    ),
-  );
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (_) => _FiltroBottomSheet(
+          titulo: 'Filtrar operarios',
+          icono: Icons.people,
+          disponibles: _operariosDisponibles,
+          seleccionados: _operariosSeleccionados,
+          onChanged: (v) => setState(() => _operariosSeleccionados = v),
+        ),
+      );
 
   void _mostrarFiltroObras() => showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => _FiltroBottomSheet(
-      titulo: 'Filtrar obras',
-      icono: Icons.business,
-      disponibles: _obrasDisponibles,
-      seleccionados: _obrasSeleccionadas,
-      onChanged: (v) => setState(() => _obrasSeleccionadas = v),
-    ),
-  );
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (_) => _FiltroBottomSheet(
+          titulo: 'Filtrar obras',
+          icono: Icons.business,
+          disponibles: _obrasDisponibles,
+          seleccionados: _obrasSeleccionadas,
+          onChanged: (v) => setState(() => _obrasSeleccionadas = v),
+        ),
+      );
 
   // ─────────────────────────────────────────────────────────────────
   //  BUILD
@@ -460,8 +462,8 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             child: _cargando
                 ? const Center(child: CircularProgressIndicator())
                 : _datosPrevia.isEmpty
-                ? _buildEmptyState()
-                : _buildTablaDetalle(esJefe),
+                    ? _buildEmptyState()
+                    : _buildTablaDetalle(esJefe),
           ),
         ],
       ),
@@ -471,11 +473,11 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   // ── Header ────────────────────────────────────────────────────────
 
   Widget _buildSelectorHeader(bool esJefe) {
-    final hayDatos = _datosPrevia.isNotEmpty;
-    final int seleccionados = esJefe
+    final hayDatos      = _datosPrevia.isNotEmpty;
+    final seleccionados = esJefe
         ? _obrasSeleccionadas.length
         : _operariosSeleccionados.length;
-    final int total = esJefe
+    final total = esJefe
         ? _obrasDisponibles.length
         : _operariosDisponibles.length;
 
@@ -515,9 +517,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
-                  onPressed: (_exportandoPdf || _cargando)
-                      ? null
-                      : _exportarPdf,
+                  onPressed: (_exportandoPdf || _cargando) ? null : _exportarPdf,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[700],
                     foregroundColor: Colors.white,
@@ -542,15 +542,33 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             Row(
               children: [
                 _LeyendaCelda(
-                  color: Colors.red.shade100,
-                  letra: 'B',
-                  label: 'Baja',
-                ),
+                    color: Colors.red.shade100, letra: 'B', label: 'Baja'),
                 const SizedBox(width: 12),
                 _LeyendaCelda(
-                  color: Colors.amber.shade100,
-                  letra: 'V',
-                  label: 'Vacaciones',
+                    color: Colors.amber.shade100,
+                    letra: 'V',
+                    label: 'Vacaciones'),
+                const SizedBox(width: 12),
+                // Leyenda celda navegable
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: const Icon(Icons.open_in_new_rounded,
+                          size: 10, color: Colors.indigo),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text('Abrir parte',
+                        style:
+                            TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
                 ),
               ],
             ),
@@ -558,11 +576,12 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: esJefe
-                    ? _mostrarFiltroObras
-                    : _mostrarFiltroOperarios,
+                onPressed:
+                    esJefe ? _mostrarFiltroObras : _mostrarFiltroOperarios,
                 icon: Icon(
-                  esJefe ? Icons.business_outlined : Icons.people_outline,
+                  esJefe
+                      ? Icons.business_outlined
+                      : Icons.people_outline,
                   color: Colors.indigo,
                 ),
                 label: Row(
@@ -571,9 +590,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                     Text(esJefe ? 'Obras' : 'Operarios'),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: seleccionados == total
                             ? Colors.indigo
@@ -595,9 +612,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                   foregroundColor: Colors.indigo,
                   side: const BorderSide(color: Colors.indigo),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
+                      horizontal: 16, vertical: 10),
                 ),
               ),
             ),
@@ -638,14 +653,14 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: quincenas.map((q) {
-          final sel =
-              _rangoSeleccionado != null &&
+          final sel = _rangoSeleccionado != null &&
               _rangoSeleccionado!.start == q.inicio &&
               _rangoSeleccionado!.end == q.fin;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(q.label, style: const TextStyle(fontSize: 11)),
+              label:
+                  Text(q.label, style: const TextStyle(fontSize: 11)),
               selected: sel,
               selectedColor: Colors.indigo,
               labelStyle: TextStyle(
@@ -673,15 +688,16 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   // ── Empty state ───────────────────────────────────────────────────
 
   Widget _buildEmptyState() => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.table_view_rounded, size: 70, color: Colors.grey[300]),
-        const SizedBox(height: 16),
-        const Text('Selecciona un periodo para ver la tabla de horas'),
-      ],
-    ),
-  );
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.table_view_rounded, size: 70, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            const Text(
+                'Selecciona un periodo para ver la tabla de horas'),
+          ],
+        ),
+      );
 
   // ─────────────────────────────────────────────────────────────────
   //  TABLA
@@ -690,24 +706,19 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   Widget _buildTablaDetalle(bool esJefe) {
     final datosFiltrados = esJefe
         ? _datosPrevia
-              .where(
-                (f) =>
-                    _obrasSeleccionadas.contains(f['obra']?.toString() ?? ''),
-              )
-              .toList()
+            .where((f) =>
+                _obrasSeleccionadas.contains(f['obra']?.toString() ?? ''))
+            .toList()
         : _datosPrevia
-              .where(
-                (f) => _operariosSeleccionados.contains(
-                  f['operario']?.toString() ?? '',
-                ),
-              )
-              .toList();
+            .where((f) => _operariosSeleccionados
+                .contains(f['operario']?.toString() ?? ''))
+            .toList();
 
     if (datosFiltrados.isEmpty) {
       return Center(
-        child: Text(
-          esJefe ? 'Ninguna obra seleccionada' : 'Ningun operario seleccionado',
-        ),
+        child: Text(esJefe
+            ? 'Ninguna obra seleccionada'
+            : 'Ningun operario seleccionado'),
       );
     }
 
@@ -723,14 +734,18 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         : _buildTablaAgrupadaPorOperario(datosFiltrados, dias);
   }
 
-  Widget _buildTablaAgrupadaPorObra(List<dynamic> datos, List<DateTime> dias) {
+  // ── Tabla agrupada por obra ───────────────────────────────────────
+
+  Widget _buildTablaAgrupadaPorObra(
+      List<dynamic> datos, List<DateTime> dias) {
     final Map<String, List<dynamic>> porObra = {};
     for (final f in datos) {
-      porObra.putIfAbsent(f['obra']?.toString() ?? '', () => []).add(f);
+      porObra
+          .putIfAbsent(f['obra']?.toString() ?? '', () => [])
+          .add(f);
     }
-    final obrasOrdenadas = _obrasDisponibles
-        .where((o) => porObra.containsKey(o))
-        .toList();
+    final obrasOrdenadas =
+        _obrasDisponibles.where((o) => porObra.containsKey(o)).toList();
 
     DataRow subtotalObra(String nombre, List<dynamic> filas) {
       final Map<String, double> totDia = {};
@@ -739,9 +754,8 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         final hpd = f['horas_por_dia'] as Map<String, dynamic>;
         for (final d in dias) {
           final iso = DateFormat('yyyy-MM-dd').format(d);
-          final h = hpd[iso];
-          if (h != null) {
-            final double v = h is int ? h.toDouble() : h as double;
+          final v   = _extractHoras(hpd[iso]);
+          if (v > 0) {
             totDia[iso] = (totDia[iso] ?? 0) + v;
             tot += v;
           }
@@ -754,53 +768,45 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           const DataCell(SizedBox.shrink()),
           const DataCell(SizedBox.shrink()),
           DataCell(
-            Text(
-              'Total $nombre',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
-                color: Colors.teal[800],
-                fontStyle: FontStyle.italic,
-              ),
-            ),
+            Text('Total $nombre',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    color: Colors.teal[800],
+                    fontStyle: FontStyle.italic)),
           ),
           ...dias.map((d) {
             final iso = DateFormat('yyyy-MM-dd').format(d);
-            final t = totDia[iso] ?? 0;
-            return DataCell(
-              Container(
-                width: 35,
-                alignment: Alignment.center,
-                child: Text(
-                  t > 0 ? t.toStringAsFixed(1) : '-',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: t == 0
-                        ? Colors.grey[500]!
-                        : t < 8
-                        ? Colors.orange[700]!
-                        : t > 8
-                        ? Colors.blue[700]!
-                        : Colors.green[700]!,
-                  ),
-                ),
-              ),
-            );
-          }),
-          DataCell(
-            Container(
+            final t   = totDia[iso] ?? 0;
+            return DataCell(Container(
+              width: 35,
               alignment: Alignment.center,
               child: Text(
-                tot.toStringAsFixed(1),
+                t > 0 ? t.toStringAsFixed(1) : '-',
                 style: TextStyle(
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Colors.teal[800],
-                  fontSize: 12,
+                  color: t == 0
+                      ? Colors.grey[500]!
+                      : t < 8
+                          ? Colors.orange[700]!
+                          : t > 8
+                              ? Colors.blue[700]!
+                              : Colors.green[700]!,
                 ),
               ),
+            ));
+          }),
+          DataCell(Container(
+            alignment: Alignment.center,
+            child: Text(
+              tot.toStringAsFixed(1),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal[800],
+                  fontSize: 12),
             ),
-          ),
+          )),
         ],
       );
     }
@@ -810,67 +816,47 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       final fo = porObra[obra]!;
       for (final f in fo) {
         final hpd = f['horas_por_dia'] as Map<String, dynamic>;
-        filas.add(
-          DataRow(
-            cells: [
-              DataCell(
-                Text(
-                  f['codigo']?.toString() ?? '',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-              DataCell(
-                Text(f['operario'] ?? '', style: const TextStyle(fontSize: 11)),
-              ),
-              DataCell(
-                Text(
-                  f['categoria_profesional'] ?? '-',
-                  style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]),
-                ),
-              ),
-              DataCell(
-                Text(
-                  (f['obra'] as String?)?.isNotEmpty == true ? f['obra'] : '-',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-              ...dias.map((d) {
-                final iso = DateFormat('yyyy-MM-dd').format(d);
-                final h = hpd[iso];
-                final double v = h != null
-                    ? (h is int ? h.toDouble() : h as double)
-                    : 0;
-                return _celdaH(v, iso, f as Map<String, dynamic>);
-              }),
-              DataCell(
-                Container(
-                  alignment: Alignment.center,
-                  child: Text(
-                    f['total_horas'].toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.indigo,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+        filas.add(DataRow(cells: [
+          DataCell(Text(f['codigo']?.toString() ?? '',
+              style: const TextStyle(fontSize: 11))),
+          DataCell(Text(f['operario'] ?? '',
+              style: const TextStyle(fontSize: 11))),
+          DataCell(Text(f['categoria_profesional'] ?? '-',
+              style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]))),
+          DataCell(Text(
+            (f['obra'] as String?)?.isNotEmpty == true ? f['obra'] : '-',
+            style: const TextStyle(fontSize: 11),
+          )),
+          ...dias.map((d) {
+            final iso = DateFormat('yyyy-MM-dd').format(d);
+            return _celdaH(hpd[iso], iso, f as Map<String, dynamic>, context);
+          }),
+          DataCell(Container(
+            alignment: Alignment.center,
+            child: Text(
+              (f['total_horas'] as num).toStringAsFixed(1),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo,
+                  fontSize: 12),
+            ),
+          )),
+        ]));
       }
       filas.add(subtotalObra(obra, fo));
     }
     return _wrapTabla(dias, filas);
   }
 
+  // ── Tabla agrupada por operario ───────────────────────────────────
+
   Widget _buildTablaAgrupadaPorOperario(
-    List<dynamic> datos,
-    List<DateTime> dias,
-  ) {
+      List<dynamic> datos, List<DateTime> dias) {
     final Map<String, List<dynamic>> porOp = {};
     for (final f in datos) {
-      porOp.putIfAbsent(f['operario']?.toString() ?? '', () => []).add(f);
+      porOp
+          .putIfAbsent(f['operario']?.toString() ?? '', () => [])
+          .add(f);
     }
     final opsOrdenados = _operariosDisponibles
         .where((o) => porOp.containsKey(o))
@@ -883,68 +869,58 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         final hpd = f['horas_por_dia'] as Map<String, dynamic>;
         for (final d in dias) {
           final iso = DateFormat('yyyy-MM-dd').format(d);
-          final h = hpd[iso];
-          if (h != null) {
-            final double v = h is int ? h.toDouble() : h as double;
+          final v   = _extractHoras(hpd[iso]);
+          if (v > 0) {
             totDia[iso] = (totDia[iso] ?? 0) + v;
             tot += v;
           }
         }
       }
       return DataRow(
-        color: WidgetStateProperty.all(Colors.indigo.withOpacity(0.08)),
+        color:
+            WidgetStateProperty.all(Colors.indigo.withOpacity(0.08)),
         cells: [
           const DataCell(SizedBox.shrink()),
-          DataCell(
-            Text(
-              'Total $nombre',
+          DataCell(Text('Total $nombre',
               style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
-                color: Colors.indigo[700],
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                  color: Colors.indigo[700],
+                  fontStyle: FontStyle.italic))),
           const DataCell(SizedBox.shrink()),
           const DataCell(SizedBox.shrink()),
           ...dias.map((d) {
             final iso = DateFormat('yyyy-MM-dd').format(d);
-            final t = totDia[iso] ?? 0;
-            return DataCell(
-              Container(
-                width: 35,
-                alignment: Alignment.center,
-                child: Text(
-                  t > 0 ? t.toStringAsFixed(1) : '-',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: t == 0
-                        ? Colors.grey[500]!
-                        : t < 8
-                        ? Colors.orange[700]!
-                        : t > 8
-                        ? Colors.blue[700]!
-                        : Colors.green[700]!,
-                  ),
-                ),
-              ),
-            );
-          }),
-          DataCell(
-            Container(
+            final t   = totDia[iso] ?? 0;
+            return DataCell(Container(
+              width: 35,
               alignment: Alignment.center,
               child: Text(
-                tot.toStringAsFixed(1),
+                t > 0 ? t.toStringAsFixed(1) : '-',
                 style: TextStyle(
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Colors.indigo[700],
-                  fontSize: 12,
+                  color: t == 0
+                      ? Colors.grey[500]!
+                      : t < 8
+                          ? Colors.orange[700]!
+                          : t > 8
+                              ? Colors.blue[700]!
+                              : Colors.green[700]!,
                 ),
               ),
+            ));
+          }),
+          DataCell(Container(
+            alignment: Alignment.center,
+            child: Text(
+              tot.toStringAsFixed(1),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo[700],
+                  fontSize: 12),
             ),
-          ),
+          )),
         ],
       );
     }
@@ -954,63 +930,44 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       final fo = porOp[op]!;
       for (final f in fo) {
         final hpd = f['horas_por_dia'] as Map<String, dynamic>;
-        filas.add(
-          DataRow(
-            cells: [
-              DataCell(
-                Text(
-                  f['codigo']?.toString() ?? '',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-              DataCell(
-                Text(f['operario'] ?? '', style: const TextStyle(fontSize: 11)),
-              ),
-              DataCell(
-                Text(
-                  f['categoria_profesional'] ?? '-',
-                  style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]),
-                ),
-              ),
-              DataCell(
-                Text(
-                  (f['obra'] as String?)?.isNotEmpty == true ? f['obra'] : '-',
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-              ...dias.map((d) {
-                final iso = DateFormat('yyyy-MM-dd').format(d);
-                final h = hpd[iso];
-                final double v = h != null
-                    ? (h is int ? h.toDouble() : h as double)
-                    : 0;
-                return _celdaH(v, iso, f as Map<String, dynamic>);
-              }),
-              DataCell(
-                Container(
-                  alignment: Alignment.center,
-                  child: Text(
-                    (f['total_horas'] as num).toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.indigo,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+        filas.add(DataRow(cells: [
+          DataCell(Text(f['codigo']?.toString() ?? '',
+              style: const TextStyle(fontSize: 11))),
+          DataCell(Text(f['operario'] ?? '',
+              style: const TextStyle(fontSize: 11))),
+          DataCell(Text(f['categoria_profesional'] ?? '-',
+              style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]))),
+          DataCell(Text(
+            (f['obra'] as String?)?.isNotEmpty == true ? f['obra'] : '-',
+            style: const TextStyle(fontSize: 11),
+          )),
+          ...dias.map((d) {
+            final iso = DateFormat('yyyy-MM-dd').format(d);
+            return _celdaH(hpd[iso], iso, f as Map<String, dynamic>, context);
+          }),
+          DataCell(Container(
+            alignment: Alignment.center,
+            child: Text(
+              (f['total_horas'] as num).toStringAsFixed(1),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo,
+                  fontSize: 12),
+            ),
+          )),
+        ]));
       }
       filas.add(subtotalOp(op, fo));
     }
     return _wrapTabla(dias, filas);
   }
 
+  // ── Wrapper tabla ─────────────────────────────────────────────────
+
   Widget _wrapTabla(List<DateTime> dias, List<DataRow> filas) {
     return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      behavior:
+          ScrollConfiguration.of(context).copyWith(scrollbars: false),
       child: Scrollbar(
         controller: _verticalController,
         thumbVisibility: true,
@@ -1026,77 +983,67 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
               controller: _horizontalController,
               scrollDirection: Axis.horizontal,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 16, right: 16),
+                padding:
+                    const EdgeInsets.only(bottom: 16, right: 16),
                 child: DataTable(
                   columnSpacing: 15,
                   horizontalMargin: 12,
-                  headingRowHeight: 52, // un poco más alto para las dos líneas
-                  headingRowColor: WidgetStateProperty.all(Colors.indigo[50]),
+                  headingRowHeight: 52,
+                  headingRowColor:
+                      WidgetStateProperty.all(Colors.indigo[50]),
                   columns: [
                     const DataColumn(
-                      label: Text(
-                        'Codigo',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                        label: Text('Codigo',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold))),
                     const DataColumn(
-                      label: Text(
-                        'Operario',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                        label: Text('Operario',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold))),
                     const DataColumn(
-                      label: Text(
-                        'Categoria',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                        label: Text('Categoria',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold))),
                     const DataColumn(
-                      label: Text(
-                        'Obra',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    // ── Columnas de días con letra + número ──
-                    ...dias.map(
-                      (d) => DataColumn(
-                        label: Container(
-                          width: 35,
-                          alignment: Alignment.center,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _letraDia(d),
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  color: _esFinDeSemana(d)
-                                      ? Colors.red[400]
-                                      : Colors.indigo[400],
+                        label: Text('Obra',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold))),
+                    ...dias.map((d) => DataColumn(
+                          label: Container(
+                            width: 35,
+                            alignment: Alignment.center,
+                            child: Column(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _letraDia(d),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: _esFinDeSemana(d)
+                                        ? Colors.red[400]
+                                        : Colors.indigo[400],
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '${d.day}/${d.month}',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: _esFinDeSemana(d)
-                                      ? Colors.red[600]
-                                      : Colors.black87,
+                                Text(
+                                  '${d.day}/${d.month}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: _esFinDeSemana(d)
+                                        ? Colors.red[600]
+                                        : Colors.black87,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
+                        )),
                     const DataColumn(
-                      label: Text(
-                        'Total',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+                        label: Text('Total',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold))),
                   ],
                   rows: filas,
                 ),
@@ -1110,19 +1057,15 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Leyenda de ausencias
+//  Widgets auxiliares
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _LeyendaCelda extends StatelessWidget {
-  final Color color;
+  final Color  color;
   final String letra;
   final String label;
-
-  const _LeyendaCelda({
-    required this.color,
-    required this.letra,
-    required this.label,
-  });
+  const _LeyendaCelda(
+      {required this.color, required this.letra, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -1137,27 +1080,23 @@ class _LeyendaCelda extends StatelessWidget {
             color: color,
             borderRadius: BorderRadius.circular(3),
           ),
-          child: Text(
-            letra,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-          ),
+          child: Text(letra,
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Bottom sheet reutilizable (obras u operarios)
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _FiltroBottomSheet extends StatefulWidget {
   final String titulo;
   final IconData icono;
   final List<String> disponibles;
-  final Set<String> seleccionados;
+  final Set<String>  seleccionados;
   final ValueChanged<Set<String>> onChanged;
 
   const _FiltroBottomSheet({
@@ -1219,18 +1158,15 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 Icon(widget.icono, color: Colors.indigo),
                 const SizedBox(width: 8),
-                Text(
-                  widget.titulo,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(widget.titulo,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 TextButton(
                   onPressed: () {
@@ -1253,7 +1189,8 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _ctrl,
               decoration: InputDecoration(
@@ -1285,12 +1222,12 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
                       return CheckboxListTile(
                         value: _sel.contains(item),
                         activeColor: Colors.indigo,
-                        title: Text(item, style: const TextStyle(fontSize: 14)),
+                        title: Text(item,
+                            style: const TextStyle(fontSize: 14)),
                         onChanged: (v) {
-                          setState(
-                            () =>
-                                v == true ? _sel.add(item) : _sel.remove(item),
-                          );
+                          setState(() => v == true
+                              ? _sel.add(item)
+                              : _sel.remove(item));
                           widget.onChanged(_sel);
                         },
                       );
@@ -1325,12 +1262,9 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
 }
 
 class _Quincena {
-  final String label;
+  final String   label;
   final DateTime inicio;
   final DateTime fin;
-  const _Quincena({
-    required this.label,
-    required this.inicio,
-    required this.fin,
-  });
+  const _Quincena(
+      {required this.label, required this.inicio, required this.fin});
 }

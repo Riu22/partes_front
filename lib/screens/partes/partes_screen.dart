@@ -17,25 +17,33 @@ import '../../widgets/lista_partes.dart';
 import '../../widgets/partes_views.dart';
 
 class PartesScreen extends ConsumerStatefulWidget {
-  const PartesScreen({super.key});
+  const PartesScreen({super.key, this.parteIdInicial});
+
+  /// Si viene informado, la pantalla arranca mostrando solo ese parte.
+  /// Usado al navegar desde la tabla de contabilidad.
+  final int? parteIdInicial;
 
   @override
   ConsumerState<PartesScreen> createState() => _PartesScreenState();
 }
 
 class _PartesScreenState extends ConsumerState<PartesScreen> {
-  final _obraCtrl = TextEditingController();
+  final _obraCtrl     = TextEditingController();
   final _operarioCtrl = TextEditingController();
-  Obra? _obraSeleccionada;
+  Obra?   _obraSeleccionada;
   Perfil? _operarioSeleccionado;
   String? _especialidadFiltro;
   List<ParteTrabajo>? _partesFiltradas;
+  bool _cargandoParte = false;
+
   final _updateService = UpdateService();
 
   bool get _hayFiltros =>
       _obraSeleccionada != null ||
       _operarioSeleccionado != null ||
       _especialidadFiltro != null;
+
+  // ── Ciclo de vida ─────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -45,7 +53,6 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       if (conectado) {
         ref.invalidate(obrasActivasProvider);
         ref.invalidate(obrasProvider);
-        // Precarga fechas permitidas para que el formulario las tenga listas
         ref.invalidate(fechasPermitidasProvider);
         try {
           await ref.read(apiServiceProvider).getMisFechasLibres();
@@ -54,8 +61,41 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         }
       }
       if (!kIsWeb) _checkUpdate();
+
+      // Carga directa si venimos desde contabilidad con un parte concreto
+      if (widget.parteIdInicial != null) {
+        await _cargarParteConcreto(widget.parteIdInicial!);
+      }
     });
   }
+
+  @override
+  void dispose() {
+    _obraCtrl.dispose();
+    _operarioCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── Carga de parte concreto ───────────────────────────────────────
+
+  Future<void> _cargarParteConcreto(int parteId) async {
+  setState(() => _cargandoParte = true);
+  try {
+    // Espera a que el provider tenga datos
+    final partes = await ref.read(partesProvider.future);
+    final parte = partes.where((p) => p.id == parteId).toList();
+
+    if (mounted) {
+      setState(() => _partesFiltradas = parte.isNotEmpty ? parte : null);
+    }
+  } catch (e) {
+    debugPrint('>>> error cargando parte $parteId: $e');
+  } finally {
+    if (mounted) setState(() => _cargandoParte = false);
+  }
+}
+
+  // ── Actualización ─────────────────────────────────────────────────
 
   Future<void> _checkUpdate() async {
     final update = await _updateService.hayActualizacion();
@@ -69,7 +109,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
             'Hay una actualizacion a la versión ${update['version']}.\n\n'
             'Descargala para tener las ultimas mejoras.\n\n'
             'Una vez descargado dale a abrir y selecciona actualizar.\n\n'
-            'En caso de que de un error desinstale la aplicacion y vuelva a instalarla con el instalador que acaba de descargar.',
+            'En caso de que de un error desinstale la aplicacion y '
+            'vuelva a instalarla con el instalador que acaba de descargar.',
           ),
           actions: [
             TextButton(
@@ -89,6 +130,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
   }
 
+  // ── Filtros ───────────────────────────────────────────────────────
+
   void _aplicarFiltro() {
     if (!_hayFiltros) {
       setState(() => _partesFiltradas = null);
@@ -97,18 +140,12 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     final partes = ref.read(partesProvider).valueOrNull ?? [];
     final filtradas = partes.where((p) {
       if (_obraSeleccionada != null &&
-          p.obraNombre != _obraSeleccionada!.nombre) {
-        return false;
-      }
+          p.obraNombre != _obraSeleccionada!.nombre) return false;
       if (_operarioSeleccionado != null &&
           p.operarioNombreCompleto !=
-              _operarioSeleccionado!.nombreApellidoCompleto) {
-        return false;
-      }
+              _operarioSeleccionado!.nombreApellidoCompleto) return false;
       if (_especialidadFiltro != null &&
-          p.especialidad != _especialidadFiltro) {
-        return false;
-      }
+          p.especialidad != _especialidadFiltro) return false;
       return true;
     }).toList();
     setState(() => _partesFiltradas = filtradas);
@@ -126,20 +163,22 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     _obraCtrl.clear();
     _operarioCtrl.clear();
     setState(() {
-      _obraSeleccionada = null;
+      _obraSeleccionada    = null;
       _operarioSeleccionado = null;
-      _especialidadFiltro = null;
-      _partesFiltradas = null;
+      _especialidadFiltro  = null;
+      _partesFiltradas     = null;
     });
   }
+
+  // ── Build ─────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     ref.watch(syncProvider);
     final pendientesAsync = ref.watch(pendientesOfflineProvider);
     final totalPendientes = pendientesAsync.valueOrNull ?? 0;
-    final conexionAsync = ref.watch(conectividadProvider);
-    final perfil = ref.watch(authProvider).valueOrNull;
+    final conexionAsync   = ref.watch(conectividadProvider);
+    final perfil          = ref.watch(authProvider).valueOrNull;
 
     if (perfil == null) {
       return const Scaffold(
@@ -154,6 +193,24 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         backgroundColor: bgPage,
         elevation: 0,
         iconTheme: const IconThemeData(color: textPrimary),
+        // Banner "viendo parte concreto" con botón para volver a la lista
+        title: _partesFiltradas != null && widget.parteIdInicial != null
+            ? Row(
+                children: [
+                  const Icon(Icons.filter_alt, size: 16, color: Colors.indigo),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Parte #${widget.parteIdInicial}',
+                    style: const TextStyle(fontSize: 14, color: Colors.indigo),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _limpiarBusqueda,
+                    child: const Icon(Icons.close, size: 16, color: Colors.indigo),
+                  ),
+                ],
+              )
+            : null,
         actions: [
           if (totalPendientes > 0)
             Padding(
@@ -165,8 +222,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Intentando enviar $totalPendientes parte(s)...',
-                      ),
+                          'Intentando enviar $totalPendientes parte(s)...'),
                       duration: const Duration(seconds: 2),
                     ),
                   );
@@ -224,31 +280,31 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
           ),
 
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refrescar,
-              child: CustomScrollView(
-                slivers: [
-                  // ── Partes guardados offline ──────────────────────────────
-                  const SliverToBoxAdapter(child: _PartesPendientesOffline()),
-                  // ── Lista principal ───────────────────────────────────────
-                  SliverFillRemaining(
-                    child: _partesFiltradas != null
-                        ? ListaPartes(
-                            partes: _partesFiltradas!,
-                            agruparPorOperario: true,
-                          )
-                        : perfil.esJefeObra
-                        ? const PartesJefeCombinadaView()
-                        : PartesNormalesView(
-                            agruparPorOperario:
-                                perfil.esEncargado ||
-                                perfil.esAdmin ||
-                                perfil.esGestion,
-                          ),
+            child: _cargandoParte
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _refrescar,
+                    child: CustomScrollView(
+                      slivers: [
+                        const SliverToBoxAdapter(
+                            child: _PartesPendientesOffline()),
+                        SliverFillRemaining(
+                          child: _partesFiltradas != null
+                              ? ListaPartes(
+                                  partes: _partesFiltradas!,
+                                  agruparPorOperario: true,
+                                )
+                              : perfil.esJefeObra
+                              ? const PartesJefeCombinadaView()
+                              : PartesNormalesView(
+                                  agruparPorOperario: perfil.esEncargado ||
+                                      perfil.esAdmin ||
+                                      perfil.esGestion,
+                                ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -262,6 +318,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       ),
     );
   }
+
+  // ── Buscador ──────────────────────────────────────────────────────
 
   Widget _buildBuscador() {
     return Padding(
@@ -305,7 +363,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                           child: Text('Fontanería'),
                         ),
                       ],
-                      onChanged: (v) => setState(() => _especialidadFiltro = v),
+                      onChanged: (v) =>
+                          setState(() => _especialidadFiltro = v),
                     ),
                   ),
                 ),
@@ -315,9 +374,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                 onTap: _aplicarFiltro,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
+                      horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: bgCard,
                     borderRadius: BorderRadius.circular(8),
@@ -327,17 +384,17 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     children: [
                       Icon(Icons.search, size: 16, color: textPrimary),
                       SizedBox(width: 6),
-                      Text(
-                        'Buscar',
-                        style: TextStyle(fontSize: 14, color: textPrimary),
-                      ),
+                      Text('Buscar',
+                          style:
+                              TextStyle(fontSize: 14, color: textPrimary)),
                     ],
                   ),
                 ),
               ),
               if (_hayFiltros)
                 IconButton(
-                  icon: const Icon(Icons.clear, size: 18, color: textSecondary),
+                  icon: const Icon(Icons.clear,
+                      size: 18, color: textSecondary),
                   onPressed: _limpiarBusqueda,
                 ),
             ],
@@ -350,16 +407,14 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   List<Obra> _obrasDesdePartes(List<ParteTrabajo> partes) {
     final nombres = partes.map((p) => p.obraNombre).toSet().toList()..sort();
     return nombres
-        .map(
-          (n) => Obra(
-            id: 0,
-            nombre: n,
-            ubicacion: '',
-            municipio: '',
-            codigo: '',
-            activa: true,
-          ),
-        )
+        .map((n) => Obra(
+              id: 0,
+              nombre: n,
+              ubicacion: '',
+              municipio: '',
+              codigo: '',
+              activa: true,
+            ))
         .toList();
   }
 
@@ -374,23 +429,20 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         borderRadius: BorderRadius.circular(8),
         onTap: () {
           final partes = ref.read(partesProvider).valueOrNull ?? [];
-          final obras = _obrasDesdePartes(partes);
-          abrirBuscadorObras(context, obras, (o) {
+          abrirBuscadorObras(context, _obrasDesdePartes(partes), (o) {
             setState(() {
               _obraSeleccionada = o;
-              _obraCtrl.text = o.nombre;
+              _obraCtrl.text    = o.nombre;
             });
           });
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              const Icon(
-                Icons.business_outlined,
-                size: 18,
-                color: textSecondary,
-              ),
+              const Icon(Icons.business_outlined,
+                  size: 18, color: textSecondary),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -410,11 +462,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     _obraSeleccionada = null;
                     _obraCtrl.clear();
                   }),
-                  child: const Icon(
-                    Icons.clear,
-                    size: 16,
-                    color: textSecondary,
-                  ),
+                  child: const Icon(Icons.clear,
+                      size: 16, color: textSecondary),
                 ),
             ],
           ),
@@ -439,10 +488,9 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         ),
       );
     }
-    final sorted = map.values.toList();
-    sorted.sort(
-      (a, b) => a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto),
-    );
+    final sorted = map.values.toList()
+      ..sort((a, b) =>
+          a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto));
     return sorted;
   }
 
@@ -457,18 +505,21 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         borderRadius: BorderRadius.circular(8),
         onTap: () {
           final partes = ref.read(partesProvider).valueOrNull ?? [];
-          final perfiles = _operariosDesdePartes(partes);
-          _abrirBuscadorOperarios(context, perfiles);
+          _abrirBuscadorOperarios(
+              context, _operariosDesdePartes(partes));
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              const Icon(Icons.person_outline, size: 18, color: textSecondary),
+              const Icon(Icons.person_outline,
+                  size: 18, color: textSecondary),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _operarioSeleccionado?.nombreApellidoCompleto ?? 'Operario',
+                  _operarioSeleccionado?.nombreApellidoCompleto ??
+                      'Operario',
                   style: TextStyle(
                     fontSize: 14,
                     color: _operarioSeleccionado != null
@@ -484,11 +535,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     _operarioSeleccionado = null;
                     _operarioCtrl.clear();
                   }),
-                  child: const Icon(
-                    Icons.clear,
-                    size: 16,
-                    color: textSecondary,
-                  ),
+                  child: const Icon(Icons.clear,
+                      size: 16, color: textSecondary),
                 ),
             ],
           ),
@@ -497,7 +545,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  void _abrirBuscadorOperarios(BuildContext context, List<Perfil> perfiles) {
+  void _abrirBuscadorOperarios(
+      BuildContext context, List<Perfil> perfiles) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -509,7 +558,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         builder: (_, scrollController) => Container(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: CuerpoBuscadorOperarios(
             perfiles: perfiles,
@@ -517,7 +567,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
             alSeleccionar: (p) {
               setState(() {
                 _operarioSeleccionado = p;
-                _operarioCtrl.text = p.nombreApellidoCompleto;
+                _operarioCtrl.text    = p.nombreApellidoCompleto;
               });
             },
           ),
@@ -537,15 +587,13 @@ class _PartesPendientesOffline extends ConsumerWidget {
     final listaAsync = ref.watch(listaOfflineProvider);
 
     return listaAsync.when(
-      // Mientras carga no ocupa espacio
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error:   (_, __) => const SizedBox.shrink(),
       data: (partes) {
         if (partes.isEmpty) return const SizedBox.shrink();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabecera de sección
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
               child: Row(
@@ -563,7 +611,6 @@ class _PartesPendientesOffline extends ConsumerWidget {
                 ],
               ),
             ),
-            // Tarjetas
             ...partes.map((p) => _TarjetaParteOffline(data: p)),
             const Divider(height: 1, thickness: 1),
             const SizedBox(height: 4),
@@ -584,7 +631,8 @@ class _TarjetaParteOffline extends ConsumerWidget {
       builder: (_) => AlertDialog(
         title: const Text('Eliminar parte'),
         content: const Text(
-          '¿Seguro que quieres eliminar este parte pendiente? No se podrá recuperar.',
+          '¿Seguro que quieres eliminar este parte pendiente? '
+          'No se podrá recuperar.',
         ),
         actions: [
           TextButton(
@@ -602,10 +650,8 @@ class _TarjetaParteOffline extends ConsumerWidget {
 
     if (confirmar != true) return;
 
-    final queue = ref.read(offlineQueueProvider);
-    final esJefe = data['_tipo'] == 'jefe';
-
-    // Copia limpia sin la clave interna _tipo
+    final queue   = ref.read(offlineQueueProvider);
+    final esJefe  = data['_tipo'] == 'jefe';
     final dataLimpia = Map<String, dynamic>.from(data)..remove('_tipo');
 
     if (esJefe) {
@@ -620,14 +666,14 @@ class _TarjetaParteOffline extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fecha = data['fecha'] as String? ?? '—';
-    final horas = data['horas_normales'];
+    final fecha       = data['fecha'] as String? ?? '—';
+    final horas       = data['horas_normales'];
     final descripcion = (data['descripcion'] as String? ?? '').trim();
     final esPostVenta = data['es_post_venta'] == true;
-    final esJefe = data['_tipo'] == 'jefe';
+    final esJefe      = data['_tipo'] == 'jefe';
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      margin:  const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
@@ -671,16 +717,12 @@ class _TarjetaParteOffline extends ConsumerWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    // ── Botón eliminar ──
                     GestureDetector(
                       onTap: () => _borrar(context, ref),
                       child: const Padding(
                         padding: EdgeInsets.only(left: 8),
-                        child: Icon(
-                          Icons.delete_outline,
-                          size: 16,
-                          color: Colors.red,
-                        ),
+                        child: Icon(Icons.delete_outline,
+                            size: 16, color: Colors.red),
                       ),
                     ),
                   ],
@@ -691,7 +733,8 @@ class _TarjetaParteOffline extends ConsumerWidget {
                     descripcion,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: textSecondary),
+                    style: const TextStyle(
+                        fontSize: 12, color: textSecondary),
                   ),
                 ],
                 const SizedBox(height: 4),
@@ -715,7 +758,7 @@ class _TarjetaParteOffline extends ConsumerWidget {
 class _Badge extends StatelessWidget {
   const _Badge({required this.label, required this.color});
   final String label;
-  final Color color;
+  final Color  color;
 
   @override
   Widget build(BuildContext context) {

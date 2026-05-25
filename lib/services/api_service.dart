@@ -365,6 +365,13 @@ class ApiService {
     );
     return (response.data as List?) ?? [];
   }
+  Future<Map<String, dynamic>> getParteById(int id) async {
+  final response = await _dio.get(
+    '/partes/$id',
+    options: await _authHeaders(),
+  );
+  return response.data as Map<String, dynamic>;
+}
 
   Future<Map<String, dynamic>> getResumenMensualJefe(int anio, int mes) async {
     final response = await _dio.get(

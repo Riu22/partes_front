@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../helpers/capture_helper.dart';
 import '../../providers/auth_provider.dart';
@@ -14,30 +15,23 @@ class ContabilidadScreen extends ConsumerStatefulWidget {
 
 class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   final ApiService _apiService = ApiService();
-  final ScrollController _verticalController = ScrollController();
+  final ScrollController _verticalController   = ScrollController();
   final ScrollController _horizontalController = ScrollController();
 
   DateTimeRange? _rangoSeleccionado;
-  bool _cargando = false;
+  bool _cargando      = false;
   bool _exportandoPdf = false;
   List<dynamic> _datosPrevia = [];
 
-  List<String> _operariosDisponibles = [];
-  Set<String> _operariosSeleccionados = {};
-  List<String> _obrasDisponibles = [];
-  Set<String> _obrasSeleccionadas = {};
+  List<String> _operariosDisponibles  = [];
+  Set<String>  _operariosSeleccionados = {};
+  List<String> _obrasDisponibles  = [];
+  Set<String>  _obrasSeleccionadas = {};
 
   // ── Festivos nacionales fijos ─────────────────────────────────────
   static const Set<(int, int)> _festivosFijos = {
-    (1, 1), // Año Nuevo
-    (1, 6), // Reyes
-    (5, 1), // Día del Trabajo
-    (8, 15), // Asunción
-    (10, 12), // Fiesta Nacional
-    (11, 1), // Todos los Santos
-    (12, 6), // Constitución
-    (12, 8), // Inmaculada
-    (12, 25), // Navidad
+    (1,  1), (1,  6), (5,  1), (8, 15),
+    (10,12), (11, 1), (12, 6), (12, 8), (12,25),
   };
 
   @override
@@ -57,37 +51,53 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
   bool _esFestivo(DateTime d) => _festivosFijos.contains((d.month, d.day));
 
-  /// Días que se marcan en rojo: fines de semana Y festivos nacionales
   bool _esDiaRojo(DateTime d) => _esFinDeSemana(d) || _esFestivo(d);
 
   ({Color bg, Color fg, String letra})? _infoAusencia(
     Map<String, dynamic> fila,
     String isoFecha,
   ) {
-    final ausencias = fila['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
+    final ausencias =
+        fila['ausencias_por_dia'] as Map<String, dynamic>? ?? {};
     final tipo = ausencias[isoFecha]?.toString();
     if (tipo == null) return null;
     if (tipo == 'BAJA') {
-      return (bg: Colors.red.shade100, fg: Colors.red.shade800, letra: 'B');
+      return (bg: Colors.red.shade100,  fg: Colors.red.shade800,  letra: 'B');
     }
     if (tipo == 'PATERNIDAD') {
       return (bg: Colors.blue.shade100, fg: Colors.blue.shade800, letra: 'P');
     }
-    // VACACIONES (y cualquier otro tipo desconocido)
-    return (bg: Colors.amber.shade100, fg: Colors.amber.shade800, letra: 'V');
+    return (bg: Colors.amber.shade100,  fg: Colors.amber.shade800, letra: 'V');
+  }
+
+  // ── Helpers de extracción (formato antiguo número / nuevo objeto) ─
+
+  static double _extractHoras(dynamic raw) {
+    if (raw == null) return 0;
+    if (raw is num) return raw.toDouble();
+    if (raw is Map) return ((raw['horas'] as num?) ?? 0).toDouble();
+    return 0;
+  }
+
+  static int? _extractParteId(dynamic raw) {
+    if (raw is Map) return raw['parte_id'] as int?;
+    return null;
   }
 
   // ── Celda de horas ────────────────────────────────────────────────
 
   DataCell _celdaH(
-    double v,
+    dynamic raw,
     String isoFecha,
     Map<String, dynamic> f,
     bool esDiaRojo,
+    BuildContext context,
   ) {
-    final aus = _infoAusencia(f, isoFecha);
+    final aus     = _infoAusencia(f, isoFecha);
+    final double v = _extractHoras(raw);
+    final int? parteId = _extractParteId(raw);
 
-    // Ausencia (B/V/P) tiene prioridad sobre el color de día
+    // Ausencia tiene prioridad — nunca navegable
     if (aus != null) {
       return DataCell(
         Container(
@@ -109,8 +119,43 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
     }
 
-    // Fin de semana o festivo: fondo rojo siempre, texto rojo si hay horas
+    // Día rojo (finde/festivo)
     if (esDiaRojo) {
+      // En día rojo con parte_id también es navegable, pero con estilo rojo
+      if (parteId != null && v > 0) {
+        return DataCell(
+          Tooltip(
+            message: 'Ver parte #$parteId',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(4),
+              onTap: () => context.push('/partes/$parteId'),
+              child: Container(
+                width: 35,
+                height: double.infinity,
+                alignment: Alignment.center,
+                color: Colors.red.shade50,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      v.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    const SizedBox(width: 1),
+                    Icon(Icons.open_in_new_rounded,
+                        size: 8, color: Colors.red.shade700),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
       return DataCell(
         Container(
           width: 35,
@@ -121,19 +166,56 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               ? Text(
                   v.toStringAsFixed(1),
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red.shade700,
-                  ),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red.shade700),
                 )
-              : Text(
-                  '-',
-                  style: TextStyle(fontSize: 11, color: Colors.red.shade200),
-                ),
+              : Text('-',
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.red.shade200)),
         ),
       );
     }
 
+    // Día normal con parte_id → navegable
+    if (parteId != null && v > 0) {
+      return DataCell(
+        Tooltip(
+          message: 'Ver parte #$parteId',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(4),
+            onTap: () => context.push('/partes/$parteId'),
+            child: Container(
+              width: 35,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.indigo.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    v.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo,
+                    ),
+                  ),
+                  const SizedBox(width: 1),
+                  const Icon(Icons.open_in_new_rounded,
+                      size: 8, color: Colors.indigo),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Día normal sin parte_id
     return DataCell(
       Container(
         width: 35,
@@ -155,8 +237,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   Future<void> _seleccionarFechas(BuildContext context) async {
     final nuevoRango = await showDateRangePicker(
       context: context,
-      initialDateRange:
-          _rangoSeleccionado ??
+      initialDateRange: _rangoSeleccionado ??
           DateTimeRange(
             start: DateTime.now().subtract(const Duration(days: 7)),
             end: DateTime.now(),
@@ -175,11 +256,11 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   }
 
   void _resetDatos() {
-    _datosPrevia = [];
-    _operariosDisponibles = [];
-    _operariosSeleccionados = {};
-    _obrasDisponibles = [];
-    _obrasSeleccionadas = {};
+    _datosPrevia             = [];
+    _operariosDisponibles    = [];
+    _operariosSeleccionados  = {};
+    _obrasDisponibles        = [];
+    _obrasSeleccionadas      = {};
   }
 
   // ── Carga ─────────────────────────────────────────────────────────
@@ -190,36 +271,30 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     try {
       final data = _esJefeObra
           ? await _apiService.getContabilidadDetalleJsonJefe(
-              _rangoSeleccionado!.start,
-              _rangoSeleccionado!.end,
-            )
+              _rangoSeleccionado!.start, _rangoSeleccionado!.end)
           : await _apiService.getContabilidadDetalleJson(
-              _rangoSeleccionado!.start,
-              _rangoSeleccionado!.end,
-            );
+              _rangoSeleccionado!.start, _rangoSeleccionado!.end);
 
-      final obras =
-          data
-              .map((f) => f['obra']?.toString() ?? '')
-              .where((o) => o.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final obras = data
+          .map((f) => f['obra']?.toString() ?? '')
+          .where((o) => o.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-      final operarios =
-          data
-              .map((f) => f['operario']?.toString() ?? '')
-              .where((o) => o.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final operarios = data
+          .map((f) => f['operario']?.toString() ?? '')
+          .where((o) => o.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
       setState(() {
-        _datosPrevia = data;
-        _obrasDisponibles = obras;
-        _obrasSeleccionadas = obras.toSet();
-        _operariosDisponibles = operarios;
-        _operariosSeleccionados = operarios.toSet();
+        _datosPrevia             = data;
+        _obrasDisponibles        = obras;
+        _obrasSeleccionadas      = obras.toSet();
+        _operariosDisponibles    = operarios;
+        _operariosSeleccionados  = operarios.toSet();
       });
     } catch (e) {
       _mostrarError('Error al cargar datos: $e');
@@ -228,7 +303,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     }
   }
 
-  // ── Exportar CSV ──────────────────────────────────────────────────
+  // ── CSV ───────────────────────────────────────────────────────────
 
   Future<void> _ejecutarDescarga() async {
     if (_rangoSeleccionado == null) return;
@@ -236,14 +311,10 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     try {
       if (_esJefeObra) {
         await _apiService.exportarContabilidadDetalleCsvJefe(
-          _rangoSeleccionado!.start,
-          _rangoSeleccionado!.end,
-        );
+            _rangoSeleccionado!.start, _rangoSeleccionado!.end);
       } else {
         await _apiService.exportarContabilidadDetalleCsv(
-          _rangoSeleccionado!.start,
-          _rangoSeleccionado!.end,
-        );
+            _rangoSeleccionado!.start, _rangoSeleccionado!.end);
       }
     } catch (e) {
       _mostrarError('Error en la descarga: $e');
@@ -252,13 +323,13 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     }
   }
 
-  // ── Exportar PDF ──────────────────────────────────────────────────
+  // ── PDF ───────────────────────────────────────────────────────────
 
   Future<void> _exportarPdf() async {
     if (_rangoSeleccionado == null || _datosPrevia.isEmpty) return;
     setState(() => _exportandoPdf = true);
     try {
-      final List<DateTime> dias = _diasDelRango();
+      final dias           = _diasDelRango();
       final datosFiltrados = _datosFiltrados();
 
       if (datosFiltrados.isEmpty) {
@@ -266,30 +337,27 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         return;
       }
 
-      final porObra = _agruparPorObra(datosFiltrados);
+      final porObra        = _agruparPorObra(datosFiltrados);
       final obrasOrdenadas = _obrasDisponibles
           .where((o) => porObra.containsKey(o))
           .toList();
 
       final columnas = [
-        'Codigo',
-        'Trabajador',
-        'Categoria',
+        'Codigo', 'Trabajador', 'Categoria',
         ...dias.map((d) => '${d.day}/${d.month}'),
         'Total',
       ];
 
-      final List<List<String>> filas = [];
-      final Set<int> indicesSubtotal = {};
+      final List<List<String>> filas       = [];
+      final Set<int>           indicesSubtotal = {};
 
       for (final obra in obrasOrdenadas) {
         filas.add([obra, '', '', ...dias.map((_) => ''), '']);
         indicesSubtotal.add(filas.length - 1);
 
         final filasObra = porObra[obra]!
-          ..sort(
-            (a, b) => (a['operario'] ?? '').compareTo(b['operario'] ?? ''),
-          );
+          ..sort((a, b) =>
+              (a['operario'] ?? '').compareTo(b['operario'] ?? ''));
 
         double totalObra = 0;
         final Map<String, double> totDiaObra = {};
@@ -303,26 +371,21 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             f['categoria_profesional'] ?? '-',
             ...dias.map((d) {
               final iso = DateFormat('yyyy-MM-dd').format(d);
-              if (aus[iso] == 'BAJA') return 'B';
+              if (aus[iso] == 'BAJA')       return 'B';
               if (aus[iso] == 'VACACIONES') return 'V';
               if (aus[iso] == 'PATERNIDAD') return 'P';
-              final h = hpd[iso];
-              if (h == null) return '-';
-              final double v = h is int ? h.toDouble() : h as double;
+              final v = _extractHoras(hpd[iso]);
               return v > 0 ? v.toStringAsFixed(1) : '-';
             }),
-            f['total_horas'].toStringAsFixed(1),
+            (f['total_horas'] as num).toStringAsFixed(1),
           ]);
 
           final double tot = (f['total_horas'] as num).toDouble();
           totalObra += tot;
           for (final d in dias) {
             final iso = DateFormat('yyyy-MM-dd').format(d);
-            final h = hpd[iso];
-            if (h != null) {
-              final double v = h is int ? h.toDouble() : h as double;
-              totDiaObra[iso] = (totDiaObra[iso] ?? 0) + v;
-            }
+            final v   = _extractHoras(hpd[iso]);
+            if (v > 0) totDiaObra[iso] = (totDiaObra[iso] ?? 0) + v;
           }
         }
 
@@ -333,7 +396,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
           '',
           ...dias.map((d) {
             final iso = DateFormat('yyyy-MM-dd').format(d);
-            final t = totDiaObra[iso] ?? 0;
+            final t   = totDiaObra[iso] ?? 0;
             return t > 0 ? t.toStringAsFixed(1) : '-';
           }),
           totalObra.toStringAsFixed(1),
@@ -385,25 +448,24 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   }
 
   void _mostrarError(String msj) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(msj), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msj), backgroundColor: Colors.red));
   }
 
   void _mostrarFiltroObras() => showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => _FiltroBottomSheet(
-      titulo: 'Filtrar obras',
-      icono: Icons.business,
-      disponibles: _obrasDisponibles,
-      seleccionados: _obrasSeleccionadas,
-      onChanged: (v) => setState(() => _obrasSeleccionadas = v),
-    ),
-  );
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (_) => _FiltroBottomSheet(
+          titulo: 'Filtrar obras',
+          icono: Icons.business,
+          disponibles: _obrasDisponibles,
+          seleccionados: _obrasSeleccionadas,
+          onChanged: (v) => setState(() => _obrasSeleccionadas = v),
+        ),
+      );
 
   // ─────────────────────────────────────────────────────────────────
   //  BUILD
@@ -411,8 +473,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final esJefe = ref.watch(authProvider).valueOrNull?.esJefeObra == true;
-
     return Scaffold(
       body: Column(
         children: [
@@ -421,8 +481,8 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             child: _cargando
                 ? const Center(child: CircularProgressIndicator())
                 : _datosPrevia.isEmpty
-                ? _buildEmptyState()
-                : _buildTabla(),
+                    ? _buildEmptyState()
+                    : _buildTabla(),
           ),
         ],
       ),
@@ -432,9 +492,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   // ── Header ────────────────────────────────────────────────────────
 
   Widget _buildSelectorHeader() {
-    final hayDatos = _datosPrevia.isNotEmpty;
-    final seleccionadas = _obrasSeleccionadas.length;
-    final totalObras = _obrasDisponibles.length;
+    final hayDatos        = _datosPrevia.isNotEmpty;
+    final seleccionadas   = _obrasSeleccionadas.length;
+    final totalObras      = _obrasDisponibles.length;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -458,11 +518,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => _seleccionarFechas(context),
                   icon: const Icon(Icons.calendar_today),
-                  label: Text(
-                    _rangoSeleccionado == null
-                        ? 'Seleccionar Rango'
-                        : _labelRango(),
-                  ),
+                  label: Text(_rangoSeleccionado == null
+                      ? 'Seleccionar Rango'
+                      : _labelRango()),
                 ),
               ),
               if (hayDatos) ...[
@@ -478,9 +536,8 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
-                  onPressed: (_exportandoPdf || _cargando)
-                      ? null
-                      : _exportarPdf,
+                  onPressed:
+                      (_exportandoPdf || _cargando) ? null : _exportarPdf,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red[700],
                     foregroundColor: Colors.white,
@@ -490,9 +547,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.picture_as_pdf_outlined, size: 18),
                   label: const Text('PDF'),
@@ -505,21 +560,34 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             Row(
               children: [
                 _LeyendaCelda(
-                  color: Colors.red.shade100,
-                  letra: 'B',
-                  label: 'Baja',
-                ),
+                    color: Colors.red.shade100,  letra: 'B', label: 'Baja'),
                 const SizedBox(width: 12),
                 _LeyendaCelda(
-                  color: Colors.amber.shade100,
-                  letra: 'V',
-                  label: 'Vacaciones',
-                ),
+                    color: Colors.amber.shade100, letra: 'V', label: 'Vacaciones'),
                 const SizedBox(width: 12),
                 _LeyendaCelda(
-                  color: Colors.blue.shade100,
-                  letra: 'P',
-                  label: 'Paternidad',
+                    color: Colors.blue.shade100,  letra: 'P', label: 'Paternidad'),
+                const SizedBox(width: 12),
+                // Leyenda celda navegable
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withOpacity(0.07),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: const Icon(Icons.open_in_new_rounded,
+                          size: 10, color: Colors.indigo),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text('Abrir parte',
+                        style:
+                            TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
                 ),
               ],
             ),
@@ -528,16 +596,15 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _mostrarFiltroObras,
-                icon: const Icon(Icons.business_outlined, color: Colors.indigo),
+                icon: const Icon(Icons.business_outlined,
+                    color: Colors.indigo),
                 label: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Obras'),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: seleccionadas == totalObras
                             ? Colors.indigo
@@ -559,9 +626,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                   foregroundColor: Colors.indigo,
                   side: const BorderSide(color: Colors.indigo),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
+                      horizontal: 16, vertical: 10),
                 ),
               ),
             ),
@@ -602,8 +667,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: quincenas.map((q) {
-          final sel =
-              _rangoSeleccionado != null &&
+          final sel = _rangoSeleccionado != null &&
               _rangoSeleccionado!.start == q.inicio &&
               _rangoSeleccionado!.end == q.fin;
           return Padding(
@@ -620,9 +684,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               onSelected: (_) {
                 setState(() {
                   _rangoSeleccionado = DateTimeRange(
-                    start: q.inicio,
-                    end: q.fin,
-                  );
+                      start: q.inicio, end: q.fin);
                   _resetDatos();
                 });
                 _cargarVistaPrevia();
@@ -637,15 +699,15 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   // ── Empty state ───────────────────────────────────────────────────
 
   Widget _buildEmptyState() => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.table_view_rounded, size: 70, color: Colors.grey[300]),
-        const SizedBox(height: 16),
-        const Text('Selecciona un periodo para ver la tabla de horas'),
-      ],
-    ),
-  );
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.table_view_rounded, size: 70, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            const Text('Selecciona un periodo para ver la tabla de horas'),
+          ],
+        ),
+      );
 
   // ─────────────────────────────────────────────────────────────────
   //  TABLA
@@ -657,37 +719,26 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       return const Center(child: Text('Ninguna obra seleccionada'));
     }
 
-    final dias = _diasDelRango();
-    final porObra = _agruparPorObra(datosFiltrados);
+    final dias           = _diasDelRango();
+    final porObra        = _agruparPorObra(datosFiltrados);
     final obrasOrdenadas = _obrasDisponibles
         .where((o) => porObra.containsKey(o))
         .toList();
 
-    // ── Columnas ──────────────────────────────────────────────────
     const letrasDia = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
     final List<DataColumn> columnas = [
       const DataColumn(
-        label: Text(
-          'Cód.',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-        ),
-      ),
+          label: Text('Cód.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
       const DataColumn(
-        label: Text(
-          'Trabajador',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-        ),
-      ),
+          label: Text('Trabajador',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
       const DataColumn(
-        label: Text(
-          'Cat.',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-        ),
-      ),
-      // Columna por día: letra encima, número abajo; fondo rojo en S/D/festivo
+          label: Text('Cat.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
       ...dias.map((d) {
-        final esDR = _esDiaRojo(d);
+        final esDR  = _esDiaRojo(d);
         final letra = letrasDia[d.weekday - 1];
         return DataColumn(
           label: Container(
@@ -701,201 +752,151 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  letra,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: esDR ? Colors.red.shade800 : Colors.black54,
-                  ),
-                ),
-                Text(
-                  '${d.day}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: esDR ? Colors.red.shade700 : Colors.black87,
-                  ),
-                ),
+                Text(letra,
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: esDR
+                            ? Colors.red.shade800
+                            : Colors.black54)),
+                Text('${d.day}',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: esDR
+                            ? Colors.red.shade700
+                            : Colors.black87)),
               ],
             ),
           ),
         );
       }),
       const DataColumn(
-        label: Text(
-          'Total',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-        ),
-      ),
+          label: Text('Total',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
     ];
 
-    // ── Filas ─────────────────────────────────────────────────────
     final List<DataRow> filas = [];
 
     for (final obra in obrasOrdenadas) {
       final filasObra = (porObra[obra]! as List<dynamic>)
-        ..sort(
-          (a, b) => (a['operario'] ?? '').toString().compareTo(
-            (b['operario'] ?? '').toString(),
-          ),
-        );
+        ..sort((a, b) => (a['operario'] ?? '')
+            .toString()
+            .compareTo((b['operario'] ?? '').toString()));
 
       // Cabecera de obra
-      filas.add(
-        DataRow(
-          color: WidgetStateProperty.all(Colors.indigo.shade700),
-          cells: [
-            DataCell(
-              Text(
-                obra,
-                style: const TextStyle(
+      filas.add(DataRow(
+        color: WidgetStateProperty.all(Colors.indigo.shade700),
+        cells: [
+          DataCell(Text(obra,
+              style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            ...List.generate(
-              2 + dias.length + 1,
-              (_) => const DataCell(SizedBox.shrink()),
-            ),
-          ],
-        ),
-      );
+                  fontSize: 12))),
+          ...List.generate(
+              2 + dias.length + 1, (_) => const DataCell(SizedBox.shrink())),
+        ],
+      ));
 
       double totalHorasObra = 0;
       final Map<String, double> totDiaObra = {};
       int idxFila = 0;
 
-      // Filas de operarios
       for (final f in filasObra) {
-        final hpd = f['horas_por_dia'] as Map<String, dynamic>;
-        final double totalPersona = (f['total_horas'] as num).toDouble();
-        totalHorasObra += totalPersona;
+        final hpd           = f['horas_por_dia'] as Map<String, dynamic>;
+        final double totalP = (f['total_horas'] as num).toDouble();
+        totalHorasObra += totalP;
         final bool esPareja = idxFila++ % 2 == 0;
 
-        filas.add(
-          DataRow(
-            color: WidgetStateProperty.resolveWith((_) {
-              return esPareja ? Colors.white : Colors.grey.shade50;
+        filas.add(DataRow(
+          color: WidgetStateProperty.resolveWith(
+              (_) => esPareja ? Colors.white : Colors.grey.shade50),
+          cells: [
+            DataCell(Text(f['codigo']?.toString() ?? '',
+                style: const TextStyle(fontSize: 11))),
+            DataCell(Text(f['operario'] ?? '',
+                style: const TextStyle(fontSize: 11))),
+            DataCell(Text(f['categoria_profesional'] ?? '-',
+                style:
+                    TextStyle(fontSize: 11, color: Colors.blueGrey[700]))),
+            ...dias.map((d) {
+              final iso = DateFormat('yyyy-MM-dd').format(d);
+              final raw = hpd[iso];
+              final v   = _extractHoras(raw);
+              if (v > 0) {
+                totDiaObra[iso] = (totDiaObra[iso] ?? 0) + v;
+              }
+              return _celdaH(
+                  raw, iso, f as Map<String, dynamic>, _esDiaRojo(d), context);
             }),
-            cells: [
-              DataCell(
-                Text(
-                  f['codigo']?.toString() ?? '',
-                  style: const TextStyle(fontSize: 11),
-                ),
+            DataCell(Container(
+              alignment: Alignment.center,
+              child: Text(
+                totalP.toStringAsFixed(1),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                    fontSize: 12),
               ),
-              DataCell(
-                Text(f['operario'] ?? '', style: const TextStyle(fontSize: 11)),
-              ),
-              DataCell(
-                Text(
-                  f['categoria_profesional'] ?? '-',
-                  style: TextStyle(fontSize: 11, color: Colors.blueGrey[700]),
-                ),
-              ),
-              ...dias.map((d) {
-                final iso = DateFormat('yyyy-MM-dd').format(d);
-                final h = hpd[iso];
-                final double v = h != null
-                    ? (h is int ? h.toDouble() : h as double)
-                    : 0;
-                if (v > 0) {
-                  totDiaObra[iso] = (totDiaObra[iso] ?? 0) + v;
-                }
-                return _celdaH(
-                  v,
-                  iso,
-                  f as Map<String, dynamic>,
-                  _esDiaRojo(d),
-                );
-              }),
-              // Total persona
-              DataCell(
-                Container(
-                  alignment: Alignment.center,
-                  child: Text(
-                    totalPersona.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.indigo,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+            )),
+          ],
+        ));
       }
 
       // Subtotal obra
-      filas.add(
-        DataRow(
-          color: WidgetStateProperty.all(Colors.indigo.withOpacity(0.10)),
-          cells: [
-            const DataCell(SizedBox.shrink()),
-            DataCell(
-              Text(
-                'Total $obra',
-                style: TextStyle(
+      filas.add(DataRow(
+        color: WidgetStateProperty.all(Colors.indigo.withOpacity(0.10)),
+        cells: [
+          const DataCell(SizedBox.shrink()),
+          DataCell(Text('Total $obra',
+              style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 11,
                   color: Colors.indigo[800],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ),
-            const DataCell(SizedBox.shrink()),
-            ...dias.map((d) {
-              final iso = DateFormat('yyyy-MM-dd').format(d);
-              final t = totDiaObra[iso] ?? 0;
-              final esDR = _esDiaRojo(d);
-              return DataCell(
-                Container(
-                  width: 35,
-                  height: double.infinity,
-                  alignment: Alignment.center,
-                  color: esDR ? Colors.red.shade50 : null,
-                  child: Text(
-                    t > 0 ? t.toStringAsFixed(1) : '-',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: esDR
-                          ? Colors.red.shade300
-                          : t == 0
+                  fontStyle: FontStyle.italic))),
+          const DataCell(SizedBox.shrink()),
+          ...dias.map((d) {
+            final iso  = DateFormat('yyyy-MM-dd').format(d);
+            final t    = totDiaObra[iso] ?? 0;
+            final esDR = _esDiaRojo(d);
+            return DataCell(Container(
+              width: 35,
+              height: double.infinity,
+              alignment: Alignment.center,
+              color: esDR ? Colors.red.shade50 : null,
+              child: Text(
+                t > 0 ? t.toStringAsFixed(1) : '-',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: esDR
+                      ? Colors.red.shade300
+                      : t == 0
                           ? Colors.grey[400]
                           : t < 8
-                          ? Colors.orange[700]
-                          : Colors.green[700],
-                    ),
-                  ),
-                ),
-              );
-            }),
-            DataCell(
-              Container(
-                alignment: Alignment.center,
-                child: Text(
-                  totalHorasObra.toStringAsFixed(1),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo[800],
-                    fontSize: 13,
-                  ),
+                              ? Colors.orange[700]
+                              : Colors.green[700],
                 ),
               ),
+            ));
+          }),
+          DataCell(Container(
+            alignment: Alignment.center,
+            child: Text(
+              totalHorasObra.toStringAsFixed(1),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.indigo[800],
+                  fontSize: 13),
             ),
-          ],
-        ),
-      );
+          )),
+        ],
+      ));
     }
 
     return ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      behavior:
+          ScrollConfiguration.of(context).copyWith(scrollbars: false),
       child: Scrollbar(
         controller: _verticalController,
         thumbVisibility: true,
@@ -911,14 +912,16 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
               controller: _horizontalController,
               scrollDirection: Axis.horizontal,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 16, right: 16),
+                padding:
+                    const EdgeInsets.only(bottom: 16, right: 16),
                 child: DataTable(
                   columnSpacing: 15,
                   horizontalMargin: 12,
                   headingRowHeight: 52,
                   dataRowMinHeight: 36,
                   dataRowMaxHeight: 36,
-                  headingRowColor: WidgetStateProperty.all(Colors.indigo[50]),
+                  headingRowColor:
+                      WidgetStateProperty.all(Colors.indigo[50]),
                   columns: columnas,
                   rows: filas,
                 ),
@@ -936,15 +939,12 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _LeyendaCelda extends StatelessWidget {
-  final Color color;
+  final Color  color;
   final String letra;
   final String label;
 
-  const _LeyendaCelda({
-    required this.color,
-    required this.letra,
-    required this.label,
-  });
+  const _LeyendaCelda(
+      {required this.color, required this.letra, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -956,16 +956,14 @@ class _LeyendaCelda extends StatelessWidget {
           height: 22,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-          ),
-          child: Text(
-            letra,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-          ),
+              color: color, borderRadius: BorderRadius.circular(3)),
+          child: Text(letra,
+              style: const TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(label,
+            style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
   }
@@ -976,10 +974,10 @@ class _LeyendaCelda extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FiltroBottomSheet extends StatefulWidget {
-  final String titulo;
+  final String   titulo;
   final IconData icono;
   final List<String> disponibles;
-  final Set<String> seleccionados;
+  final Set<String>  seleccionados;
   final ValueChanged<Set<String>> onChanged;
 
   const _FiltroBottomSheet({
@@ -1035,23 +1033,19 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2)),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 Icon(widget.icono, color: Colors.indigo),
                 const SizedBox(width: 8),
-                Text(
-                  widget.titulo,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(widget.titulo,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 TextButton(
                   onPressed: () {
@@ -1074,7 +1068,8 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _ctrl,
               decoration: InputDecoration(
@@ -1106,12 +1101,11 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
                       return CheckboxListTile(
                         value: _sel.contains(item),
                         activeColor: Colors.indigo,
-                        title: Text(item, style: const TextStyle(fontSize: 14)),
+                        title: Text(item,
+                            style: const TextStyle(fontSize: 14)),
                         onChanged: (v) {
-                          setState(
-                            () =>
-                                v == true ? _sel.add(item) : _sel.remove(item),
-                          );
+                          setState(() =>
+                              v == true ? _sel.add(item) : _sel.remove(item));
                           widget.onChanged(_sel);
                         },
                       );
@@ -1129,12 +1123,10 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 child: Text(
-                  'Ver ${_sel.length} obra${_sel.length == 1 ? '' : 's'}',
-                ),
+                    'Ver ${_sel.length} obra${_sel.length == 1 ? '' : 's'}'),
               ),
             ),
           ),
@@ -1149,12 +1141,9 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Quincena {
-  final String label;
+  final String   label;
   final DateTime inicio;
   final DateTime fin;
-  const _Quincena({
-    required this.label,
-    required this.inicio,
-    required this.fin,
-  });
+  const _Quincena(
+      {required this.label, required this.inicio, required this.fin});
 }
