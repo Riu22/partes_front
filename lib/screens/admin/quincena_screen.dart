@@ -30,6 +30,12 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   List<String> _obrasDisponibles = [];
   Set<String>  _obrasSeleccionadas = {};
 
+  // ── Festivos nacionales fijos ─────────────────────────────────────
+  static const Set<(int, int)> _festivosFijos = {
+    (1,  1), (1,  6), (5,  1), (8, 15),
+    (10,12), (11, 1), (12, 6), (12, 8), (12,25),
+  };
+
   @override
   void dispose() {
     _verticalController.dispose();
@@ -48,6 +54,10 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   }
 
   bool _esFinDeSemana(DateTime d) => d.weekday >= 6;
+
+  bool _esFestivo(DateTime d) => _festivosFijos.contains((d.month, d.day));
+
+  bool _esDiaRojo(DateTime d) => _esFinDeSemana(d) || _esFestivo(d);
 
   ({Color bg, Color fg, String letra})? _infoAusencia(
     Map<String, dynamic> fila,
@@ -85,6 +95,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     dynamic raw,
     String isoFecha,
     Map<String, dynamic> fila,
+    bool esDiaRojo,
     BuildContext context,
   ) {
     final aus      = _infoAusencia(fila, isoFecha);
@@ -112,55 +123,115 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       );
     }
 
-    Widget contenido = Container(
-      width: 35,
-      alignment: Alignment.center,
-      child: Text(
-        v > 0 ? v.toStringAsFixed(1) : '-',
-        style: TextStyle(
-          fontSize: 11,
-          color: v > 0 ? Colors.black87 : Colors.grey[600],
-          fontWeight: v > 0 ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-    );
-
-    if (parteId != null && v > 0) {
-      contenido = Tooltip(
-        message: 'Ver parte #$parteId',
-        child: InkWell(
-          borderRadius: BorderRadius.circular(4),
-          onTap: () => context.push('/partes/$parteId'),
-          child: Container(
-            width: 35,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.indigo.withOpacity(0.07),
+    // ── Día rojo (finde o festivo) ───────────────────────────────────
+    if (esDiaRojo) {
+      if (parteId != null && v > 0) {
+        return DataCell(
+          Tooltip(
+            message: 'Ver parte #$parteId',
+            child: InkWell(
               borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  v.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo,
-                  ),
+              onTap: () => context.push('/partes/$parteId'),
+              child: Container(
+                width: 35,
+                height: double.infinity,
+                alignment: Alignment.center,
+                color: Colors.red.shade50,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      v.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    const SizedBox(width: 1),
+                    Icon(Icons.open_in_new_rounded,
+                        size: 8, color: Colors.red.shade700),
+                  ],
                 ),
-                const SizedBox(width: 1),
-                const Icon(Icons.open_in_new_rounded,
-                    size: 8, color: Colors.indigo),
-              ],
+              ),
+            ),
+          ),
+        );
+      }
+      return DataCell(
+        Container(
+          width: 35,
+          height: double.infinity,
+          alignment: Alignment.center,
+          color: Colors.red.shade50,
+          child: v > 0
+              ? Text(
+                  v.toStringAsFixed(1),
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red.shade700),
+                )
+              : Text('-',
+                  style: TextStyle(fontSize: 11, color: Colors.red.shade200)),
+        ),
+      );
+    }
+
+    // ── Día normal con parte ─────────────────────────────────────────
+    if (parteId != null && v > 0) {
+      return DataCell(
+        Tooltip(
+          message: 'Ver parte #$parteId',
+          child: InkWell(
+            borderRadius: BorderRadius.circular(4),
+            onTap: () => context.push('/partes/$parteId'),
+            child: Container(
+              width: 35,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.indigo.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    v.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo,
+                    ),
+                  ),
+                  const SizedBox(width: 1),
+                  const Icon(Icons.open_in_new_rounded,
+                      size: 8, color: Colors.indigo),
+                ],
+              ),
             ),
           ),
         ),
       );
     }
 
-    return DataCell(contenido);
+    // ── Día normal sin parte ─────────────────────────────────────────
+    return DataCell(
+      Container(
+        width: 35,
+        alignment: Alignment.center,
+        child: Text(
+          v > 0 ? v.toStringAsFixed(1) : '-',
+          style: TextStyle(
+            fontSize: 11,
+            color: v > 0 ? Colors.black87 : Colors.grey[600],
+            fontWeight: v > 0 ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
   }
 
   // ── Fechas ────────────────────────────────────────────────────────
@@ -766,23 +837,28 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                     fontStyle: FontStyle.italic)),
           ),
           ...dias.map((d) {
-            final iso = DateFormat('yyyy-MM-dd').format(d);
-            final t   = totDia[iso] ?? 0;
+            final iso  = DateFormat('yyyy-MM-dd').format(d);
+            final t    = totDia[iso] ?? 0;
+            final esDR = _esDiaRojo(d);
             return DataCell(Container(
               width: 35,
+              height: double.infinity,
               alignment: Alignment.center,
+              color: esDR ? Colors.red.shade50 : null,
               child: Text(
                 t > 0 ? t.toStringAsFixed(1) : '-',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: t == 0
-                      ? Colors.grey[500]!
-                      : t < 8
-                          ? Colors.orange[700]!
-                          : t > 8
-                              ? Colors.blue[700]!
-                              : Colors.green[700]!,
+                  color: esDR
+                      ? Colors.red.shade300
+                      : t == 0
+                          ? Colors.grey[500]!
+                          : t < 8
+                              ? Colors.orange[700]!
+                              : t > 8
+                                  ? Colors.blue[700]!
+                                  : Colors.green[700]!,
                 ),
               ),
             ));
@@ -819,7 +895,8 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           )),
           ...dias.map((d) {
             final iso = DateFormat('yyyy-MM-dd').format(d);
-            return _celdaH(hpd[iso], iso, f as Map<String, dynamic>, context);
+            return _celdaH(hpd[iso], iso, f as Map<String, dynamic>,
+                _esDiaRojo(d), context);
           }),
           DataCell(Container(
             alignment: Alignment.center,
@@ -880,23 +957,28 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           const DataCell(SizedBox.shrink()),
           const DataCell(SizedBox.shrink()),
           ...dias.map((d) {
-            final iso = DateFormat('yyyy-MM-dd').format(d);
-            final t   = totDia[iso] ?? 0;
+            final iso  = DateFormat('yyyy-MM-dd').format(d);
+            final t    = totDia[iso] ?? 0;
+            final esDR = _esDiaRojo(d);
             return DataCell(Container(
               width: 35,
+              height: double.infinity,
               alignment: Alignment.center,
+              color: esDR ? Colors.red.shade50 : null,
               child: Text(
                 t > 0 ? t.toStringAsFixed(1) : '-',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: t == 0
-                      ? Colors.grey[500]!
-                      : t < 8
-                          ? Colors.orange[700]!
-                          : t > 8
-                              ? Colors.blue[700]!
-                              : Colors.green[700]!,
+                  color: esDR
+                      ? Colors.red.shade300
+                      : t == 0
+                          ? Colors.grey[500]!
+                          : t < 8
+                              ? Colors.orange[700]!
+                              : t > 8
+                                  ? Colors.blue[700]!
+                                  : Colors.green[700]!,
                 ),
               ),
             ));
@@ -933,7 +1015,8 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           )),
           ...dias.map((d) {
             final iso = DateFormat('yyyy-MM-dd').format(d);
-            return _celdaH(hpd[iso], iso, f as Map<String, dynamic>, context);
+            return _celdaH(hpd[iso], iso, f as Map<String, dynamic>,
+                _esDiaRojo(d), context);
           }),
           DataCell(Container(
             alignment: Alignment.center,
@@ -952,7 +1035,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     return _wrapTabla(dias, filas);
   }
 
-  // ── Wrapper tabla — FIX pantalla grande ───────────────────────────
+  // ── Wrapper tabla ─────────────────────────────────────────────────
 
   Widget _wrapTabla(List<DateTime> dias, List<DataRow> filas) {
     return LayoutBuilder(
@@ -975,7 +1058,6 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                   controller: _horizontalController,
                   scrollDirection: Axis.horizontal,
                   child: ConstrainedBox(
-                    // ← FIX: fuerza ancho mínimo igual al ancho disponible
                     constraints: BoxConstraints(
                       minWidth: constraints.maxWidth,
                     ),
@@ -1005,38 +1087,48 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
                               label: Text('Obra',
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold))),
-                          ...dias.map((d) => DataColumn(
-                                label: Container(
-                                  width: 35,
-                                  alignment: Alignment.center,
-                                  child: Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        _letraDia(d),
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.bold,
-                                          color: _esFinDeSemana(d)
-                                              ? Colors.red[400]
-                                              : Colors.indigo[400],
-                                        ),
+                          ...dias.map((d) {
+                            final esDR = _esDiaRojo(d);
+                            return DataColumn(
+                              label: Container(
+                                width: 35,
+                                decoration: esDR
+                                    ? BoxDecoration(
+                                        color: Colors.red.shade100,
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                      )
+                                    : null,
+                                alignment: Alignment.center,
+                                child: Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      _letraDia(d),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: esDR
+                                            ? Colors.red.shade800
+                                            : Colors.indigo[400],
                                       ),
-                                      Text(
-                                        '${d.day}/${d.month}',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
-                                          color: _esFinDeSemana(d)
-                                              ? Colors.red[600]
-                                              : Colors.black87,
-                                        ),
+                                    ),
+                                    Text(
+                                      '${d.day}/${d.month}',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: esDR
+                                            ? Colors.red.shade700
+                                            : Colors.black87,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              )),
+                              ),
+                            );
+                          }),
                           const DataColumn(
                               label: Text('Total',
                                   style: TextStyle(

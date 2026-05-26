@@ -19,6 +19,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   late final TextEditingController _codigoCtrl;
   late final TextEditingController _grupoProfesionalCtrl;
   late String _rol;
+  late String _especialidad;
   late bool _activo;
   late bool _postventa;
   String? _grupoProfesionalSeleccionado;
@@ -62,11 +63,8 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     _rol = widget.usuario['rol'] ?? 'OPERARIO';
     _activo = widget.usuario['activo'] ?? true;
     _postventa = widget.usuario['postventa'] ?? false;
+    _especialidad = widget.usuario['especialidad'] ?? 'ELECTRICIDAD';
 
-    // Inicializa el campo de grupo profesional:
-    // - Si está vacío → sin selección
-    // - Si está en la lista predefinida → lo selecciona
-    // - Si es un valor libre → marca "Otro" y rellena el campo personalizado
     final grupoActual = widget.usuario['grupo_profesional']?.toString() ?? '';
     if (grupoActual.isEmpty) {
       _grupoProfesionalSeleccionado = null;
@@ -75,7 +73,6 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
       _grupoProfesionalSeleccionado = grupoActual;
       _grupoPersonalizado = false;
     } else {
-      // Valor personalizado que no está en la lista
       _grupoProfesionalSeleccionado = 'Otro (escribir a mano)';
       _grupoPersonalizado = true;
     }
@@ -183,6 +180,28 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
 
             const SizedBox(height: 16),
 
+            // Especialidad
+            DropdownButtonFormField<String>(
+              value: _especialidad,
+              decoration: const InputDecoration(
+                labelText: 'Especialidad',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.build),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: 'ELECTRICIDAD',
+                  child: Text('Electricidad'),
+                ),
+                DropdownMenuItem(
+                  value: 'FONTANERIA',
+                  child: Text('Fontanería'),
+                ),
+              ],
+              onChanged: (v) => setState(() => _especialidad = v!),
+            ),
+            const SizedBox(height: 16),
+
             // Grupo profesional — desplegable
             DropdownButtonFormField<String>(
               value: _grupoProfesionalSeleccionado,
@@ -262,7 +281,8 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
         'rol': _rol,
         'activo': _activo,
         'postventa': _postventa,
-        'grupo_profesional': _grupoFinal, // <-- añadido
+        'especialidad': _especialidad,
+        'grupo_profesional': _grupoFinal,
       });
       ref.invalidate(usuariosProvider);
       if (mounted) context.go('/usuarios');
