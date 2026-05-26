@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/env.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthService {
   final Dio _dio = Dio();
@@ -142,7 +143,7 @@ class AuthService {
       ),
     );
   }
-  
+
   Future<void> guardarRefreshToken(String token) async {
   await _storage.write(key: 'refresh_token', value: token);
 }
@@ -162,6 +163,21 @@ class AuthService {
       return false;
     }
   }
+
+  Future<void> cambiarPasswordConToken(String token, String nuevaPassword) async {
+  debugPrint('🔑 Token usado en cambiarPasswordConToken: ${token.substring(0, 20)}...');
+  await _dio.put(
+    '${Env.supabaseUrl}/auth/v1/user',
+    data: {'password': nuevaPassword},
+    options: Options(
+      headers: {
+        'apikey': _anonKey,
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    ),
+  );
+}
 
   void _handleError(DioException e) {
     if (e.response != null) {

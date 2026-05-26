@@ -20,6 +20,7 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
   bool _isLoading = false;
   bool _tokenVerificado = false;
   String? _errorToken;
+  String? _accessToken; // ← token guardado localmente
 
   @override
   void initState() {
@@ -27,13 +28,13 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
     _verificarToken();
   }
 
-  /// Lee el token de la URL y lo intercambia por una sesión válida
   Future<void> _verificarToken() async {
-    // La URL llega así:
-    // https://gestion-partes.duckdns.org/#/nueva-password?token=xxx&type=recovery
     final uri = Uri.base;
     final token = uri.queryParameters['token'];
     final type = uri.queryParameters['type'];
+
+    debugPrint('🔗 URI completa: $uri');
+    debugPrint('🔑 token: $token | type: $type');
 
     if (token == null || type != 'recovery') {
       setState(() => _errorToken = 'Enlace inválido o expirado.');
@@ -53,32 +54,33 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
         ),
       );
 
-      // Guardamos la sesión para que changePassword funcione
-      await ref
-          .read(authServiceProvider)
-          .guardarToken(response.data['access_token']);
+      _accessToken = response.data['access_token'] as String?;
+      debugPrint('✅ accessToken obtenido: ${_accessToken?.substring(0, 20)}...');
 
-      if (response.data['refresh_token'] != null) {
-        // Guardamos también el refresh token
-        await ref
-    .read(authServiceProvider)
-    .guardarRefreshToken(response.data['refresh_token']);
+      if (_accessToken == null) {
+        setState(() => _errorToken = 'No se pudo obtener la sesión.');
+        return;
       }
 
       setState(() => _tokenVerificado = true);
     } catch (e) {
+      debugPrint('❌ Error verificando token: $e');
       setState(() => _errorToken = 'El enlace ha expirado o ya fue usado.');
     }
   }
 
   Future<void> _actualizarContrasena() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_accessToken == null) return;
+
     setState(() => _isLoading = true);
 
     try {
+      debugPrint('🔑 Usando accessToken: ${_accessToken!.substring(0, 20)}...');
+
       final success = await ref
           .read(authProvider.notifier)
-          .changePassword(_passController.text.trim());
+          .changePasswordConToken(_accessToken!, _passController.text.trim());
 
       if (mounted) {
         if (success) {
@@ -102,7 +104,6 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Token inválido
     if (_errorToken != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Restablecer Contraseña')),
@@ -129,14 +130,12 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
       );
     }
 
-    // Verificando token
     if (!_tokenVerificado) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // Formulario
     return Scaffold(
       appBar: AppBar(title: const Text('Restablecer Contraseña')),
       body: Center(

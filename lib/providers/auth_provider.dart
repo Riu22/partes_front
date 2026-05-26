@@ -109,6 +109,15 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
   Future<bool> resetPassword(String email) async {
   return await ref.read(authServiceProvider).solicitarRecuperacion(email);
 }
+Future<bool> changePasswordConToken(String token, String newPassword) async {
+  try {
+    await ref.read(authServiceProvider).cambiarPasswordConToken(token, newPassword);
+    return true;
+  } catch (e) {
+    debugPrint('❌ Error changePasswordConToken: $e');
+    return false;
+  }
+}
 }
 
 final authProvider = AsyncNotifierProvider<AuthNotifier, Perfil?>(
