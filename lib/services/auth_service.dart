@@ -142,6 +142,10 @@ class AuthService {
       ),
     );
   }
+  
+  Future<void> guardarRefreshToken(String token) async {
+  await _storage.write(key: 'refresh_token', value: token);
+}
 
   Future<bool> solicitarRecuperacion(String email) async {
     try {
