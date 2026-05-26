@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:dio/dio.dart';
 import '../providers/auth_provider.dart';
-import '../config/env.dart';
 
 class NuevaPasswordScreen extends ConsumerStatefulWidget {
   const NuevaPasswordScreen({super.key});
@@ -20,7 +18,7 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
   bool _isLoading = false;
   bool _tokenVerificado = false;
   String? _errorToken;
-  String? _accessToken; // ← token guardado localmente
+  String? _accessToken;
 
   @override
   void initState() {
@@ -29,43 +27,19 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
   }
 
   Future<void> _verificarToken() async {
-    final uri = Uri.base;
-    final token = uri.queryParameters['token'];
-    final type = uri.queryParameters['type'];
-
-    debugPrint('🔗 URI completa: $uri');
-    debugPrint('🔑 token: $token | type: $type');
-
-    if (token == null || type != 'recovery') {
-      setState(() => _errorToken = 'Enlace inválido o expirado.');
-      return;
-    }
-
     try {
-      final dio = Dio();
-      final response = await dio.post(
-        '${Env.supabaseUrl}/auth/v1/verify',
-        data: {'token': token, 'type': 'recovery'},
-        options: Options(
-          headers: {
-            'apikey': Env.supabaseAnonKey,
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      _accessToken = response.data['access_token'] as String?;
-      debugPrint('✅ accessToken obtenido: ${_accessToken?.substring(0, 20)}...');
+      _accessToken = await ref
+          .read(authServiceProvider)
+          .verificarTokenRecuperacion(Uri.base);
 
       if (_accessToken == null) {
-        setState(() => _errorToken = 'No se pudo obtener la sesión.');
-        return;
+        setState(() => _errorToken = 'Enlace inválido o expirado.');
+      } else {
+        setState(() => _tokenVerificado = true);
       }
-
-      setState(() => _tokenVerificado = true);
     } catch (e) {
       debugPrint('❌ Error verificando token: $e');
-      setState(() => _errorToken = 'El enlace ha expirado o ya fue usado.');
+      setState(() => _errorToken = 'Error al procesar el enlace.');
     }
   }
 
@@ -76,8 +50,6 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('🔑 Usando accessToken: ${_accessToken!.substring(0, 20)}...');
-
       final success = await ref
           .read(authProvider.notifier)
           .changePasswordConToken(_accessToken!, _passController.text.trim());
