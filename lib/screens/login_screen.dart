@@ -117,38 +117,74 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _mostrarDialogoRecuperacion() async {
-    final recoverEmailController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Recuperar contraseña'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Introduce tu email y te enviaremos un enlace.'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: recoverEmailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(),
+  final recoverEmailController = TextEditingController();
+  
+  showDialog(
+    context: context,
+    builder: (context) {
+      bool sendingEmail = false;
+      
+      return StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: const Text('Recuperar contraseña'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Introduce tu email y te enviaremos un enlace.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: recoverEmailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
               ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
             ),
+            FilledButton(
+  onPressed: sendingEmail
+      ? null
+      : () async {
+          final email = recoverEmailController.text.trim();
+          if (email.isEmpty) return;
+
+          setStateDialog(() => sendingEmail = true);
+
+          final ok = await ref
+              .read(authProvider.notifier)
+              .resetPassword(email);
+
+          if (context.mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(ok
+                    ? 'Email enviado, revisa tu bandeja de entrada'
+                    : 'Error al enviar el email'),
+                backgroundColor: ok ? Colors.green : Colors.red,
+              ),
+            );
+          }
+        },
+  child: sendingEmail
+      ? const SizedBox(
+          height: 16, width: 16,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        )
+      : const Text('Enviar enlace'),
+),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Enviar enlace'),
-          ),
-        ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {

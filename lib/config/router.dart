@@ -45,10 +45,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       if (location == '/nueva-password') return null;
 
-      final auth      = ref.read(authProvider);
+      final auth = ref.read(authProvider);
       if (auth.isLoading) return null;
 
-      final perfil     = auth.valueOrNull;
+      final perfil = auth.valueOrNull;
       final isLoggedIn = perfil != null;
 
       if (!isLoggedIn && location != '/login') return '/login';
@@ -57,13 +57,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         return esAdminOGestion(perfil) ? '/admin' : '/partes';
       }
 
-      if (location == '/admin'    && !esAdminOGestion(perfil)) return '/partes';
+      if (location == '/admin' && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/usuarios' && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/quincena' && !esAdminOGestion(perfil)) return '/partes';
 
       return null;
     },
     routes: [
+      // ── Rutas públicas ─────────────────────────────────────────────────────
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
@@ -73,6 +74,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NuevaPasswordScreen(),
       ),
 
+      // ── Shell con barra de navegación ──────────────────────────────────────
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             AppShell(navigationShell: navigationShell),
@@ -94,58 +96,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: '/partes',
                 builder: (context, state) => const PartesScreen(),
                 routes: [
-                  // ── Rutas estáticas ANTES que :id ──────────────────────
-                  GoRoute(
-                    path: 'nuevo',
-                    builder: (context, state) {
-                      final extra = state.extra as Map<String, dynamic>?;
-                      return CrearParteScreen(
-                        perfilIdPreseleccionado:
-                            extra?['perfilId'] as String?,
-                        nombrePreseleccionado:
-                            extra?['nombre'] as String?,
-                        fechaPreseleccionada: extra?['fecha'] != null
-                            ? DateTime.parse(extra!['fecha'] as String)
-                            : null,
-                      );
-                    },
-                  ),
-                  GoRoute(
-                    path: 'editar',
-                    builder: (context, state) {
-                      final parte = state.extra as ParteTrabajo;
-                      return EditarParteScreen(parte: parte);
-                    },
-                  ),
-                  GoRoute(
-                    path: 'editar-jefe/:id',
-                    redirect: (context, state) {
-                      final perfil = ref.read(authProvider).valueOrNull;
-                      if (perfil == null ||
-                          (!perfil.esAdmin &&
-                           !perfil.esGestion &&
-                           !perfil.esJefeObra)) {
-                        return esAdminOGestion(perfil) ? '/admin' : '/partes';
-                      }
-                      return null;
-                    },
-                    builder: (context, state) {
-                      final parte =
-                          state.extra as Map<String, dynamic>?;
-                      if (parte == null) {
-                        WidgetsBinding.instance.addPostFrameCallback(
-                          (_) => context.go('/partes'),
-                        );
-                        return const Scaffold(
-                          body:
-                              Center(child: CircularProgressIndicator()),
-                        );
-                      }
-                      return EditarParteJefeScreen(parte: parte);
-                    },
-                  ),
-
-                  // ── Ruta dinámica :id AL FINAL ─────────────────────────
                   GoRoute(
                     path: ':id',
                     redirect: (context, state) {
@@ -196,8 +146,53 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
 
-      // ── Rutas flotantes (fuera del shell) ─────────────────────────────────
+      // ── Rutas flotantes (fuera del shell, sin barra de navegación) ─────────
 
+      GoRoute(
+        path: '/partes/nuevo',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CrearParteScreen(
+            perfilIdPreseleccionado: extra?['perfilId'] as String?,
+            nombrePreseleccionado: extra?['nombre'] as String?,
+            fechaPreseleccionada: extra?['fecha'] != null
+                ? DateTime.parse(extra!['fecha'] as String)
+                : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/partes/editar',
+        builder: (context, state) {
+          final parte = state.extra as ParteTrabajo;
+          return EditarParteScreen(parte: parte);
+        },
+      ),
+      GoRoute(
+        path: '/partes/editar-jefe/:id',
+        redirect: (context, state) {
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null ||
+              (!perfil.esAdmin &&
+               !perfil.esGestion &&
+               !perfil.esJefeObra)) {
+            return esAdminOGestion(perfil) ? '/admin' : '/partes';
+          }
+          return null;
+        },
+        builder: (context, state) {
+          final parte = state.extra as Map<String, dynamic>?;
+          if (parte == null) {
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => context.go('/partes'),
+            );
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return EditarParteJefeScreen(parte: parte);
+        },
+      ),
       GoRoute(
         path: '/configuracion',
         builder: (context, state) => const ConfiguracionScreen(),
@@ -219,7 +214,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>;
           return AsignarJefeScreen(
             usuario: extra['usuario'] as Map<String, dynamic>,
-            todos:   extra['todos']   as List<dynamic>,
+            todos: extra['todos'] as List<dynamic>,
           );
         },
       ),

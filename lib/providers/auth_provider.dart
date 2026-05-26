@@ -105,6 +105,10 @@ class AuthNotifier extends AsyncNotifier<Perfil?> {
     final resultado = await Connectivity().checkConnectivity();
     return resultado.any((r) => r != ConnectivityResult.none);
   }
+
+  Future<bool> resetPassword(String email) async {
+  return await ref.read(authServiceProvider).solicitarRecuperacion(email);
+}
 }
 
 final authProvider = AsyncNotifierProvider<AuthNotifier, Perfil?>(

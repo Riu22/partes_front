@@ -320,13 +320,13 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        heroTag: 'fab_partes_unique',
-        backgroundColor: bgCard,
-        foregroundColor: blue,
-        elevation: 2,
-        onPressed: () => context.go('/partes/nuevo'),
-        child: const Icon(Icons.add),
-      ),
+      heroTag: 'fab_partes_unique',
+      backgroundColor: bgCard,
+      foregroundColor: blue,
+      elevation: 2,
+      onPressed: () => context.push('/partes/nuevo'),
+      child: const Icon(Icons.add),
+    ),
     );
   }
 
