@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/env.dart';
+import '../helpers/url_helper.dart';
 
 class AuthService {
   final Dio _dio = Dio();
@@ -169,19 +170,17 @@ class AuthService {
     }
   }
 
-  Future<String?> verificarTokenRecuperacion(Uri uri) async {
-  final fullUrl = uri.toString();
-  debugPrint('🔗 URL completa: $fullUrl');
+Future<String?> verificarTokenRecuperacion(Uri uri) async {
+  final fullUrl = getCurrentUrl(uri);
+  debugPrint('🔗 URL raw: $fullUrl');
 
-  // El segundo # viene codificado como %23, hay que decodificarlo
-  final decoded = Uri.decodeComponent(fullUrl);
-  debugPrint('🔗 URL decodificada: $decoded');
+  final separador = fullUrl.contains('%23') ? '%23' : '#';
+  final lastIndex = fullUrl.lastIndexOf(separador);
+  if (lastIndex == -1) return null;
 
-  // Busca el último # (que era el %23)
-  final lastHash = decoded.lastIndexOf('#');
-  if (lastHash == -1) return null;
-
-  final paramString = decoded.substring(lastHash + 1);
+  final paramString = Uri.decodeComponent(
+    fullUrl.substring(lastIndex + separador.length)
+  );
   final params = Uri.splitQueryString(paramString);
   debugPrint('📦 Params: $params');
 
@@ -194,7 +193,7 @@ class AuthService {
   await guardarToken(accessToken);
   if (refreshToken != null) await guardarRefreshToken(refreshToken);
 
-  debugPrint('✅ Token recovery: ${accessToken.substring(0, 20)}...');
+  debugPrint('✅ Token: ${accessToken.substring(0, 20)}...');
   return accessToken;
 }
 
