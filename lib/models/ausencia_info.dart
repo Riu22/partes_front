@@ -1,4 +1,3 @@
-
 enum AusenciaTipo { BAJA, VACACIONES, PATERNIDAD }
 
 class AusenciaLaboral {
@@ -48,6 +47,7 @@ class AusenciaInfo {
   final List<DiaIncompleto> diasIncompletos;
   final List<AusenciaLaboral> ausenciasActivas;
   final int totalLaborables;
+  final Set<String> fechasHabilitadas;
 
   const AusenciaInfo({
     required this.perfilId,
@@ -56,6 +56,7 @@ class AusenciaInfo {
     required this.diasIncompletos,
     required this.ausenciasActivas,
     required this.totalLaborables,
+    this.fechasHabilitadas = const {},
   });
 
   int get totalIncidencias => diasSin.length + diasIncompletos.length;
@@ -63,7 +64,10 @@ class AusenciaInfo {
   bool get soloAusencias =>
       diasSin.isEmpty && diasIncompletos.isEmpty && ausenciasActivas.isNotEmpty;
 
-  factory AusenciaInfo.fromJson(Map<String, dynamic> json) {
+  factory AusenciaInfo.fromJson(
+    Map<String, dynamic> json, [
+    Set<String> habilitadas = const {},
+  ]) {
     return AusenciaInfo(
       perfilId: json['perfilId'] as String,
       nombre: json['nombre'] as String,
@@ -75,6 +79,7 @@ class AusenciaInfo {
           .map((e) => AusenciaLaboral.fromJson(e as Map<String, dynamic>))
           .toList(),
       totalLaborables: json['totalLaborables'] as int? ?? 0,
+      fechasHabilitadas: habilitadas,
     );
   }
 }

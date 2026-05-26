@@ -52,27 +52,19 @@ class AdminHomeScreen extends ConsumerWidget {
           ],
           bottom: const TabBar(
             tabs: [
-              Tab(
-                icon: Icon(Icons.assignment_late_outlined),
-                text: 'Partes',
-              ),
-              Tab(
-                icon: Icon(Icons.event_busy_rounded),
-                text: 'Ausencias',
-              ),
+              Tab(icon: Icon(Icons.assignment_late_outlined), text: 'Partes'),
+              Tab(icon: Icon(Icons.event_busy_rounded), text: 'Ausencias'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            // ── Pestaña 1: Partes ──
             _PartesTab(
               ausenciasAsync: ausenciasAsync,
               formatFecha: _formatFecha,
               fechaParaRuta: _fechaParaRuta,
               ref: ref,
             ),
-            // ── Pestaña 2: Ausencias ──
             _AusenciasTab(
               ausenciasAsync: ausenciasAsync,
               formatFecha: _formatFecha,
@@ -86,7 +78,7 @@ class AdminHomeScreen extends ConsumerWidget {
 }
 
 // ─────────────────────────────────────────────
-// Pestaña 1 — Partes (días sin parte + incompletos)
+// Pestaña 1 — Partes
 // ─────────────────────────────────────────────
 
 class _PartesTab extends StatelessWidget {
@@ -121,8 +113,6 @@ class _PartesTab extends StatelessWidget {
               ),
             ),
           ),
-
-          // Tarjeta resumen
           SliverToBoxAdapter(
             child: ausenciasAsync.when(
               loading: () => const _ResumenPartes(
@@ -139,13 +129,11 @@ class _PartesTab extends StatelessWidget {
                 hayError: true,
               ),
               data: (ausencias) {
-                // Solo personas con incidencias de partes
                 final conPartes = ausencias.values
                     .where((a) =>
                         a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty)
                     .toList();
-                final fechasSin =
-                    conPartes.expand((a) => a.diasSin).toSet();
+                final fechasSin = conPartes.expand((a) => a.diasSin).toSet();
                 final fechasInc = conPartes
                     .expand((a) => a.diasIncompletos.map((d) => d.fecha))
                     .toSet();
@@ -158,9 +146,7 @@ class _PartesTab extends StatelessWidget {
               },
             ),
           ),
-
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -172,7 +158,6 @@ class _PartesTab extends StatelessWidget {
               ),
             ),
           ),
-
           ausenciasAsync.when(
             loading: () => const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
@@ -184,7 +169,6 @@ class _PartesTab extends StatelessWidget {
               ),
             ),
             data: (ausencias) {
-              // Filtramos solo personas con incidencias de partes
               final lista = ausencias.values
                   .where((a) =>
                       a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty)
@@ -193,8 +177,7 @@ class _PartesTab extends StatelessWidget {
               if (lista.isEmpty) {
                 return const SliverFillRemaining(
                   child: _EmptyView(
-                    mensaje:
-                        'Todos los operarios tienen\nsus partes al día.',
+                    mensaje: 'Todos los operarios tienen\nsus partes al día.',
                   ),
                 );
               }
@@ -207,7 +190,7 @@ class _PartesTab extends StatelessWidget {
                   itemBuilder: (context, index) => _AusenciaCard(
                     ausencia: lista[index],
                     formatFecha: formatFecha,
-                    mostrarAusencias: false, // solo partes
+                    mostrarAusencias: false,
                     onHabilitarFecha: (perfilId, fecha) async {
                       final dt = DateTime.parse(fechaParaRuta(fecha));
                       try {
@@ -215,8 +198,8 @@ class _PartesTab extends StatelessWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content:
-                                  Text('Fecha $fecha habilitada correctamente'),
+                              content: Text(
+                                  'Fecha $fecha habilitada correctamente'),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -308,7 +291,6 @@ class _AusenciasTab extends StatelessWidget {
               ),
             ),
           ),
-
           ausenciasAsync.when(
             loading: () => const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
@@ -320,7 +302,6 @@ class _AusenciasTab extends StatelessWidget {
               ),
             ),
             data: (ausencias) {
-              // Filtramos solo personas con ausencias registradas
               final lista = ausencias.values
                   .where((a) => a.ausenciasActivas.isNotEmpty)
                   .toList();
@@ -342,7 +323,7 @@ class _AusenciasTab extends StatelessWidget {
                   itemBuilder: (context, index) => _AusenciaCard(
                     ausencia: lista[index],
                     formatFecha: formatFecha,
-                    mostrarAusencias: true, // solo ausencias
+                    mostrarAusencias: true,
                     onHabilitarFecha: null,
                     onCrearParte: null,
                     onRegistrarAusencia: (perfilId, nombre) async {
@@ -440,7 +421,7 @@ class _AusenciasTab extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Tarjeta resumen (solo partes)
+// Tarjeta resumen
 // ─────────────────────────────────────────────
 
 class _ResumenPartes extends StatelessWidget {
@@ -471,8 +452,10 @@ class _ResumenPartes extends StatelessWidget {
     } else if (totalPersonas == 0) {
       subtitulo = 'Sin incidencias de partes';
     } else {
-      final p = '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
-      final s = '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
+      final p =
+          '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
+      final s =
+          '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
       final i =
           '$totalIncompletos ${totalIncompletos == 1 ? 'día incompleto' : 'días incompletos'}';
       subtitulo = '$p · $s · $i';
@@ -507,9 +490,7 @@ class _ResumenPartes extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      sinIncidencias
-                          ? 'Todo al día'
-                          : 'Partes pendientes',
+                      sinIncidencias ? 'Todo al día' : 'Partes pendientes',
                       style: textTheme.titleMedium?.copyWith(
                         color: sinIncidencias
                             ? colorScheme.onPrimaryContainer
@@ -538,7 +519,7 @@ class _ResumenPartes extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Tarjeta por persona (unificada, con flag)
+// Tarjeta por persona
 // ─────────────────────────────────────────────
 
 class _AusenciaCard extends StatefulWidget {
@@ -555,11 +536,7 @@ class _AusenciaCard extends StatefulWidget {
 
   final AusenciaInfo ausencia;
   final String Function(String) formatFecha;
-
-  /// true  → pestaña Ausencias (muestra ausencias laborales, oculta partes)
-  /// false → pestaña Partes    (muestra días sin parte / incompletos, oculta ausencias)
   final bool mostrarAusencias;
-
   final Future<void> Function(String perfilId, String fecha)? onHabilitarFecha;
   final void Function(String perfilId, String nombre, String fecha)?
       onCrearParte;
@@ -624,7 +601,6 @@ class _AusenciaCardState extends State<_AusenciaCard> {
     final ausencia = widget.ausencia;
     final nombre = ausencia.nombre;
 
-    // Conteo del badge según pestaña
     final badgeCount = widget.mostrarAusencias
         ? ausencia.ausenciasActivas.length
         : ausencia.diasSin.length + ausencia.diasIncompletos.length;
@@ -638,7 +614,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Cabecera ──
+            // Cabecera
             Row(
               children: [
                 CircleAvatar(
@@ -661,14 +637,13 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // Botón registrar ausencia (visible en ambas pestañas)
                 if (widget.onRegistrarAusencia != null)
                   IconButton(
                     tooltip: 'Registrar baja o vacaciones',
                     icon: Icon(Icons.event_busy_rounded,
                         size: 20, color: colorScheme.secondary),
-                    onPressed: () =>
-                        widget.onRegistrarAusencia!(ausencia.perfilId, nombre),
+                    onPressed: () => widget.onRegistrarAusencia!(
+                        ausencia.perfilId, nombre),
                   ),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -694,7 +669,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ],
             ),
 
-            // ── Ausencias laborales (solo pestaña Ausencias) ──
+            // Ausencias laborales
             if (widget.mostrarAusencias &&
                 ausencia.ausenciasActivas.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -799,7 +774,9 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                               setState(() =>
                                                   _ausenciaActivaId = null);
                                               widget.onEditarAusencia!(
-                                                  a, ausencia.perfilId, nombre);
+                                                  a,
+                                                  ausencia.perfilId,
+                                                  nombre);
                                             },
                                             borderRadius:
                                                 const BorderRadius.vertical(
@@ -838,7 +815,8 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                             onTap: () {
                                               setState(() =>
                                                   _ausenciaActivaId = null);
-                                              widget.onEliminarAusencia!(a.id!);
+                                              widget.onEliminarAusencia!(
+                                                  a.id!);
                                             },
                                             borderRadius:
                                                 const BorderRadius.vertical(
@@ -881,7 +859,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               }),
             ],
 
-            // ── Días sin parte (solo pestaña Partes) ──
+            // Días sin parte
             if (!widget.mostrarAusencias && ausencia.diasSin.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
@@ -899,6 +877,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     label: widget.formatFecha(fecha),
                     activa: activa,
                     habilitando: activa && _habilitando,
+                    estaHabilitada: ausencia.fechasHabilitadas.contains(fecha),
                     chipColor: colorScheme.errorContainer,
                     chipTextColor: colorScheme.onErrorContainer,
                     onTap: () => _toggleFecha(fecha),
@@ -927,7 +906,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ),
             ],
 
-            // ── Días incompletos (solo pestaña Partes) ──
+            // Días incompletos
             if (!widget.mostrarAusencias &&
                 ausencia.diasIncompletos.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -947,6 +926,8 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     label: '${widget.formatFecha(d.fecha)} · ${d.horas}h',
                     activa: activa,
                     habilitando: activa && _habilitando,
+                    estaHabilitada:
+                        ausencia.fechasHabilitadas.contains(d.fecha),
                     chipColor: colorScheme.tertiaryContainer,
                     chipTextColor: colorScheme.onTertiaryContainer,
                     onTap: () => _toggleFecha(d.fecha),
@@ -1062,8 +1043,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
       return;
     }
     if (_fin!.isBefore(_inicio!)) {
-      setState(
-          () => _error = 'La fecha fin no puede ser anterior al inicio');
+      setState(() => _error = 'La fecha fin no puede ser anterior al inicio');
       return;
     }
     setState(() {
@@ -1075,9 +1055,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
         _tipo,
         _inicio!,
         _fin!,
-        _obsController.text.trim().isEmpty
-            ? null
-            : _obsController.text.trim(),
+        _obsController.text.trim().isEmpty ? null : _obsController.text.trim(),
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -1096,7 +1074,8 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
     final esEdicion = widget.ausenciaExistente != null;
 
     return AlertDialog(
-      title: Text(esEdicion ? 'Editar ausencia' : 'Registrar ausencia',
+      title: Text(
+          esEdicion ? 'Editar ausencia' : 'Registrar ausencia',
           style: textTheme.titleMedium),
       content: SingleChildScrollView(
         child: Column(
@@ -1167,8 +1146,8 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
             if (_error != null) ...[
               const SizedBox(height: 10),
               Text(_error!,
-                  style: textTheme.bodySmall
-                      ?.copyWith(color: colorScheme.error)),
+                  style:
+                      textTheme.bodySmall?.copyWith(color: colorScheme.error)),
             ],
           ],
         ),
@@ -1194,7 +1173,219 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
 }
 
 // ─────────────────────────────────────────────
-// Widgets reutilizables
+// Chip con acciones inline
+// ─────────────────────────────────────────────
+
+class _ChipConAcciones extends StatefulWidget {
+  const _ChipConAcciones({
+    required this.label,
+    required this.activa,
+    required this.habilitando,
+    required this.estaHabilitada,
+    required this.chipColor,
+    required this.chipTextColor,
+    required this.onTap,
+    required this.onHabilitar,
+    required this.onCrearParte,
+  });
+
+  final String label;
+  final bool activa;
+  final bool habilitando;
+  final bool estaHabilitada;
+  final Color chipColor;
+  final Color chipTextColor;
+  final VoidCallback onTap;
+  final VoidCallback? onHabilitar;
+  final VoidCallback? onCrearParte;
+
+  @override
+  State<_ChipConAcciones> createState() => _ChipConAccionesState();
+}
+
+class _ChipConAccionesState extends State<_ChipConAcciones> {
+  late bool _habilitado;
+
+  @override
+  void initState() {
+    super.initState();
+    _habilitado = widget.estaHabilitada;
+  }
+
+  @override
+  void didUpdateWidget(_ChipConAcciones oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.estaHabilitada != widget.estaHabilitada) {
+      _habilitado = widget.estaHabilitada;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: _habilitado ? null : widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _habilitado
+                  ? Colors.green.shade100
+                  : widget.activa
+                      ? colorScheme.inverseSurface
+                      : widget.chipColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_habilitado) ...[
+                  Icon(Icons.check_circle_rounded,
+                      size: 13, color: Colors.green.shade700),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  _habilitado
+                      ? '${widget.label} · Permitido'
+                      : widget.label,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: _habilitado
+                        ? Colors.green.shade700
+                        : widget.activa
+                            ? colorScheme.onInverseSurface
+                            : widget.chipTextColor,
+                    fontWeight: widget.activa
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+                if (!_habilitado) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    widget.activa
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 14,
+                    color: widget.activa
+                        ? colorScheme.onInverseSurface
+                        : widget.chipTextColor,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeInOut,
+          child: widget.activa && !_habilitado
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border:
+                          Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    child: IntrinsicWidth(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (widget.onHabilitar != null)
+                            InkWell(
+                              onTap: widget.habilitando
+                                  ? null
+                                  : () {
+                                      setState(() => _habilitado = true);
+                                      widget.onHabilitar!();
+                                    },
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(10)),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (widget.habilitando)
+                                      SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: colorScheme.primary,
+                                        ),
+                                      )
+                                    else
+                                      Icon(Icons.lock_open_rounded,
+                                          size: 15,
+                                          color: colorScheme.primary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Habilitar día',
+                                      style: textTheme.labelSmall?.copyWith(
+                                        color: colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (widget.onHabilitar != null &&
+                              widget.onCrearParte != null)
+                            Divider(
+                                height: 1,
+                                color: colorScheme.outlineVariant),
+                          if (widget.onCrearParte != null)
+                            InkWell(
+                              onTap: widget.onCrearParte,
+                              borderRadius: const BorderRadius.vertical(
+                                  bottom: Radius.circular(10)),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_circle_outline_rounded,
+                                        size: 15,
+                                        color: colorScheme.tertiary),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Crear parte',
+                                      style: textTheme.labelSmall?.copyWith(
+                                        color: colorScheme.tertiary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Widgets auxiliares
 // ─────────────────────────────────────────────
 
 class _TipoChip extends StatelessWidget {
@@ -1218,12 +1409,9 @@ class _TipoChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: seleccionado
-              ? color.withOpacity(0.15)
-              : Colors.transparent,
+          color: seleccionado ? color.withOpacity(0.15) : Colors.transparent,
           border: Border.all(
               color: seleccionado
                   ? color
@@ -1233,8 +1421,7 @@ class _TipoChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 14, color: seleccionado ? color : null),
+            Icon(icon, size: 14, color: seleccionado ? color : null),
             const SizedBox(width: 6),
             Text(
               label,
@@ -1282,190 +1469,6 @@ class _FechaBoton extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────
-// Chip con menú de acciones inline
-// ─────────────────────────────────────────────
-
-class _ChipConAcciones extends StatelessWidget {
-  const _ChipConAcciones({
-    required this.label,
-    required this.activa,
-    required this.habilitando,
-    required this.chipColor,
-    required this.chipTextColor,
-    required this.onTap,
-    required this.onHabilitar,
-    required this.onCrearParte,
-  });
-
-  final String label;
-  final bool activa;
-  final bool habilitando;
-  final Color chipColor;
-  final Color chipTextColor;
-  final VoidCallback onTap;
-  final VoidCallback? onHabilitar;
-  final VoidCallback? onCrearParte;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: activa ? colorScheme.inverseSurface : chipColor,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: activa
-                        ? colorScheme.onInverseSurface
-                        : chipTextColor,
-                    fontWeight: activa
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  activa
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  size: 14,
-                  color: activa
-                      ? colorScheme.onInverseSurface
-                      : chipTextColor,
-                ),
-              ],
-            ),
-          ),
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeInOut,
-          child: activa
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: colorScheme.outlineVariant),
-                    ),
-                    child: IntrinsicWidth(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (onHabilitar != null)
-                            InkWell(
-                              onTap:
-                                  habilitando ? null : onHabilitar,
-                              borderRadius:
-                                  const BorderRadius.vertical(
-                                      top: Radius.circular(10)),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (habilitando)
-                                      SizedBox(
-                                        width: 14,
-                                        height: 14,
-                                        child:
-                                            CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: colorScheme.primary,
-                                        ),
-                                      )
-                                    else
-                                      Icon(
-                                          Icons.lock_open_rounded,
-                                          size: 15,
-                                          color: colorScheme.primary),
-                                    const SizedBox(width: 6),
-                                    Text('Habilitar día',
-                                        style: textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: colorScheme.primary,
-                                          fontWeight:
-                                              FontWeight.w600,
-                                        )),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          if (onHabilitar != null && onCrearParte != null)
-                            Divider(
-                                height: 1,
-                                color: colorScheme.outlineVariant),
-                          if (onCrearParte != null)
-                            InkWell(
-                              onTap: onCrearParte,
-                              borderRadius:
-                                  const BorderRadius.vertical(
-                                      bottom: Radius.circular(10)),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                        Icons
-                                            .add_circle_outline_rounded,
-                                        size: 15,
-                                        color: colorScheme.tertiary),
-                                    const SizedBox(width: 6),
-                                    Text('Crear parte',
-                                        style: textTheme.labelSmall
-                                            ?.copyWith(
-                                          color: colorScheme.tertiary,
-                                          fontWeight:
-                                              FontWeight.w600,
-                                        )),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Widgets auxiliares
-// ─────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({
@@ -1549,8 +1552,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_rounded,
-                size: 56, color: colorScheme.error),
+            Icon(Icons.cloud_off_rounded, size: 56, color: colorScheme.error),
             const SizedBox(height: 16),
             Text(
               mensaje,

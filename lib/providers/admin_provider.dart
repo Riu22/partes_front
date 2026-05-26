@@ -20,11 +20,29 @@ final misObrasProvider = FutureProvider<List<dynamic>>((ref) async {
 final diasSinParteProvider =
     FutureProvider.autoDispose<Map<String, AusenciaInfo>>((ref) async {
       final api = ref.read(apiServiceProvider);
-      final raw = await api.getDiasSinParte();
+
+      // Llamadas en paralelo
+      final results = await Future.wait([
+        api.getDiasSinParte(),
+        api.getFechaLibreActivos(),
+      ]);
+
+      final raw = results[0] as Map<String, dynamic>;
+      final fechasHabilitadas = results[1] as Map<String, List<DateTime>>;
 
       return raw.map((uuid, value) {
         final info = value as Map<String, dynamic>;
         final infoConId = {'perfilId': uuid, ...info};
-        return MapEntry(uuid, AusenciaInfo.fromJson(infoConId));
+
+        // Convertimos las fechas habilitadas de este perfil a strings "dd/MM/yyyy"
+        // para que coincidan con el formato que usa diasSin
+        final habilitadas = (fechasHabilitadas[uuid] ?? [])
+            .map((dt) =>
+                '${dt.day.toString().padLeft(2, '0')}/'
+                '${dt.month.toString().padLeft(2, '0')}/'
+                '${dt.year}')
+            .toSet();
+
+        return MapEntry(uuid, AusenciaInfo.fromJson(infoConId, habilitadas));
       });
     });
