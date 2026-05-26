@@ -170,28 +170,33 @@ class AuthService {
   }
 
   Future<String?> verificarTokenRecuperacion(Uri uri) async {
-    final fragment = uri.fragment;
-    debugPrint('📦 Fragment: $fragment');
+  final fullUrl = uri.toString();
+  debugPrint('🔗 URL completa: $fullUrl');
 
-    final hashIndex = fragment.indexOf('#');
-    if (hashIndex == -1) return null;
+  // El segundo # viene codificado como %23, hay que decodificarlo
+  final decoded = Uri.decodeComponent(fullUrl);
+  debugPrint('🔗 URL decodificada: $decoded');
 
-    final paramString = fragment.substring(hashIndex + 1);
-    final params = Uri.splitQueryString(paramString);
-    debugPrint('📦 Params: $params');
+  // Busca el último # (que era el %23)
+  final lastHash = decoded.lastIndexOf('#');
+  if (lastHash == -1) return null;
 
-    final type = params['type'];
-    final accessToken = params['access_token'];
-    final refreshToken = params['refresh_token'];
+  final paramString = decoded.substring(lastHash + 1);
+  final params = Uri.splitQueryString(paramString);
+  debugPrint('📦 Params: $params');
 
-    if (accessToken == null || type != 'recovery') return null;
+  final type = params['type'];
+  final accessToken = params['access_token'];
+  final refreshToken = params['refresh_token'];
 
-    await guardarToken(accessToken);
-    if (refreshToken != null) await guardarRefreshToken(refreshToken);
+  if (accessToken == null || type != 'recovery') return null;
 
-    debugPrint('✅ Token recovery: ${accessToken.substring(0, 20)}...');
-    return accessToken;
-  }
+  await guardarToken(accessToken);
+  if (refreshToken != null) await guardarRefreshToken(refreshToken);
+
+  debugPrint('✅ Token recovery: ${accessToken.substring(0, 20)}...');
+  return accessToken;
+}
 
   void _handleError(DioException e) {
     if (e.response != null) {
