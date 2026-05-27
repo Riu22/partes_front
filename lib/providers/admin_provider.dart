@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/ausencia_info.dart';
+import '../models/obra.dart';
 import 'auth_provider.dart';
 
 final usuariosProvider = FutureProvider<List<dynamic>>((ref) async {
@@ -13,15 +14,19 @@ final asignacionesObraProvider = FutureProvider.family<List<dynamic>, int>((
   return await ref.read(apiServiceProvider).getAsignacionesObra(obraId);
 });
 
-final misObrasProvider = FutureProvider<List<dynamic>>((ref) async {
-  return await ref.read(apiServiceProvider).getMisObras();
+final misObrasProvider = FutureProvider<List<Obra>>((ref) async {
+  final data = await ref.read(apiServiceProvider).getMisObras();
+  return data
+      .map((e) => e as Map<String, dynamic>)
+      .where((e) => e['obra'] != null)
+      .map((e) => Obra.fromJson(e['obra'] as Map<String, dynamic>))
+      .toList();
 });
 
 final diasSinParteProvider =
     FutureProvider.autoDispose<Map<String, AusenciaInfo>>((ref) async {
       final api = ref.read(apiServiceProvider);
 
-      // Llamadas en paralelo
       final results = await Future.wait([
         api.getDiasSinParte(),
         api.getFechaLibreActivos(),
@@ -34,8 +39,6 @@ final diasSinParteProvider =
         final info = value as Map<String, dynamic>;
         final infoConId = {'perfilId': uuid, ...info};
 
-        // Convertimos las fechas habilitadas de este perfil a strings "dd/MM/yyyy"
-        // para que coincidan con el formato que usa diasSin
         final habilitadas = (fechasHabilitadas[uuid] ?? [])
             .map((dt) =>
                 '${dt.day.toString().padLeft(2, '0')}/'

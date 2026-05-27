@@ -480,7 +480,7 @@ class _MisObrasView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final misObrasAsync = ref.watch(misObrasProvider);
+    final misObrasAsync = ref.watch(misAsignacionesProvider); // <-- cambiado
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mis Obras Asignadas')),
@@ -498,8 +498,8 @@ class _MisObrasView extends ConsumerWidget {
                 itemCount: asignaciones.length,
                 padding: const EdgeInsets.all(8),
                 itemBuilder: (context, index) {
-                  final a = asignaciones[index];
-                  final obra = a['obra'];
+                  final a = asignaciones[index] as Map<String, dynamic>;
+                  final obra = a['obra'] as Map<String, dynamic>?;
                   if (obra == null) return const SizedBox();
                   return Card(
                     margin: const EdgeInsets.symmetric(

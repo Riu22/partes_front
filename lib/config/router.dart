@@ -91,28 +91,47 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // Rama 1: partes
           StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/partes',
-                builder: (context, state) => const PartesScreen(),
-                routes: [
-                  GoRoute(
-                    path: ':id',
-                    redirect: (context, state) {
-                      final id = state.pathParameters['id'];
-                      if (int.tryParse(id ?? '') == null) return '/partes';
-                      return null;
-                    },
-                    builder: (context, state) {
-                      final id = int.tryParse(
-                          state.pathParameters['id'] ?? '');
-                      return PartesScreen(parteIdInicial: id);
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+  routes: [
+    GoRoute(
+      path: '/partes',
+      builder: (context, state) => const PartesScreen(),
+      routes: [
+        GoRoute(
+          path: 'nuevo',
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return CrearParteScreen(
+              perfilIdPreseleccionado: extra?['perfilId'] as String?,
+              nombrePreseleccionado: extra?['nombre'] as String?,
+              fechaPreseleccionada: extra?['fecha'] != null
+                  ? DateTime.parse(extra!['fecha'] as String)
+                  : null,
+            );
+          },
+        ),
+        GoRoute(
+          path: 'editar',
+          builder: (context, state) {
+            final parte = state.extra as ParteTrabajo;
+            return EditarParteScreen(parte: parte);
+          },
+        ),
+        GoRoute(
+          path: ':id',
+          redirect: (context, state) {
+            final id = state.pathParameters['id'];
+            if (int.tryParse(id ?? '') == null) return '/partes';
+            return null;
+          },
+          builder: (context, state) {
+            final id = int.tryParse(state.pathParameters['id'] ?? '');
+            return PartesScreen(parteIdInicial: id);
+          },
+        ),
+      ],
+    ),
+  ],
+),
 
           // Rama 2: obras
           StatefulShellBranch(
@@ -241,15 +260,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
         builder: (context, state) => const FechaLibreScreen(),
       ),
-      GoRoute(
-        path: '/pdf-screen',
-        redirect: (context, state) {
-          final perfil = ref.read(authProvider).valueOrNull;
-          if (!esAdminOGestion(perfil)) return '/partes';
-          return null;
-        },
-        builder: (context, state) => const InformePartesScreen(),
-      ),
+     GoRoute(
+  path: '/pdf-screen',
+  redirect: (context, state) {
+    final perfil = ref.read(authProvider).valueOrNull;
+    if (perfil == null ||
+        (!perfil.esAdmin &&
+         !perfil.esGestion &&
+         !perfil.esJefeObra)) {
+      return '/partes';
+    }
+    return null;
+  },
+  builder: (context, state) => const InformePartesScreen(),
+),
       GoRoute(
         path: '/partes-jefe/informe',
         redirect: (context, state) {

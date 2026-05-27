@@ -94,6 +94,14 @@ class AppDrawer extends ConsumerWidget {
                 context.go('/partes-jefe/informe');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf),
+              title: const Text('Informe de partes'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/pdf-screen');
+              },
+            ),
           ],
 
           // ── Admin / Gestión ──────────────────────────────────

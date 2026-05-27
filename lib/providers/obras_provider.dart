@@ -13,22 +13,20 @@ final obrasProvider = FutureProvider<List<Obra>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   const cacheKey = 'cache_obras_lista';
 
-    try {
-      final data = await api.getObras();
-      await prefs.setString(cacheKey, jsonEncode(data));
-      return data.map((e) => Obra.fromJson(e)).toList();
-    } catch (e) {
-      // Fallback al caché local si el servidor no responde
-      final cacheGuardada = prefs.getString(cacheKey);
-      if (cacheGuardada != null) {
-        final List<dynamic> lista = jsonDecode(cacheGuardada);
-        return lista.map((e) => Obra.fromJson(e)).toList();
-      }
-      return [];
+  try {
+    final data = await api.getObras();
+    await prefs.setString(cacheKey, jsonEncode(data));
+    return data.map((e) => Obra.fromJson(e)).toList();
+  } catch (e) {
+    final cacheGuardada = prefs.getString(cacheKey);
+    if (cacheGuardada != null) {
+      final List<dynamic> lista = jsonDecode(cacheGuardada);
+      return lista.map((e) => Obra.fromJson(e)).toList();
     }
+    return [];
+  }
 });
 
-// ── Solo obras activas (para selectores en partes) ──
 final obrasActivasProvider = FutureProvider<List<Obra>>((ref) async {
   ref.keepAlive();
   final perfil = await ref.watch(authProvider.future);
@@ -50,4 +48,7 @@ final obrasActivasProvider = FutureProvider<List<Obra>>((ref) async {
     }
     return [];
   }
+});
+final misAsignacionesProvider = FutureProvider<List<dynamic>>((ref) async {
+  return await ref.read(apiServiceProvider).getMisObras();
 });

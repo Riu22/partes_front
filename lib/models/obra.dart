@@ -3,6 +3,7 @@ class Obra {
   final String nombre;
   final String ubicacion;
   final String municipio;
+  final String poblacion;
   final String codigo;
   final bool activa;
 
@@ -10,17 +11,19 @@ class Obra {
     required this.id,
     required this.nombre,
     required this.ubicacion,
+    required this.poblacion,
     required this.municipio,
     required this.codigo,
     required this.activa,
   });
 
   factory Obra.fromJson(Map<String, dynamic> json) => Obra(
-    id: json['id'],
-    nombre: json['nombre'],
-    ubicacion: json['ubicacion'] ?? '',
-    municipio: json['municipio'] ?? '',
-    codigo: json['codigo'] ?? '',
-    activa: json['activa'] ?? true,
-  );
+  id: json['id'] as int,
+  nombre: json['nombre'] as String? ?? '',
+  ubicacion: json['ubicacion'] as String? ?? '',
+  municipio: json['municipio'] as String? ?? '',
+  poblacion: json['poblacion'] as String? ?? '',
+  codigo: json['codigo'] as String? ?? '',
+  activa: json['activa'] as bool? ?? true,
+);
 }

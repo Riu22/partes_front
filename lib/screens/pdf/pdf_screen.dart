@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/pdf_export_params.dart';
-import '../../providers/obras_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/admin_provider.dart';
 import '../../providers/perfiles_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/fecha_tile.dart' show RangoFechaTile;
@@ -9,6 +10,8 @@ import '../../widgets/modo_tile.dart';
 import '../../widgets/obras_selector.dart';
 import '../../widgets/perfiles_selector.dart';
 import '../../widgets/export_preview.dart';
+import '../../providers/obras_provider.dart';
+
 
 class InformePartesScreen extends ConsumerStatefulWidget {
   const InformePartesScreen({super.key});
@@ -53,7 +56,14 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final obrasAsync = ref.watch(obrasProvider);
+    final perfil = ref.watch(authProvider).valueOrNull;
+    final esJefe = perfil?.esJefeObra == true &&
+        perfil?.esAdmin != true &&
+        perfil?.esGestion != true;
+
+    // Los jefes ven solo sus obras asignadas; admin/gestión ven todas
+    final obrasAsync =
+        esJefe ? ref.watch(misObrasProvider) : ref.watch(obrasProvider);
     final perfilesAsync = ref.watch(perfilesProvider);
 
     return Scaffold(
@@ -94,23 +104,25 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  perfilesAsync.when(
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('Error: $e'),
-                    data: (perfiles) => PerfilesSelector(
-                      perfiles: perfiles.where((p) => p.activo).toList(),
-                      seleccionados: _perfilesSeleccionados,
-                      onChanged: (ids) {
-                        setState(() {
-                          _perfilesSeleccionados
-                            ..clear()
-                            ..addAll(ids);
-                          _params = null;
-                        });
-                      },
+                  if (!esJefe) ...[
+                    const SizedBox(height: 20),
+                    perfilesAsync.when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (e, _) => Text('Error: $e'),
+                      data: (perfiles) => PerfilesSelector(
+                        perfiles: perfiles.where((p) => p.activo).toList(),
+                        seleccionados: _perfilesSeleccionados,
+                        onChanged: (ids) {
+                          setState(() {
+                            _perfilesSeleccionados
+                              ..clear()
+                              ..addAll(ids);
+                            _params = null;
+                          });
+                        },
+                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 20),
                   const Text(
                     'Formato de exportación',

@@ -71,7 +71,7 @@ class _SeccionFirmaState extends State<SeccionFirma> {
         Row(
           children: [
             const Text(
-              'Firma del cliente',
+              'Firma del cliente(OPCIONAL)',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 8),
@@ -82,7 +82,7 @@ class _SeccionFirmaState extends State<SeccionFirma> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Text(
-                'Opcional',
+                'OPCIONAL',
                 style: TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ),
