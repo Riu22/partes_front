@@ -13,7 +13,7 @@ Aplicación multiplataforma (Android, iOS, Web, Windows, macOS, Linux) para la g
 | **Ruteo** | GoRouter (`go_router`) |
 | **HTTP** | Dio (`dio`) |
 | **Auth** | Supabase Auth |
-| **Backend** | API REST propia (FastAPI / Node.js) |
+| **Backend** | API REST propia (Java / Springboot) |
 | **Almacén local** | `shared_preferences` + `flutter_secure_storage` |
 | **PDF** | `pdf` + `printing` |
 | **Offline** | Cola offline con `connectivity_plus` |
