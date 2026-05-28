@@ -600,6 +600,7 @@ class ApiService {
     required DateTime fechaInicio,
     required DateTime fechaFin,
     String? observaciones,
+    int? obraId,
   }) async {
     try {
       final response = await _dio.post(
@@ -610,6 +611,7 @@ class ApiService {
           'fecha_inicio': _fmtDate(fechaInicio),
           'fecha_fin': _fmtDate(fechaFin),
           if (observaciones != null) 'observaciones': observaciones,
+          if (obraId != null) 'obra_id': obraId,
         },
         options: await _authHeaders(),
       );
@@ -618,7 +620,7 @@ class ApiService {
       throw e.response?.data?.toString() ?? 'Error al crear la ausencia';
     }
   }
-
+  
   Future<void> eliminarAusenciaLaboral(int id) async {
     try {
       await _dio.delete(
