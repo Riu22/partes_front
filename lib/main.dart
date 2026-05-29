@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'dart:js_interop';
 import 'config/router.dart';
 import 'providers/sync_provider.dart';
+import 'helpers/splash_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,10 +31,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final g = globalThis;
-      if (g != null) {
-        (g as JSObject).callMethod('hideSplash'.toJS);
-      }
+      ocultarSplash();
     });
   }
   @override
