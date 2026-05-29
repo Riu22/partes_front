@@ -8,19 +8,16 @@
   <meta name="description" content="Gestión de Partes - Aplicación para registro y administración de partes de trabajo">
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
 
-  <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Gestión Partes">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Preconnect a orígenes críticos -->
   <link rel="preconnect" href="https://www.gstatic.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://www.gstatic.com">
   <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Gestión de Partes</title>
@@ -98,6 +95,16 @@
       var el = document.getElementById('splash');
       if (el) el.classList.add('hidden');
     };
+
+    // --- SCRIPT ANTI-CACHÉ AGRESIVO PARA PWA (FLUTTER 3.22+) ---
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        // Si el Service Worker que controla la página cambia (se instala uno nuevo)
+        // forzamos la recarga inmediata para aplicar los cambios del Docker.
+        console.log("Detectado nuevo Service Worker. Recargando aplicación...");
+        window.location.reload();
+      });
+    }
   </script>
 
   <script src="flutter_bootstrap.js" async></script>
