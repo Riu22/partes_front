@@ -4,7 +4,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'config/router.dart';
 import 'providers/sync_provider.dart';
-import 'providers/obras_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,18 +28,6 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   @override
   Widget build(BuildContext context) {
-    ref.watch(syncProvider);
-    ref.watch(obrasProvider);
-    ref.watch(obrasActivasProvider);
-
-    ref.listen(pendientesOfflineProvider, (prev, next) {
-      if (next.hasValue) {
-        print(
-          '--- [Estado Offline] Partes pendientes en cola: ${next.value} ---',
-        );
-      }
-    });
-
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

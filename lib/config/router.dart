@@ -9,20 +9,12 @@ import '../screens/partes/crear_parte_screen.dart';
 import '../screens/partes/editar_partes_screen.dart';
 import '../screens/partes/editar_partes_jefe_screen.dart';
 import '../screens/obras/obras_screen.dart';
-import '../screens/admin/usuarios_screen.dart';
-import '../screens/admin/crear_usuarios_screen.dart';
-import '../screens/admin/editar_usuarios_screen.dart';
-import '../screens/admin/asignar_jefe_screen.dart';
-import '../screens/admin/quincena_screen.dart';
 import '../screens/configurarion_screen.dart';
 import '../screens/NuevaPasswordScreen.dart';
 import '../models/parte_trabajo.dart';
-import '../screens/admin/dias_quincena_screen.dart';
-import '../screens/admin/fecha_libre_screen.dart';
-import '../screens/pdf/pdf_screen.dart';
-import '../screens/admin/admin_home_screen.dart';
-import '../screens/partes/informe_jefe_screen.dart';
-import '../screens/partes/resumen_mensual_jefe_screen.dart';
+import '../widgets/lazy_screen.dart';
+import '../screens/admin/admin_entry.dart' deferred as admin;
+import '../screens/report_entry.dart' deferred as report;
 
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(this._ref) {
@@ -84,7 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/admin',
-                builder: (context, state) => const AdminHomeScreen(),
+                builder: (context, state) => LazyWidget(
+                  loader: admin.loadLibrary,
+                  builder: () => admin.makeAdminHomeScreen(),
+                ),
               ),
             ],
           ),
@@ -148,7 +143,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/usuarios',
-                builder: (context, state) => const UsuariosScreen(),
+                builder: (context, state) => LazyWidget(
+                  loader: admin.loadLibrary,
+                  builder: () => admin.makeUsuariosScreen(),
+                ),
               ),
             ],
           ),
@@ -158,7 +156,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/quincena',
-                builder: (context, state) => const ContabilidadScreen(),
+                builder: (context, state) => LazyWidget(
+                  loader: admin.loadLibrary,
+                  builder: () => admin.makeContabilidadScreen(),
+                ),
               ),
             ],
           ),
@@ -218,22 +219,31 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/usuarios/nuevo',
-        builder: (context, state) => const CrearUsuarioScreen(),
+        builder: (context, state) => LazyWidget(
+          loader: admin.loadLibrary,
+          builder: () => admin.makeCrearUsuarioScreen(),
+        ),
       ),
       GoRoute(
         path: '/usuarios/editar',
         builder: (context, state) {
           final u = state.extra as Map<String, dynamic>;
-          return EditarUsuarioScreen(usuario: u);
+          return LazyWidget(
+            loader: admin.loadLibrary,
+            builder: () => admin.makeEditarUsuarioScreen(u),
+          );
         },
       ),
       GoRoute(
         path: '/usuarios/asignar-jefe',
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>;
-          return AsignarJefeScreen(
-            usuario: extra['usuario'] as Map<String, dynamic>,
-            todos: extra['todos'] as List<dynamic>,
+          return LazyWidget(
+            loader: admin.loadLibrary,
+            builder: () => admin.makeAsignarJefeScreen(
+              extra['usuario'] as Map<String, dynamic>,
+              extra['todos'] as List<dynamic>,
+            ),
           );
         },
       ),
@@ -249,7 +259,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return null;
         },
-        builder: (context, state) => const QuincenaScreen(),
+        builder: (context, state) => LazyWidget(
+          loader: admin.loadLibrary,
+          builder: () => admin.makeQuincenaScreen(),
+        ),
       ),
       GoRoute(
         path: '/fecha-libre',
@@ -258,7 +271,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (!esAdminOGestion(perfil)) return '/partes';
           return null;
         },
-        builder: (context, state) => const FechaLibreScreen(),
+        builder: (context, state) => LazyWidget(
+          loader: admin.loadLibrary,
+          builder: () => admin.makeFechaLibreScreen(),
+        ),
       ),
      GoRoute(
   path: '/pdf-screen',
@@ -272,7 +288,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     }
     return null;
   },
-  builder: (context, state) => const InformePartesScreen(),
+  builder: (context, state) => LazyWidget(
+    loader: report.loadLibrary,
+    builder: () => report.makeInformePartesScreen(),
+  ),
 ),
       GoRoute(
         path: '/partes-jefe/informe',
@@ -286,7 +305,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return null;
         },
-        builder: (context, state) => const InformeJefeScreen(),
+        builder: (context, state) => LazyWidget(
+          loader: report.loadLibrary,
+          builder: () => report.makeInformeJefeScreen(),
+        ),
       ),
       GoRoute(
         path: '/partes-jefe/resumen',
@@ -300,7 +322,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return null;
         },
-        builder: (context, state) => const ResumenMensualJefeScreen(),
+        builder: (context, state) => LazyWidget(
+          loader: report.loadLibrary,
+          builder: () => report.makeResumenMensualJefeScreen(),
+        ),
       ),
     ],
   );
