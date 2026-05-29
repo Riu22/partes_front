@@ -1,8 +1,7 @@
-import 'dart:js_interop';
+import 'dart:js' as js;
 
 void ocultarSplash() {
-  final g = globalThis;
-  if (g != null) {
-    (g as JSObject).callMethod('hideSplash'.toJS);
+  if (js.context.hasProperty('hideSplash')) {
+    js.context.callMethod('hideSplash');
   }
 }
