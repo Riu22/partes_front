@@ -15,9 +15,9 @@ class ApiService {
     _dio = Dio(
       BaseOptions(
         baseUrl: Env.apiUrl,
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 5),
-        sendTimeout: const Duration(seconds: 5),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 15),
       ),
     );
 
@@ -147,12 +147,10 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
-  /// Usa el endpoint unificado /asignar_subordinado.
-  /// El rolJefe ya no determina el endpoint: el backend valida los roles.
   Future<void> asignarJefe(
     String subordinadoId,
     String jefeId,
-    String rolJefe, // se mantiene el parámetro para no romper las llamadas existentes
+    String rolJefe,
   ) async {
     await _dio.put(
       '/asignaciones/asignar_subordinado/$subordinadoId/$jefeId',
@@ -205,7 +203,6 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
-  /// Asigna múltiples subordinados a un jefe en una sola llamada (endpoint batch).
   Future<void> asignarSubordinadosBatch(
       String jefeId, List<String> subordinadoIds) async {
     final token = await _authService.getToken();
@@ -228,8 +225,6 @@ class ApiService {
     );
   }
 
-  /// Asigna un perfil a múltiples obras en una sola llamada (endpoint batch).
-  /// [obraIds] es la lista de IDs de las obras a asignar.
   Future<void> asignarTodasLasObras(
       String perfilId, List<int> obraIds) async {
     final token = await _authService.getToken();
@@ -365,13 +360,14 @@ class ApiService {
     );
     return (response.data as List?) ?? [];
   }
+
   Future<Map<String, dynamic>> getParteById(int id) async {
-  final response = await _dio.get(
-    '/partes/$id',
-    options: await _authHeaders(),
-  );
-  return response.data as Map<String, dynamic>;
-}
+    final response = await _dio.get(
+      '/partes/$id',
+      options: await _authHeaders(),
+    );
+    return response.data as Map<String, dynamic>;
+  }
 
   Future<Map<String, dynamic>> getResumenMensualJefe(int anio, int mes) async {
     final response = await _dio.get(
@@ -620,7 +616,7 @@ class ApiService {
       throw e.response?.data?.toString() ?? 'Error al crear la ausencia';
     }
   }
-  
+
   Future<void> eliminarAusenciaLaboral(int id) async {
     try {
       await _dio.delete(
