@@ -36,6 +36,9 @@ final listaOfflineProvider = FutureProvider<List<Map<String, dynamic>>>((
   ];
 });
 
+/// Último error de sincronización. null = sin error o sincronización en curso.
+final syncErrorProvider = StateProvider<String?>((ref) => null);
+
 // Motor de sincronización: se activa al recuperar la conexión o al iniciar la app.
 // Se sincroniza con cualquier emisión true del stream, incluyendo la primera,
 // eliminando la dependencia del ref.read inicial que podía devolver null.
@@ -55,9 +58,12 @@ final syncProvider = Provider((ref) {
 //   - 4xx: los datos son incorrectos y nunca se podrán subir → se descartan.
 //   - Red / 5xx: error transitorio → se para la cola y se reintenta después.
 Future<void> _sincronizar(Ref ref) async {
+  // Limpia el error anterior al iniciar un nuevo intento
+  ref.read(syncErrorProvider.notifier).state = null;
+
   final queue = ref.read(offlineQueueProvider);
-  final api = ref.read(apiServiceProvider);
-  final auth = ref.read(authServiceProvider);
+  final api   = ref.read(apiServiceProvider);
+  final auth  = ref.read(authServiceProvider);
 
   // Antes de sincronizar: asegura que el token es válido
   final tokenValido = await _asegurarToken(auth);
@@ -78,7 +84,7 @@ Future<void> _sincronizar(Ref ref) async {
         ref.invalidate(listaOfflineProvider);
       } on Exception catch (e) {
         final status = _statusDeExcepcion(e);
-        if (status != null && status >= 400 && status < 500) {
+        if (status != null && status >= 400 && status < 500 && status != 401) {
           // Datos incorrectos: este parte nunca se podrá subir, se descarta
           print('⚠️ Parte descartado por error $status: $e');
           await queue.borrarParteNormal(parte);
@@ -87,6 +93,7 @@ Future<void> _sincronizar(Ref ref) async {
           continue;
         }
         // Error de red o 5xx: parar y reintentar después
+        ref.read(syncErrorProvider.notifier).state = _mensajeError(e);
         break;
       }
     }
@@ -104,13 +111,14 @@ Future<void> _sincronizar(Ref ref) async {
         ref.invalidate(listaOfflineProvider);
       } on Exception catch (e) {
         final status = _statusDeExcepcion(e);
-        if (status != null && status >= 400 && status < 500) {
+        if (status != null && status >= 400 && status < 500 && status != 401) {
           print('⚠️ Parte jefe descartado por error $status: $e');
           await queue.borrarParteJefe(parteJefe);
           ref.invalidate(pendientesOfflineProvider);
           ref.invalidate(listaOfflineProvider);
           continue;
         }
+        ref.read(syncErrorProvider.notifier).state = _mensajeError(e);
         break;
       }
     }
@@ -123,18 +131,19 @@ Future<void> _sincronizar(Ref ref) async {
     for (final update in List.from(updates)) {
       try {
         final parteId = update['parteId'] as int;
-        final data = Map<String, dynamic>.from(update)..remove('parteId');
+        final data    = Map<String, dynamic>.from(update)..remove('parteId');
         await api.updateParte(parteId, data);
         await queue.borrarUpdate(update);
         ref.invalidate(pendientesOfflineProvider);
       } on Exception catch (e) {
         final status = _statusDeExcepcion(e);
-        if (status != null && status >= 400 && status < 500) {
+        if (status != null && status >= 400 && status < 500 && status != 401) {
           print('⚠️ Update descartado por error $status: $e');
           await queue.borrarUpdate(update);
           ref.invalidate(pendientesOfflineProvider);
           continue;
         }
+        ref.read(syncErrorProvider.notifier).state = _mensajeError(e);
         break;
       }
     }
@@ -145,12 +154,22 @@ Future<void> _sincronizar(Ref ref) async {
 /// Extrae el HTTP status code de una excepción si es un String con formato
 /// "4xx" / "5xx" lanzado por ApiService, o null si es un error de red/timeout.
 int? _statusDeExcepcion(Exception e) {
-  final msg = e.toString();
-  // DioException con respuesta lanza el data como String (ver ApiService).
-  // Intentamos parsear el primer número de 3 dígitos que aparezca.
+  final msg   = e.toString();
   final match = RegExp(r'\b([45]\d{2})\b').firstMatch(msg);
   if (match != null) return int.tryParse(match.group(1)!);
   return null;
+}
+
+String _mensajeError(Exception e) {
+  final msg = e.toString();
+
+  // Quita el prefijo que añade Dart ("Exception: ", "DioException: ", etc.)
+  final limpio = msg
+      .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      .replaceFirst(RegExp(r'^DioException\s*\[.*?\]:\s*'), '')
+      .trim();
+
+  return limpio.isNotEmpty ? limpio : 'Error al enviar el parte.';
 }
 
 /// Comprueba localmente si el JWT está expirado y refresca si hace falta.

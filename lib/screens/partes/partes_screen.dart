@@ -83,7 +83,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     setState(() => _cargandoParte = true);
     try {
       final partes = await ref.read(partesProvider.future);
-      final parte = partes.where((p) => p.id == parteId).toList();
+      final parte  = partes.where((p) => p.id == parteId).toList();
       if (mounted) {
         setState(() => _partesFiltradas = parte.isNotEmpty ? parte : null);
       }
@@ -320,13 +320,13 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-      heroTag: 'fab_partes_unique',
-      backgroundColor: bgCard,
-      foregroundColor: blue,
-      elevation: 2,
-      onPressed: () => context.push('/partes/nuevo'),
-      child: const Icon(Icons.add),
-    ),
+        heroTag: 'fab_partes_unique',
+        backgroundColor: bgCard,
+        foregroundColor: blue,
+        elevation: 2,
+        onPressed: () => context.push('/partes/nuevo'),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
@@ -414,7 +414,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  // ── Selector obra — carga desde obrasProvider (todas, no solo las locales) ──
+  // ── Selector obra ─────────────────────────────────────────────────
 
   Widget _buildSelectorObra() {
     final obras = ref.watch(obrasProvider).valueOrNull ?? [];
@@ -470,10 +470,10 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  // ── Selector operario — carga desde perfilesProvider (todos los usuarios) ──
+  // ── Selector operario ─────────────────────────────────────────────
 
   Widget _buildSelectorOperario() {
-    final perfiles = ref.watch(perfilesProvider).valueOrNull ?? [];
+    final perfiles  = ref.watch(perfilesProvider).valueOrNull ?? [];
     final operarios = perfiles.where((p) => p.activo).toList()
       ..sort((a, b) =>
           a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto));
@@ -648,6 +648,8 @@ class _TarjetaParteOffline extends ConsumerWidget {
     final descripcion = (data['descripcion'] as String? ?? '').trim();
     final esPostVenta = data['es_post_venta'] == true;
     final esJefe      = data['_tipo'] == 'jefe';
+    final tieneRed    = ref.watch(conectividadProvider).valueOrNull ?? false;
+    final errorSync   = ref.watch(syncErrorProvider);
 
     return Container(
       margin:  const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -715,13 +717,61 @@ class _TarjetaParteOffline extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: 4),
-                const Text(
-                  'Pendiente de envío — se enviará al recuperar conexión',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: orange,
-                    fontStyle: FontStyle.italic,
-                  ),
+
+                // ── Pie de estado ────────────────────────────────
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Línea principal: spinner + texto de estado
+                    Row(
+                      children: [
+                        if (tieneRed && errorSync == null) ...[
+                          const SizedBox(
+                            width: 10,
+                            height: 10,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: orange,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                        ],
+                        if (errorSync == null)
+                          Text(
+                            tieneRed
+                                ? 'Intentando enviar...'
+                                : 'Pendiente de envío — se enviará al recuperar conexión',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: orange,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    // Línea de error (solo si hay error)
+                    if (errorSync != null) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.error_outline,
+                              size: 12, color: Colors.red),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              errorSync,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.red,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
