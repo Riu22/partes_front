@@ -74,33 +74,32 @@
       font-size: 14px;
       color: #888888;
     }
+
+    #lcp-marker {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      pointer-events: none;
+      color: transparent;
+    }
   </style>
 </head>
 <body>
+  <div id="lcp-marker">Gestión de Partes</div>
+
   <div id="splash">
     <div class="spinner"></div>
     <p>Cargando Gestión de Partes…</p>
   </div>
 
-  <script src="flutter_bootstrap.js" async></script>
-
   <script>
-    window.addEventListener('load', function () {
-      // Ocultar splash cuando Flutter ya haya renderizado
-      if (typeof flutterInitialized !== 'undefined' && flutterInitialized) {
-        document.getElementById('splash').classList.add('hidden');
-      }
-    });
-
-    // Si Flutter expone un callback, usarlo para ocultar el splash
-    if (window._flutter) {
-      const orig = window._flutter.loader.load;
-      window._flutter.loader.load = function () {
-        const result = orig.apply(this, arguments);
-        document.getElementById('splash').classList.add('hidden');
-        return result;
-      };
-    }
+    window.hideSplash = function () {
+      var el = document.getElementById('splash');
+      if (el) el.classList.add('hidden');
+    };
   </script>
+
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'dart:js_interop';
 import 'config/router.dart';
 import 'providers/sync_provider.dart';
 
@@ -26,6 +27,16 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final g = globalThis;
+      if (g != null) {
+        (g as JSObject).callMethod('hideSplash'.toJS);
+      }
+    });
+  }
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
