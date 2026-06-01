@@ -34,8 +34,12 @@ class _MyAppState extends ConsumerState<MyApp> {
       ocultarSplash();
     });
   }
+
   @override
   Widget build(BuildContext context) {
+    // 💡 DESPERTADOR: Mantiene el motor de sincronización vivo y atento a la red/ciclo de vida
+    ref.watch(syncProvider);
+
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

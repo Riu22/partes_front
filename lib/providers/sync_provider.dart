@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/offline_queue_service.dart';
@@ -9,7 +10,7 @@ final offlineQueueProvider = Provider((ref) => OfflineQueueService());
 
 final conectividadProvider = StreamProvider<bool>((ref) async* {
   final connectivity = Connectivity();
-
+  
   final initial = await connectivity.checkConnectivity();
   yield initial.any((r) => r != ConnectivityResult.none);
 
@@ -23,138 +24,199 @@ final pendientesOfflineProvider = FutureProvider<int>((ref) async {
   return await queue.totalPendientes();
 });
 
-final listaOfflineProvider = FutureProvider<List<Map<String, dynamic>>>((
-  ref,
-) async {
+/// Provee la lista desempaquetada para poder pintarla en la interfaz si es necesario.
+final listaOfflineProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   ref.watch(pendientesOfflineProvider);
   final queue = ref.read(offlineQueueProvider);
+  
   final normales = await queue.getPartesOffline();
   final jefe = await queue.getPartesJefeOffline();
+  
   return [
-    ...normales.map((p) => {...p, '_tipo': 'normal'}),
-    ...jefe.map((p) => {...p, '_tipo': 'jefe'}),
+    ...normales.map((item) => {
+          ...(item['data'] as Map<String, dynamic>),
+          '_queue_id': item['queue_id'],
+          '_tipo': 'normal',
+        }),
+    ...jefe.map((item) => {
+          ...(item['data'] as Map<String, dynamic>),
+          '_queue_id': item['queue_id'],
+          '_tipo': 'jefe',
+        }),
   ];
 });
 
-/// Último error de sincronización. null = sin error o sincronización en curso.
+/// Estados auxiliares para controlar la UI de sincronización.
+final estaSincronizandoProvider = StateProvider<bool>((ref) => false);
 final syncErrorProvider = StateProvider<String?>((ref) => null);
 
-// Motor de sincronización: se activa al recuperar la conexión o al iniciar la app.
-// Se sincroniza con cualquier emisión true del stream, incluyendo la primera,
-// eliminando la dependencia del ref.read inicial que podía devolver null.
+/// Motor de sincronización reactivo y basado en eventos de ciclo de vida.
 final syncProvider = Provider((ref) {
+  
+  // 1. ESCUCHAR CAMBIOS DE RED (Mientras la app está abierta)
   ref.listen<AsyncValue<bool>>(conectividadProvider, (prev, next) {
     final tieneConexion = next.valueOrNull ?? false;
-    if (tieneConexion) {
+    final veniaDeSinConexion = !(prev?.valueOrNull ?? true) || prev == null;
+
+    if (tieneConexion && veniaDeSinConexion) {
+      print('🌐 Red recuperada. Disparando sincronización...');
       _sincronizar(ref);
     }
+  });
+
+  // 2. DISPARADOR DE ARRANQUE EN FRÍO (Al abrir la app desde cero)
+  Future.microtask(() {
+    final tieneRedAhora = ref.read(conectividadProvider).valueOrNull ?? false;
+    if (tieneRedAhora) {
+      print('🚀 App abierta (Cold Start). Sincronizando cola inicial...');
+      _sincronizar(ref);
+    }
+  });
+
+  // 3. DISPARADOR DE CICLO DE VIDA (Al volver de segundo plano / desbloquear móvil)
+  final lifecycleListener = AppLifecycleListener(
+    onResume: () {
+      final tieneRedAhora = ref.read(conectividadProvider).valueOrNull ?? false;
+      if (tieneRedAhora) {
+        print('📱 App recuperó el foco (onResume). Intentando sincronizar...');
+        _sincronizar(ref);
+      }
+    },
+  );
+
+  ref.onDispose(() {
+    lifecycleListener.dispose();
   });
 
   return null;
 });
 
-// Vacía la cola offline en orden: partes normales → partes jefe → updates.
-// Distingue errores de cliente (4xx) de errores de red/servidor (5xx / timeout):
-//   - 4xx: los datos son incorrectos y nunca se podrán subir → se descartan.
-//   - Red / 5xx: error transitorio → se para la cola y se reintenta después.
+/// Vacía de forma secuencial y ordenada las colas pendientes.
 Future<void> _sincronizar(Ref ref) async {
-  // Limpia el error anterior al iniciar un nuevo intento
+  if (ref.read(estaSincronizandoProvider)) return;
+
+  ref.read(estaSincronizandoProvider.notifier).state = true;
   ref.read(syncErrorProvider.notifier).state = null;
 
   final queue = ref.read(offlineQueueProvider);
   final api   = ref.read(apiServiceProvider);
   final auth  = ref.read(authServiceProvider);
 
-  // Antes de sincronizar: asegura que el token es válido
-  final tokenValido = await _asegurarToken(auth);
-  if (!tokenValido) {
-    print('🔒 Token expirado e irrecuperable. Forzando logout...');
-    ref.read(authProvider.notifier).logout();
-    return;
-  }
+  try {
+    final tokenValido = await _asegurarToken(auth);
+    if (!tokenValido) {
+      print('🔒 Token expirado e irrecuperable. Forzando logout...');
+      ref.read(authProvider.notifier).logout();
+      return;
+    }
 
-  // --- Partes Normales ---
-  final partes = await queue.getPartesOffline();
-  if (partes.isNotEmpty) {
-    for (final parte in List.from(partes)) {
+    // --- 1. Partes Normales ---
+    final partesWrapped = await queue.getPartesOffline();
+    for (final item in List.from(partesWrapped)) {
+      final datosOriginales = Map<String, dynamic>.from(item['data']);
+      datosOriginales['uuid_local'] = item['queue_id']; 
+
       try {
-        await api.crearParte(parte);
-        await queue.borrarParteNormal(parte);
-        ref.invalidate(pendientesOfflineProvider);
-        ref.invalidate(listaOfflineProvider);
+        await api.crearParte(datosOriginales);
+        await queue.borrarParteNormal(item);
+        _notificarCambio(ref);
       } on Exception catch (e) {
-        final status = _statusDeExcepcion(e);
-        if (status != null && status >= 400 && status < 500 && status != 401) {
-          // Datos incorrectos: este parte nunca se podrá subir, se descarta
-          print('⚠️ Parte descartado por error $status: $e');
-          await queue.borrarParteNormal(parte);
-          ref.invalidate(pendientesOfflineProvider);
-          ref.invalidate(listaOfflineProvider);
-          continue;
+        if (_esErrorClienteDescartable(e)) {
+          print('⚠️ Parte descartado por error crítico de cliente: $e');
+          await queue.borrarParteNormal(item);
+          _notificarCambio(ref);
+          continue; 
         }
-        // Error de red o 5xx: parar y reintentar después
+        
+        final status = _statusDeExcepcion(e);
+        if (status != null && status >= 500) {
+          print('🚨 Error 5xx en servidor para este parte. Saltando para no bloquear la cola.');
+          continue; // Evita el efecto tapón si el backend rompe con este JSON específico
+        }
+        
         ref.read(syncErrorProvider.notifier).state = _mensajeError(e);
-        break;
+        return; // Corte de red global, paramos toda la sincronización
       }
     }
-    ref.invalidate(partesProvider);
-  }
+    if (partesWrapped.isNotEmpty) ref.invalidate(partesProvider);
 
-  // --- Partes de Jefe ---
-  final partesJefe = await queue.getPartesJefeOffline();
-  if (partesJefe.isNotEmpty) {
-    for (final parteJefe in List.from(partesJefe)) {
+    // --- 2. Partes de Jefe ---
+    final partesJefeWrapped = await queue.getPartesJefeOffline();
+    for (final item in List.from(partesJefeWrapped)) {
+      final datosOriginales = Map<String, dynamic>.from(item['data']);
+      datosOriginales['uuid_local'] = item['queue_id'];
+
       try {
-        await api.crearParteJefe(parteJefe);
-        await queue.borrarParteJefe(parteJefe);
-        ref.invalidate(pendientesOfflineProvider);
-        ref.invalidate(listaOfflineProvider);
+        await api.crearParteJefe(datosOriginales);
+        await queue.borrarParteJefe(item);
+        _notificarCambio(ref);
       } on Exception catch (e) {
-        final status = _statusDeExcepcion(e);
-        if (status != null && status >= 400 && status < 500 && status != 401) {
-          print('⚠️ Parte jefe descartado por error $status: $e');
-          await queue.borrarParteJefe(parteJefe);
-          ref.invalidate(pendientesOfflineProvider);
-          ref.invalidate(listaOfflineProvider);
+        if (_esErrorClienteDescartable(e)) {
+          print('⚠️ Parte de jefe descartado: $e');
+          await queue.borrarParteJefe(item);
+          _notificarCambio(ref);
           continue;
         }
-        ref.read(syncErrorProvider.notifier).state = _mensajeError(e);
-        break;
-      }
-    }
-    ref.invalidate(partesJefeProvider);
-  }
-
-  // --- Updates (ediciones offline) ---
-  final updates = await queue.getUpdatesOffline();
-  if (updates.isNotEmpty) {
-    for (final update in List.from(updates)) {
-      try {
-        final parteId = update['parteId'] as int;
-        final data    = Map<String, dynamic>.from(update)..remove('parteId');
-        await api.updateParte(parteId, data);
-        await queue.borrarUpdate(update);
-        ref.invalidate(pendientesOfflineProvider);
-      } on Exception catch (e) {
+        
         final status = _statusDeExcepcion(e);
-        if (status != null && status >= 400 && status < 500 && status != 401) {
-          print('⚠️ Update descartado por error $status: $e');
-          await queue.borrarUpdate(update);
-          ref.invalidate(pendientesOfflineProvider);
+        if (status != null && status >= 500) {
+          print('🚨 Error 5xx en servidor (Jefe). Saltando elemento.');
           continue;
         }
+        
         ref.read(syncErrorProvider.notifier).state = _mensajeError(e);
-        break;
+        return;
       }
     }
-    ref.invalidate(partesProvider);
+    if (partesJefeWrapped.isNotEmpty) ref.invalidate(partesJefeProvider);
+
+    // --- 3. Updates (Ediciones) ---
+    final updatesWrapped = await queue.getUpdatesOffline();
+    for (final item in List.from(updatesWrapped)) {
+      final datosOriginales = Map<String, dynamic>.from(item['data']);
+      final parteId = datosOriginales['parteId'] as int;
+      datosOriginales.remove('parteId');
+
+      try {
+        await api.updateParte(parteId, datosOriginales);
+        await queue.borrarUpdate(item);
+        _notificarCambio(ref);
+      } on Exception catch (e) {
+        if (_esErrorClienteDescartable(e)) {
+          print('⚠️ Edición descartada: $e');
+          await queue.borrarUpdate(item);
+          _notificarCambio(ref);
+          continue;
+        }
+        
+        final status = _statusDeExcepcion(e);
+        if (status != null && status >= 500) {
+          print('🚨 Error 5xx en actualización de parte. Saltando elemento.');
+          continue;
+        }
+        
+        ref.read(syncErrorProvider.notifier).state = _mensajeError(e);
+        return;
+      }
+    }
+    if (updatesWrapped.isNotEmpty) ref.invalidate(partesProvider);
+
+  } finally {
+    ref.read(estaSincronizandoProvider.notifier).state = false;
   }
 }
 
-/// Extrae el HTTP status code de una excepción si es un String con formato
-/// "4xx" / "5xx" lanzado por ApiService, o null si es un error de red/timeout.
+void _notificarCambio(Ref ref) {
+  ref.invalidate(pendientesOfflineProvider);
+}
+
+bool _esErrorClienteDescartable(Exception e) {
+  final status = _statusDeExcepcion(e);
+  return status != null && status >= 400 && status < 500 && status != 401 && status != 429;
+}
+
 int? _statusDeExcepcion(Exception e) {
-  final msg   = e.toString();
+  final msg = e.toString();
   final match = RegExp(r'\b([45]\d{2})\b').firstMatch(msg);
   if (match != null) return int.tryParse(match.group(1)!);
   return null;
@@ -162,18 +224,13 @@ int? _statusDeExcepcion(Exception e) {
 
 String _mensajeError(Exception e) {
   final msg = e.toString();
-
-  // Quita el prefijo que añade Dart ("Exception: ", "DioException: ", etc.)
   final limpio = msg
       .replaceFirst(RegExp(r'^Exception:\s*'), '')
       .replaceFirst(RegExp(r'^DioException\s*\[.*?\]:\s*'), '')
       .trim();
-
-  return limpio.isNotEmpty ? limpio : 'Error al enviar el parte.';
+  return limpio.isNotEmpty ? limpio : 'Error de red al sincronizar.';
 }
 
-/// Comprueba localmente si el JWT está expirado y refresca si hace falta.
-/// Devuelve false solo si el refresh también falla (sesión muerta).
 Future<bool> _asegurarToken(AuthService auth) async {
   final token = await auth.getToken();
   if (token == null) return false;

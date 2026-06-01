@@ -10,6 +10,7 @@ import '../../providers/obras_provider.dart';
 import '../../providers/perfiles_provider.dart';
 import '../../widgets/buscador_obras_modal.dart';
 import '../../widgets/boton_especialidad.dart';
+import '../../widgets/seccion_firma.dart';
 
 class EditarParteScreen extends ConsumerStatefulWidget {
   final ParteTrabajo parte;
@@ -31,6 +32,11 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   late String? _idPerfilSeleccionado;
   bool _enviando = false;
 
+  // Estado de firma — lo llena SeccionFirma via callbacks
+  String? _firmaBase64;
+  String? _nombreFirma;
+  String _trabajosExtra = '';
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +47,11 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     _horasCtrl.text = widget.parte.horasNormales.toString();
     _obraSearchCtrl.text = widget.parte.obraNombre;
     _idPerfilSeleccionado = widget.parte.operarioId;
+    _trabajosExtra = widget.parte.trabajosExtra;
+    _nombreFirma = widget.parte.nombreFirma;
+    // Nota: la firma existente (firmaUrl) se muestra solo como imagen de referencia;
+    // si el usuario no pasa por SeccionFirma no se sobreescribe (firma_base64 no se
+    // incluirá en el payload si es null).
   }
 
   @override
@@ -60,6 +71,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     );
     if (picked != null) setState(() => _fecha = picked);
   }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +96,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Banner info
+              // ── Banner info ────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -111,12 +124,9 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Selector de operario (solo admin/gestión)
+              // ── Operario (solo gestor) ─────────────────────────────────────
               if (esGestor) ...[
-                const Text(
-                  'Operario',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                _sectionTitle('Operario'),
                 const SizedBox(height: 12),
                 perfilesAsync.when(
                   loading: () => const LinearProgressIndicator(),
@@ -137,7 +147,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: (v) => setState(() => _idPerfilSeleccionado = v),
+                    onChanged: (v) =>
+                        setState(() => _idPerfilSeleccionado = v),
                     validator: (v) =>
                         v == null ? 'Selecciona un operario' : null,
                   ),
@@ -145,11 +156,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 const SizedBox(height: 20),
               ],
 
-              // Obra
-              const Text(
-                'Obra',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              // ── Obra ───────────────────────────────────────────────────────
+              _sectionTitle('Obra'),
               const SizedBox(height: 12),
               obrasAsync.when(
                 loading: () => const LinearProgressIndicator(),
@@ -168,18 +176,14 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                       _obraSearchCtrl.text = o.nombre;
                     });
                   }),
-                  validator: (v) => _idObraSeleccionada == null
-                      ? 'Selecciona una obra'
-                      : null,
+                  validator: (v) =>
+                      _idObraSeleccionada == null ? 'Selecciona una obra' : null,
                 ),
               ),
               const SizedBox(height: 20),
 
-              // Fecha
-              const Text(
-                'Fecha',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              // ── Fecha ──────────────────────────────────────────────────────
+              _sectionTitle('Fecha'),
               const SizedBox(height: 12),
               ListTile(
                 shape: RoundedRectangleBorder(
@@ -208,17 +212,13 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── Horas ──
-              const Text(
-                'Horas normales',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              // ── Horas normales ─────────────────────────────────────────────
+              _sectionTitle('Horas normales'),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _horasCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   suffixText: 'horas',
@@ -226,12 +226,9 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── Especialidad ──
+              // ── Especialidad ───────────────────────────────────────────────
               if (widget.parte.esPostVenta || esGestor) ...[
-                const Text(
-                  'Especialidad',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                _sectionTitle('Especialidad'),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -261,11 +258,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 const SizedBox(height: 24),
               ],
 
-              // ── Descripción ──
-              const Text(
-                'Tareas realizadas',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              // ── Descripción ────────────────────────────────────────────────
+              _sectionTitle('Tareas realizadas'),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descripcionCtrl,
@@ -276,8 +270,21 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 ),
                 validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
               ),
+              const SizedBox(height: 24),
+
+              // ── Firma del cliente + trabajos extra ──
+              const Divider(),
+              const SizedBox(height: 16),
+              SeccionFirma(
+                onFirmaChanged: (base64, nombre) {
+                  _firmaBase64 = base64;
+                  _nombreFirma = nombre;
+                },
+                onTrabajosExtraChanged: (v) => _trabajosExtra = v,
+              ),
               const SizedBox(height: 32),
 
+              // ── Botón guardar ──────────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -301,6 +308,13 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     );
   }
 
+  Widget _sectionTitle(String text) => Text(
+        text,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      );
+
+  // ── Diálogo horas ──────────────────────────────────────────────────────────
+
   void _mostrarDialogoHoras() {
     showDialog(
       context: context,
@@ -322,6 +336,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     );
   }
 
+  // ── Guardar ────────────────────────────────────────────────────────────────
+
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;
@@ -337,7 +353,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
 
-    final payload = {
+    final payload = <String, dynamic>{
       'id_obra': _idObraSeleccionada,
       'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
@@ -345,11 +361,16 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
           double.tryParse(_horasCtrl.text) ?? widget.parte.horasNormales,
       'descripcion': _descripcionCtrl.text.trim(),
       if (_especialidad != null) 'especialidad': _especialidad,
+      if (_trabajosExtra.trim().isNotEmpty)
+        'trabajo_extra': _trabajosExtra.trim(),
+      if (_nombreFirma != null && _nombreFirma!.isNotEmpty)
+        'nombre_firmado': _nombreFirma,
+      if (_firmaBase64 != null) 'firma_base64': _firmaBase64,
     };
 
     final online = ref.read(conectividadProvider).valueOrNull ?? false;
 
-    // Sin conexión: guarda la edición en la cola offline para enviar después
+    // Sin conexión: cola offline
     if (!online) {
       final queue = ref.read(offlineQueueProvider);
       await queue.guardarUpdateOffline(widget.parte.id, payload);
@@ -370,7 +391,9 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     }
 
     try {
-      await ref.read(apiServiceProvider).updateParte(widget.parte.id, payload);
+      await ref
+          .read(apiServiceProvider)
+          .updateParte(widget.parte.id, payload);
       ref.invalidate(partesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -380,9 +403,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
