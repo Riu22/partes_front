@@ -39,6 +39,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
   late DateTime _fecha;
   double _horasNormales = 0;
   String _descripcion = '';
+  String _trabajosExtra = '';
   int? _idObraSeleccionada;
   String? _especialidad;
   String? _idPerfilSeleccionado;
@@ -51,7 +52,6 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
   bool _cargandoFechas = false;
   List<DateTime> _fechasPermitidas = [];
 
-  // Redirige a /admin si es admin/gestión, o a /partes si no
   void _volverAHome() {
     final perfil = ref.read(authProvider).valueOrNull;
     final esAdminOGestion =
@@ -534,7 +534,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
               ),
               const SizedBox(height: 30),
 
-              // ── Firma del cliente (opcional) ──
+              // ── Firma + trabajos extra ──
               const Divider(),
               const SizedBox(height: 16),
               SeccionFirma(
@@ -542,6 +542,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                   _firmaBase64 = base64;
                   _nombreFirma = nombre;
                 }),
+                onTrabajosExtraChanged: (v) => _trabajosExtra = v,
               ),
               const SizedBox(height: 30),
 
@@ -623,6 +624,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
       if (especialidadFinal != null) 'especialidad': especialidadFinal,
       if (_firmaBase64 != null) 'firma_base64': _firmaBase64,
       if (_nombreFirma != null) 'nombre_firmado': _nombreFirma,
+      if (_trabajosExtra.isNotEmpty) 'trabajos_extra': _trabajosExtra,
     };
 
     try {

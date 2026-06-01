@@ -13,6 +13,7 @@ class ParteTrabajo {
   final String? firmaUrl;
   final String? nombreFirma;
   final bool esPostVenta;
+  final String trabajosExtra;
 
   ParteTrabajo({
     required this.id,
@@ -29,6 +30,7 @@ class ParteTrabajo {
     this.firmaUrl,
     this.nombreFirma,
     this.esPostVenta = false,
+    this.trabajosExtra = '',
   });
 
   String get operarioNombreCompleto {
@@ -54,6 +56,7 @@ class ParteTrabajo {
     firmaUrl: json['firma_url'],
     nombreFirma: json['nombre_firmado'],
     esPostVenta: json['es_post_venta'] == true || json['es_post_venta'] == 1,
+    trabajosExtra: json['trabajos_extra'] ?? '',
   );
 
   // Solo se puede editar un parte si es del día de hoy
