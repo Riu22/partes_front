@@ -35,11 +35,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) {
       final location = state.matchedLocation;
+      
+      // ── 1. PRIORIDAD ABSOLUTA ──────────────────────────────────────────────
+      // Si el usuario va a restablecer su contraseña, saltamos cualquier otra
+      // comprobación (incluyendo si la autenticación está cargando o no).
       if (location == '/nueva-password') return null;
 
+      // ── 2. ESTADO DE CARGA DE AUTH ─────────────────────────────────────────
       final auth = ref.read(authProvider);
       if (auth.isLoading) return null;
 
+      // ── 3. CONTROL DE ACCESO Y LOGEO ───────────────────────────────────────
       final perfil = auth.valueOrNull;
       final isLoggedIn = perfil != null;
 
@@ -49,6 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return esAdminOGestion(perfil) ? '/admin' : '/partes';
       }
 
+      // ── 4. PROTECCIÓN DE RUTAS POR ROL ─────────────────────────────────────
       if (location == '/admin' && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/usuarios' && !esAdminOGestion(perfil)) return '/partes';
       if (location == '/quincena' && !esAdminOGestion(perfil)) return '/partes';
@@ -86,47 +93,47 @@ final routerProvider = Provider<GoRouter>((ref) {
 
           // Rama 1: partes
           StatefulShellBranch(
-  routes: [
-    GoRoute(
-      path: '/partes',
-      builder: (context, state) => const PartesScreen(),
-      routes: [
-        GoRoute(
-          path: 'nuevo',
-          builder: (context, state) {
-            final extra = state.extra as Map<String, dynamic>?;
-            return CrearParteScreen(
-              perfilIdPreseleccionado: extra?['perfilId'] as String?,
-              nombrePreseleccionado: extra?['nombre'] as String?,
-              fechaPreseleccionada: extra?['fecha'] != null
-                  ? DateTime.parse(extra!['fecha'] as String)
-                  : null,
-            );
-          },
-        ),
-        GoRoute(
-          path: 'editar',
-          builder: (context, state) {
-            final parte = state.extra as ParteTrabajo;
-            return EditarParteScreen(parte: parte);
-          },
-        ),
-        GoRoute(
-          path: ':id',
-          redirect: (context, state) {
-            final id = state.pathParameters['id'];
-            if (int.tryParse(id ?? '') == null) return '/partes';
-            return null;
-          },
-          builder: (context, state) {
-            final id = int.tryParse(state.pathParameters['id'] ?? '');
-            return PartesScreen(parteIdInicial: id);
-          },
-        ),
-      ],
-    ),
-  ],
-),
+            routes: [
+              GoRoute(
+                path: '/partes',
+                builder: (context, state) => const PartesScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'nuevo',
+                    builder: (context, state) {
+                      final extra = state.extra as Map<String, dynamic>?;
+                      return CrearParteScreen(
+                        perfilIdPreseleccionado: extra?['perfilId'] as String?,
+                        nombrePreseleccionado: extra?['nombre'] as String?,
+                        fechaPreseleccionada: extra?['fecha'] != null
+                            ? DateTime.parse(extra!['fecha'] as String)
+                            : null,
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'editar',
+                    builder: (context, state) {
+                      final parte = state.extra as ParteTrabajo;
+                      return EditarParteScreen(parte: parte);
+                    },
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    redirect: (context, state) {
+                      final id = state.pathParameters['id'];
+                      if (int.tryParse(id ?? '') == null) return '/partes';
+                      return null;
+                    },
+                    builder: (context, state) {
+                      final id = int.tryParse(state.pathParameters['id'] ?? '');
+                      return PartesScreen(parteIdInicial: id);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
 
           // Rama 2: obras
           StatefulShellBranch(
@@ -167,7 +174,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ── Rutas flotantes (fuera del shell, sin barra de navegación) ─────────
-
       GoRoute(
         path: '/partes/nuevo',
         builder: (context, state) {
@@ -194,8 +200,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin &&
-               !perfil.esGestion &&
-               !perfil.esJefeObra)) {
+                  !perfil.esGestion &&
+                  !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
@@ -253,8 +259,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin &&
-               !perfil.esGestion &&
-               !perfil.esJefeObra)) {
+                  !perfil.esGestion &&
+                  !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
@@ -276,31 +282,31 @@ final routerProvider = Provider<GoRouter>((ref) {
           builder: () => admin.makeFechaLibreScreen(),
         ),
       ),
-     GoRoute(
-  path: '/pdf-screen',
-  redirect: (context, state) {
-    final perfil = ref.read(authProvider).valueOrNull;
-    if (perfil == null ||
-        (!perfil.esAdmin &&
-         !perfil.esGestion &&
-         !perfil.esJefeObra)) {
-      return '/partes';
-    }
-    return null;
-  },
-  builder: (context, state) => LazyWidget(
-    loader: report.loadLibrary,
-    builder: () => report.makeInformePartesScreen(),
-  ),
-),
+      GoRoute(
+        path: '/pdf-screen',
+        redirect: (context, state) {
+          final perfil = ref.read(authProvider).valueOrNull;
+          if (perfil == null ||
+              (!perfil.esAdmin &&
+                  !perfil.esGestion &&
+                  !perfil.esJefeObra)) {
+            return '/partes';
+          }
+          return null;
+        },
+        builder: (context, state) => LazyWidget(
+          loader: report.loadLibrary,
+          builder: () => report.makeInformePartesScreen(),
+        ),
+      ),
       GoRoute(
         path: '/partes-jefe/informe',
         redirect: (context, state) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin &&
-               !perfil.esGestion &&
-               !perfil.esJefeObra)) {
+                  !perfil.esGestion &&
+                  !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
@@ -316,8 +322,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           final perfil = ref.read(authProvider).valueOrNull;
           if (perfil == null ||
               (!perfil.esAdmin &&
-               !perfil.esGestion &&
-               !perfil.esJefeObra)) {
+                  !perfil.esGestion &&
+                  !perfil.esJefeObra)) {
             return esAdminOGestion(perfil) ? '/admin' : '/partes';
           }
           return null;
