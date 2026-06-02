@@ -7,6 +7,8 @@ class Perfil {
   final bool activo;
   final bool postventa;
   final String especialidad;
+  final String codigo;
+  final String grupoProfesional;
 
   Perfil({
     required this.id,
@@ -16,12 +18,16 @@ class Perfil {
     required this.rol,
     required this.activo,
     this.postventa = false,
-    this.especialidad = "",
+    this.especialidad = 'ELECTRICIDAD',
+    this.codigo = '',
+    this.grupoProfesional = '',
   });
 
+  // ── Nombres ──────────────────────────────────────────────────────────────
   String get nombreCompleto => '$nombre $apellidos'.trim();
   String get nombreApellidoCompleto => '$apellidos, $nombre'.trim();
 
+  // ── Deserialización ──────────────────────────────────────────────────────
   factory Perfil.fromJson(Map<String, dynamic> json) {
     return Perfil(
       id: json['id'] ?? '',
@@ -32,27 +38,49 @@ class Perfil {
       activo: json['activo'] ?? true,
       postventa: json['postventa'] ?? false,
       especialidad: json['especialidad'] ?? 'ELECTRICIDAD',
+      codigo: json['codigo'] ?? '',
+      grupoProfesional: json['grupo_profesional'] ?? '',
     );
   }
 
-  // Jerarquía de roles: ADMIN > GESTION > JEFE_DE_OBRA > ENCARGADO > OPERARIO
+  /// Convierte el perfil a Map para pasarlo a EditarUsuarioScreen
+  /// (mismo formato que espera el widget.usuario)
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'email': email,
+      'name': nombre,
+      'apellidos': apellidos,
+      'rol': rol,
+      'activo': activo,
+      'postventa': postventa,
+      'especialidad': especialidad,
+      'codigo': codigo,
+      'grupo_profesional': grupoProfesional,
+    };
+  }
+
+  // ── Roles ─────────────────────────────────────────────────────────────────
+  // Jerarquía: ADMINISTRACION > GESTION > JEFE_DE_OBRA > ENCARGADO > OPERARIO
   bool get esAdmin => rol == 'ADMINISTRACION';
   bool get esGestion => rol == 'GESTION';
   bool get esJefeObra => rol == 'JEFE_DE_OBRA';
   bool get esEncargado => rol == 'ENCARGADO';
   bool get esOperario => rol == 'OPERARIO';
 
-  // Permisos derivados del rol
+  // ── Permisos ──────────────────────────────────────────────────────────────
   bool get puedeVerEquipos => esAdmin || esGestion || esJefeObra || esEncargado;
   bool get puedeValidar => esAdmin || esGestion || esJefeObra || esEncargado;
   bool get puedeCrearParte => esOperario || esEncargado;
   bool get puedeEliminar => esAdmin;
+  bool get puedeGestionarUsuarios => esAdmin;
 
-  // Nivel de acceso: determina qué datos puede ver cada rol
+  // ── Nivel de acceso ───────────────────────────────────────────────────────
+  /// Determina qué datos puede ver cada rol
   String get nivelAcceso {
-    if (esAdmin || esGestion) return 'TOTAL';      // Ven todo
-    if (esJefeObra) return 'ZONA';                  // Su zona/asignaciones
-    if (esEncargado) return 'OBRA';                 // Sus obras
-    return 'INDIVIDUAL';                            // Solo sus partes
+    if (esAdmin || esGestion) return 'TOTAL';     // Ven todo
+    if (esJefeObra) return 'ZONA';                // Su zona/asignaciones
+    if (esEncargado) return 'OBRA';               // Sus obras
+    return 'INDIVIDUAL';                          // Solo sus partes
   }
 }

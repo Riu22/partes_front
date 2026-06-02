@@ -18,6 +18,9 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   late final TextEditingController _lastNameCtrl;
   late final TextEditingController _codigoCtrl;
   late final TextEditingController _grupoProfesionalCtrl;
+  late final TextEditingController _emailCtrl;
+  late final TextEditingController _passwordCtrl;
+
   late String _rol;
   late String _especialidad;
   late bool _activo;
@@ -25,6 +28,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   String? _grupoProfesionalSeleccionado;
   bool _grupoPersonalizado = false;
   bool _enviando = false;
+  bool _mostrarPassword = false;
 
   static const List<String> _gruposOpciones = [
     'OF 1ª - Electricidad',
@@ -60,6 +64,9 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
       text: widget.usuario['apellidos'] ?? '',
     );
     _codigoCtrl = TextEditingController(text: widget.usuario['codigo'] ?? '');
+    _emailCtrl = TextEditingController(text: widget.usuario['email'] ?? '');
+    _passwordCtrl = TextEditingController(); // siempre vacío por seguridad
+
     _rol = widget.usuario['rol'] ?? 'OPERARIO';
     _activo = widget.usuario['activo'] ?? true;
     _postventa = widget.usuario['postventa'] ?? false;
@@ -87,6 +94,8 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     _lastNameCtrl.dispose();
     _codigoCtrl.dispose();
     _grupoProfesionalCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
@@ -97,7 +106,12 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── SECCIÓN: Datos personales ──────────────────────────────
+            _seccionTitulo('Datos personales'),
+            const SizedBox(height: 12),
+
             // Nombre y apellidos
             Row(
               children: [
@@ -134,7 +148,49 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 prefixIcon: Icon(Icons.badge),
               ),
             ),
+            const SizedBox(height: 24),
+
+            // ── SECCIÓN: Acceso ────────────────────────────────────────
+            _seccionTitulo('Acceso'),
+            const SizedBox(height: 12),
+
+            // Email
+            TextFormField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'Correo electrónico',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+            ),
             const SizedBox(height: 16),
+
+            // Contraseña
+            TextFormField(
+              controller: _passwordCtrl,
+              obscureText: !_mostrarPassword,
+              decoration: InputDecoration(
+                labelText: 'Nueva contraseña',
+                hintText: 'Dejar vacío para no cambiarla',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _mostrarPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                  onPressed: () =>
+                      setState(() => _mostrarPassword = !_mostrarPassword),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // ── SECCIÓN: Rol y permisos ────────────────────────────────
+            _seccionTitulo('Rol y permisos'),
+            const SizedBox(height: 12),
 
             // Rol
             DropdownButtonFormField<String>(
@@ -178,7 +234,11 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 onChanged: (v) => setState(() => _postventa = v),
               ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+
+            // ── SECCIÓN: Especialidad y categoría ─────────────────────
+            _seccionTitulo('Especialidad y categoría'),
+            const SizedBox(height: 12),
 
             // Especialidad
             DropdownButtonFormField<String>(
@@ -202,15 +262,15 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Grupo profesional — desplegable
+            // Grupo profesional
             DropdownButtonFormField<String>(
               value: _grupoProfesionalSeleccionado,
               decoration: const InputDecoration(
-                labelText: 'Categoria Profesional',
+                labelText: 'Categoría profesional',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.work),
               ),
-              hint: const Text('Seleccionar categoria'),
+              hint: const Text('Seleccionar categoría'),
               items: _gruposOpciones.map((grupo) {
                 final esOtro = grupo == 'Otro (escribir a mano)';
                 return DropdownMenuItem(
@@ -240,7 +300,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 controller: _grupoProfesionalCtrl,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  labelText: 'Escribe la categoria profesional',
+                  labelText: 'Escribe la categoría profesional',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.edit),
                   hintText: 'Ej: OF 4ª - Climatización',
@@ -265,13 +325,45 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                     : const Text('GUARDAR CAMBIOS'),
               ),
             ),
+
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
+  /// Cabecera de sección con línea divisoria
+  Widget _seccionTitulo(String titulo) {
+    return Row(
+      children: [
+        Text(
+          titulo.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.2,
+            color: Colors.blueAccent,
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Expanded(child: Divider()),
+      ],
+    );
+  }
+
   Future<void> _guardar() async {
+    // Validación mínima de contraseña
+    if (_passwordCtrl.text.isNotEmpty && _passwordCtrl.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La contraseña debe tener al menos 6 caracteres'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _enviando = true);
     try {
       await ref.read(apiServiceProvider).editarUsuario(widget.usuario['id'], {
@@ -283,14 +375,19 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
         'postventa': _postventa,
         'especialidad': _especialidad,
         'grupo_profesional': _grupoFinal,
+        'email': _emailCtrl.text.trim(),
+        if (_passwordCtrl.text.isNotEmpty) 'password': _passwordCtrl.text,
       });
       ref.invalidate(usuariosProvider);
       if (mounted) context.go('/usuarios');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _enviando = false);
