@@ -44,7 +44,7 @@ jobs:
       - name: Build APK & Web
         run: |
           flutter pub get
-          flutter build apk --release
+          flutter build apk --release --target-platform android-arm,android-arm64
           flutter build web --release --dart-define=FLUTTER_WEB_RENDERER=html --dart-define-from-file=.env
 
       - name: Upload APK to Supabase Storage
