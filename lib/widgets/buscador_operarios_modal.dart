@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/perfil.dart';
+import '../providers/admin_provider.dart';
 
 class CuerpoBuscadorOperarios extends StatefulWidget {
   final List<Perfil> perfiles;
@@ -101,4 +103,45 @@ class _CuerpoBuscadorOperariosState extends State<CuerpoBuscadorOperarios> {
       ],
     );
   }
+}
+
+
+
+void abrirBuscadorOperarios(
+  BuildContext context,
+  void Function(Perfil) alSeleccionar,
+) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (_, scrollController) => Consumer(
+        builder: (context, ref, _) {
+          final usuariosAsync = ref.watch(usuariosProvider);
+          return usuariosAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (lista) {
+              final perfiles = lista
+                  .map((e) => Perfil.fromJson(e as Map<String, dynamic>))
+                  .toList();
+              return CuerpoBuscadorOperarios(
+                perfiles: perfiles,
+                alSeleccionar: alSeleccionar,
+                scrollController: scrollController,
+              );
+            },
+          );
+        },
+      ),
+    ),
+  );
 }

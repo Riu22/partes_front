@@ -736,3 +736,10 @@ flutter test
 - **Keystore**: inyectado via GitHub Secrets en CI/CD, no incluido en el repositorio
 - **Interceptor 401**: renovación automática de token con flag `_refrescando` para evitar refresh en cascada
 - **Expiración JWT**: verificación local decodificando el payload antes de usarlo
+
+## Legal
+
+Este software ha sido desarrollado por Riu (https://github.com/riu22) y su propiedad 
+intelectual pertenece al autor. La empresa dispone de una licencia 
+limitada de uso. Cualquier modificación realizada sin el consentimiento 
+del autor no es responsabilidad del desarrollador original.

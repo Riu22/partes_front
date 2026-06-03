@@ -735,7 +735,10 @@ class ApiService {
     );
     return (response.data as List?) ?? [];
   }
-
+Future<Map<String, dynamic>> getHistorialAusencias(String perfilId) async {
+  final response = await _dio.get('/ausencias/laborales/perfil/$perfilId/historial');
+  return response.data as Map<String, dynamic>;
+}
   // ─────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────

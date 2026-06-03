@@ -7,6 +7,7 @@ import '../../providers/admin_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/buscador_obras_modal.dart';
+import '../../widgets/buscador_operarios_modal.dart';
 
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
@@ -41,7 +42,7 @@ class AdminHomeScreen extends ConsumerWidget {
     final obras          = obrasAsync.valueOrNull ?? [];
 
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Panel de Administración'),
@@ -58,10 +59,11 @@ class AdminHomeScreen extends ConsumerWidget {
             tabs: [
               Tab(icon: Icon(Icons.assignment_late_outlined), text: 'Partes'),
               Tab(icon: Icon(Icons.event_busy_rounded), text: 'Ausencias'),
+              Tab(icon: Icon(Icons.work_outline_rounded), text: 'Historial'),
             ],
           ),
         ),
-        body: TabBarView(
+                body: TabBarView(
           children: [
             _PartesTab(
               ausenciasAsync: ausenciasAsync,
@@ -76,6 +78,7 @@ class AdminHomeScreen extends ConsumerWidget {
               ref: ref,
               obras: obras,
             ),
+            _HistorialTab(obras: obras, ref: ref),
           ],
         ),
       ),
@@ -1720,4 +1723,232 @@ class _ErrorView extends StatelessWidget {
       ),
     );
   }
+}
+class _HistorialTab extends StatefulWidget {
+  const _HistorialTab({required this.obras, required this.ref});
+  final List    obras;
+  final WidgetRef ref;
+
+  @override
+  State<_HistorialTab> createState() => _HistorialTabState();
+}
+
+class _HistorialTabState extends State<_HistorialTab> {
+  // Perfil seleccionado actualmente
+  dynamic _perfilSeleccionado; // el objeto que devuelva tu buscador
+  String? _perfilId;
+  String? _nombre;
+
+  void _buscarOperario() {
+    // Reutiliza el mismo modal que ya tienes para buscar personas.
+    // Si tienes un `abrirBuscadorOperarios` análogo a `abrirBuscadorObras`, úsalo aquí.
+    // Si no, adapta este showSearch / showDialog al patrón que uses en la app.
+    abrirBuscadorOperarios(context, (perfil) {   // ← ajusta al nombre real
+      setState(() {
+        _perfilSeleccionado = perfil;
+        _perfilId           = perfil.id.toString();
+        _nombre             = perfil.nombre;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme   = Theme.of(context).textTheme;
+
+    return CustomScrollView(
+      slivers: [
+        // ── Selector de operario ────────────────────────────────────────
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: _perfilSeleccionado == null
+                ? OutlinedButton.icon(
+                    onPressed: _buscarOperario,
+                    icon: const Icon(Icons.person_search_rounded),
+                    label: const Text('Seleccionar operario'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                  )
+                : ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Text(
+                        _nombre![0].toUpperCase(),
+                        style: TextStyle(color: colorScheme.onPrimaryContainer,
+                                         fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    title: Text(_nombre!,
+                                style: textTheme.bodyLarge
+                                    ?.copyWith(fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Historial de ausencias'),
+                    trailing: TextButton(
+                      onPressed: _buscarOperario,
+                      child: const Text('Cambiar'),
+                    ),
+                  ),
+          ),
+        ),
+
+        // ── Contenido ───────────────────────────────────────────────────
+        if (_perfilId == null)
+          const SliverFillRemaining(
+            child: _EmptyView(
+              icono: Icons.manage_search_rounded,
+              mensaje: 'Selecciona un operario para\nver su historial.',
+            ),
+          )
+        else
+          _HistorialBody(perfilId: _perfilId!, nombre: _nombre!),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Cuerpo del historial (consumer para el provider)
+// ─────────────────────────────────────────────
+
+class _HistorialBody extends ConsumerWidget {
+  const _HistorialBody({required this.perfilId, required this.nombre});
+  final String perfilId;
+  final String nombre;
+
+  String _formatFecha(String fecha) {
+    try {
+      final p = fecha.split('/');
+      final dt = DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+      return DateFormat('dd MMM yyyy', 'es').format(dt);
+    } catch (_) {
+      return fecha;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historialAsync = ref.watch(historialAusenciasProvider(perfilId));
+    final colorScheme    = Theme.of(context).colorScheme;
+    final textTheme      = Theme.of(context).textTheme;
+
+    return historialAsync.when(
+      loading: () => const SliverFillRemaining(
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => SliverFillRemaining(
+        child: _ErrorView(
+          mensaje: 'Error al cargar historial: $e',
+          onRetry: () => ref.invalidate(historialAusenciasProvider(perfilId)),
+        ),
+      ),
+      data: (data) {
+        // Ajusta las claves al JSON real que devuelva tu backend
+        final ausencias = (data['ausencias'] as List? ?? []);
+
+        if (ausencias.isEmpty) {
+          return const SliverFillRemaining(
+            child: _EmptyView(
+              icono: Icons.beach_access_rounded,
+              mensaje: 'Este operario no tiene\nausencias registradas.',
+            ),
+          );
+        }
+
+        return SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          sliver: SliverList.separated(
+            itemCount: ausencias.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, i) {
+              final a    = ausencias[i] as Map<String, dynamic>;
+              final tipo = a['tipo'] as String? ?? '';
+
+              final (Color fondo, Color texto, IconData icono) = switch (tipo) {
+                'BAJA'       => (colorScheme.errorContainer,
+                                  colorScheme.error,
+                                  Icons.local_hospital_rounded),
+                'VACACIONES' => (colorScheme.secondaryContainer,
+                                  colorScheme.secondary,
+                                  Icons.beach_access_rounded),
+                'PATERNIDAD' => (const Color(0xFFBFDBFE),
+                                  const Color(0xFF1D4ED8),
+                                  Icons.child_friendly_rounded),
+                _            => (colorScheme.surfaceVariant,
+                                  colorScheme.onSurfaceVariant,
+                                  Icons.event_busy_rounded),
+              };
+
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: fondo,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(icono, size: 20, color: texto),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _labelTipo(tipo),
+                            style: textTheme.labelMedium?.copyWith(
+                                color: texto, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_formatFecha(a['fechaInicio'] ?? '')}  →  '
+                            '${_formatFecha(a['fechaFin'] ?? '')}',
+                            style: textTheme.bodySmall?.copyWith(color: texto),
+                          ),
+                          if ((a['observaciones'] ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                a['observaciones'] as String,
+                                style: textTheme.bodySmall?.copyWith(
+                                    color: texto.withOpacity(0.75)),
+                              ),
+                            ),
+                          if (a['obraNombre'] != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.business_outlined,
+                                      size: 12, color: texto.withOpacity(0.8)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    a['obraNombre'] as String,
+                                    style: textTheme.bodySmall?.copyWith(
+                                        color: texto.withOpacity(0.8)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  String _labelTipo(String tipo) => switch (tipo) {
+        'BAJA'       => 'Baja médica',
+        'VACACIONES' => 'Vacaciones',
+        'PATERNIDAD' => 'Paternidad / Maternidad',
+        _            => tipo,
+  };
 }

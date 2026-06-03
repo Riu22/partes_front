@@ -23,6 +23,12 @@ final misObrasProvider = FutureProvider<List<Obra>>((ref) async {
       .toList();
 });
 
+final historialAusenciasProvider = FutureProvider.family<Map<String, dynamic>, String>(
+  (ref, perfilId) async {
+    return ref.read(apiServiceProvider).getHistorialAusencias(perfilId);
+  },
+);
+
 final diasSinParteProvider =
     FutureProvider.autoDispose<Map<String, AusenciaInfo>>((ref) async {
       final api = ref.read(apiServiceProvider);
@@ -49,3 +55,4 @@ final diasSinParteProvider =
         return MapEntry(uuid, AusenciaInfo.fromJson(infoConId, habilitadas));
       });
     });
+    
