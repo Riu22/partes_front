@@ -630,7 +630,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabecera
+            // ── Cabecera ────────────────────────────────────────────────
             Row(
               children: [
                 CircleAvatar(
@@ -653,14 +653,6 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (widget.onRegistrarAusencia != null)
-                  IconButton(
-                    tooltip: 'Registrar baja o vacaciones',
-                    icon: Icon(Icons.event_busy_rounded,
-                        size: 20, color: colorScheme.secondary),
-                    onPressed: () => widget.onRegistrarAusencia!(
-                        ausencia.perfilId, nombre),
-                  ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 4),
@@ -685,7 +677,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ],
             ),
 
-            // Ausencias laborales
+            // ── Ausencias laborales ──────────────────────────────────────
             if (widget.mostrarAusencias &&
                 ausencia.ausenciasActivas.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -878,7 +870,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               }),
             ],
 
-            // Días sin parte
+            // ── Días sin parte ───────────────────────────────────────────
             if (!widget.mostrarAusencias &&
                 ausencia.diasSin.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -927,7 +919,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ),
             ],
 
-            // Días incompletos
+            // ── Días incompletos ─────────────────────────────────────────
             if (!widget.mostrarAusencias &&
                 ausencia.diasIncompletos.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -974,6 +966,27 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                           },
                   );
                 }).toList(),
+              ),
+            ],
+
+            // ── Botón registrar ausencia ─────────────────────────────────
+            if (widget.onRegistrarAusencia != null) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: () => widget.onRegistrarAusencia!(
+                      ausencia.perfilId, nombre),
+                  icon: const Icon(Icons.event_busy_rounded, size: 16),
+                  label: const Text('Registrar baja / vacaciones'),
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4, vertical: 6),
+                  ),
+                ),
               ),
             ],
           ],
