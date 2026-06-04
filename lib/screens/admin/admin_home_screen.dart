@@ -38,8 +38,8 @@ class AdminHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ausenciasAsync = ref.watch(diasSinParteProvider);
-    final obrasAsync     = ref.watch(obrasProvider);
-    final obras          = obrasAsync.valueOrNull ?? [];
+    final obrasAsync = ref.watch(obrasProvider);
+    final obras = obrasAsync.valueOrNull ?? [];
 
     return DefaultTabController(
       length: 3,
@@ -63,7 +63,7 @@ class AdminHomeScreen extends ConsumerWidget {
             ],
           ),
         ),
-                body: TabBarView(
+        body: TabBarView(
           children: [
             _PartesTab(
               ausenciasAsync: ausenciasAsync,
@@ -387,6 +387,7 @@ class _AusenciasTab extends StatelessWidget {
                         ),
                       );
                     },
+                    // ── CAMBIO PRINCIPAL: eliminación optimista ──────────
                     onEliminarAusencia: (ausenciaId) async {
                       final confirmar = await showDialog<bool>(
                         context: context,
@@ -395,14 +396,12 @@ class _AusenciasTab extends StatelessWidget {
                           content: const Text(
                               '¿Seguro que quieres eliminar esta ausencia?'),
                           actions: [
-                            TextButton(
-                              onPressed: () =>
-                                  Navigator.of(context).pop(false),
-                              child: const Text('Cancelar'),
-                            ),
-                            FilledButton(
-                              onPressed: () =>
-                                  Navigator.of(context).pop(true),
+TextButton(
+  onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
+  child: const Text('Cancelar'),
+),
+FilledButton(
+  onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
                               style: FilledButton.styleFrom(
                                 backgroundColor:
                                     Theme.of(context).colorScheme.error,
@@ -412,20 +411,34 @@ class _AusenciasTab extends StatelessWidget {
                           ],
                         ),
                       );
-                      if (confirmar == true && context.mounted) {
-                        try {
-                          await ApiService()
-                              .eliminarAusenciaLaboral(ausenciaId);
-                          ref.invalidate(diasSinParteProvider);
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error al eliminar: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
+
+                      if (confirmar != true || !context.mounted) return;
+
+                      // 1️⃣ Actualización optimista: quitamos la ausencia
+                      //    del estado local ANTES de llamar al servidor.
+                      //    La UI se actualiza de inmediato sin parpadeo.
+                      ref
+                          .read(diasSinParteProvider.notifier)
+                          .eliminarAusenciaLocal(ausenciaId);
+
+                      try {
+                        // 2️⃣ Llamada real al servidor
+                        await ApiService()
+                            .eliminarAusenciaLaboral(ausenciaId);
+
+                        // 3️⃣ Sincronización en segundo plano (silenciosa,
+                        //    no provoca spinner porque el estado ya es AsyncData)
+                        ref.invalidate(diasSinParteProvider);
+                      } catch (e) {
+                        // 4️⃣ Si falla, recargamos para revertir el estado optimista
+                        ref.invalidate(diasSinParteProvider);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error al eliminar: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
                         }
                       }
                     },
@@ -462,7 +475,7 @@ class _ResumenPartes extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme   = Theme.of(context).textTheme;
+    final textTheme = Theme.of(context).textTheme;
 
     String subtitulo;
     if (cargando) {
@@ -472,9 +485,12 @@ class _ResumenPartes extends StatelessWidget {
     } else if (totalPersonas == 0) {
       subtitulo = 'Sin incidencias de partes';
     } else {
-      final p = '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
-      final s = '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
-      final i = '$totalIncompletos ${totalIncompletos == 1 ? 'día incompleto' : 'días incompletos'}';
+      final p =
+          '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
+      final s =
+          '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
+      final i =
+          '$totalIncompletos ${totalIncompletos == 1 ? 'día incompleto' : 'días incompletos'}';
       subtitulo = '$p · $s · $i';
     }
 
@@ -571,53 +587,53 @@ class _AusenciaCard extends StatefulWidget {
 
 class _AusenciaCardState extends State<_AusenciaCard> {
   String? _fechaActiva;
-  int?    _ausenciaActivaId;
-  bool    _habilitando = false;
+  int? _ausenciaActivaId;
+  bool _habilitando = false;
 
   void _toggleFecha(String fecha) => setState(() {
-        _fechaActiva      = _fechaActiva == fecha ? null : fecha;
+        _fechaActiva = _fechaActiva == fecha ? null : fecha;
         _ausenciaActivaId = null;
       });
 
   void _toggleAusencia(int id) => setState(() {
         _ausenciaActivaId = _ausenciaActivaId == id ? null : id;
-        _fechaActiva      = null;
+        _fechaActiva = null;
       });
 
   Color _colorFondoAusencia(String tipo, ColorScheme cs) => switch (tipo) {
-        'BAJA'       => cs.errorContainer,
+        'BAJA' => cs.errorContainer,
         'VACACIONES' => cs.secondaryContainer,
         'PATERNIDAD' => const Color(0xFFBFDBFE),
-        _            => cs.surfaceVariant,
+        _ => cs.surfaceVariant,
       };
 
   Color _colorTextoAusencia(String tipo, ColorScheme cs) => switch (tipo) {
-        'BAJA'       => cs.error,
+        'BAJA' => cs.error,
         'VACACIONES' => cs.secondary,
         'PATERNIDAD' => const Color(0xFF1D4ED8),
-        _            => cs.onSurfaceVariant,
+        _ => cs.onSurfaceVariant,
       };
 
   IconData _iconoAusencia(String tipo) => switch (tipo) {
-        'BAJA'       => Icons.local_hospital_rounded,
+        'BAJA' => Icons.local_hospital_rounded,
         'VACACIONES' => Icons.beach_access_rounded,
         'PATERNIDAD' => Icons.child_friendly_rounded,
-        _            => Icons.event_busy_rounded,
+        _ => Icons.event_busy_rounded,
       };
 
   String _labelAusencia(String tipo) => switch (tipo) {
-        'BAJA'       => 'Baja',
+        'BAJA' => 'Baja',
         'VACACIONES' => 'Vacaciones',
         'PATERNIDAD' => 'Paternidad',
-        _            => tipo,
+        _ => tipo,
       };
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme   = Theme.of(context).textTheme;
-    final ausencia    = widget.ausencia;
-    final nombre      = ausencia.nombre;
+    final textTheme = Theme.of(context).textTheme;
+    final ausencia = widget.ausencia;
+    final nombre = ausencia.nombre;
 
     final badgeCount = widget.mostrarAusencias
         ? ausencia.ausenciasActivas.length
@@ -633,7 +649,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Cabecera ────────────────────────────────────────────────
+            // ── Cabecera ─────────────────────────────────────────────────
             Row(
               children: [
                 CircleAvatar(
@@ -905,8 +921,8 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                 ausencia.perfilId, fecha);
                             if (mounted) {
                               setState(() {
-                                _habilitando  = false;
-                                _fechaActiva  = null;
+                                _habilitando = false;
+                                _fechaActiva = null;
                               });
                             }
                           },
@@ -955,8 +971,8 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                 ausencia.perfilId, d.fecha);
                             if (mounted) {
                               setState(() {
-                                _habilitando  = false;
-                                _fechaActiva  = null;
+                                _habilitando = false;
+                                _fechaActiva = null;
                               });
                             }
                           },
@@ -1014,7 +1030,7 @@ class _DialogoAusencia extends StatefulWidget {
 
   final String perfilId;
   final String nombre;
-  final List   obras;
+  final List obras;
   final AusenciaLaboral? ausenciaExistente;
   final Future<void> Function(
       String tipo,
@@ -1032,19 +1048,19 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
   DateTime? _inicio;
   DateTime? _fin;
   late final TextEditingController _obsController;
-  bool     _guardando = false;
-  String?  _error;
-  dynamic  _obraSeleccionada;
+  bool _guardando = false;
+  String? _error;
+  dynamic _obraSeleccionada;
 
   @override
   void initState() {
     super.initState();
     final a = widget.ausenciaExistente;
-    _tipo          = a?.tipo ?? 'BAJA';
+    _tipo = a?.tipo ?? 'BAJA';
     _obsController = TextEditingController(text: a?.observaciones ?? '');
     if (a != null) {
       _inicio = _parseFecha(a.fechaInicio);
-      _fin    = _parseFecha(a.fechaFin);
+      _fin = _parseFecha(a.fechaFin);
     }
   }
 
@@ -1099,7 +1115,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
     }
     setState(() {
       _guardando = true;
-      _error     = null;
+      _error = null;
     });
     try {
       final obraId = (_tipo == 'VACACIONES' && _obraSeleccionada != null)
@@ -1119,7 +1135,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
     } catch (e) {
       setState(() {
         _guardando = false;
-        _error     = e.toString();
+        _error = e.toString();
       });
     }
   }
@@ -1127,9 +1143,9 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme   = Theme.of(context).textTheme;
-    final fmt         = DateFormat('dd/MM/yyyy', 'es');
-    final esEdicion   = widget.ausenciaExistente != null;
+    final textTheme = Theme.of(context).textTheme;
+    final fmt = DateFormat('dd/MM/yyyy', 'es');
+    final esEdicion = widget.ausenciaExistente != null;
 
     return AlertDialog(
       title: Text(
@@ -1159,7 +1175,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
                   seleccionado: _tipo == 'BAJA',
                   color: colorScheme.error,
                   onTap: () => setState(() {
-                    _tipo             = 'BAJA';
+                    _tipo = 'BAJA';
                     _obraSeleccionada = null;
                   }),
                 ),
@@ -1176,7 +1192,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
                   seleccionado: _tipo == 'PATERNIDAD',
                   color: const Color(0xFF1D4ED8),
                   onTap: () => setState(() {
-                    _tipo             = 'PATERNIDAD';
+                    _tipo = 'PATERNIDAD';
                     _obraSeleccionada = null;
                   }),
                 ),
@@ -1337,15 +1353,15 @@ class _ChipConAcciones extends StatefulWidget {
     required this.onCrearParte,
   });
 
-  final String   label;
-  final bool     activa;
-  final bool     habilitando;
-  final bool     estaHabilitada;
-  final Color    chipColor;
-  final Color    chipTextColor;
-  final VoidCallback          onTap;
-  final VoidCallback?         onHabilitar;
-  final VoidCallback?         onCrearParte;
+  final String label;
+  final bool activa;
+  final bool habilitando;
+  final bool estaHabilitada;
+  final Color chipColor;
+  final Color chipTextColor;
+  final VoidCallback onTap;
+  final VoidCallback? onHabilitar;
+  final VoidCallback? onCrearParte;
 
   @override
   State<_ChipConAcciones> createState() => _ChipConAccionesState();
@@ -1371,7 +1387,7 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme   = Theme.of(context).textTheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1544,10 +1560,10 @@ class _TipoChip extends StatelessWidget {
     required this.onTap,
   });
 
-  final String   label;
+  final String label;
   final IconData icon;
-  final bool     seleccionado;
-  final Color    color;
+  final bool seleccionado;
+  final Color color;
   final VoidCallback onTap;
 
   @override
@@ -1556,8 +1572,7 @@ class _TipoChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: seleccionado
               ? color.withOpacity(0.15)
@@ -1575,11 +1590,10 @@ class _TipoChip extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style:
-                  Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: seleccionado ? color : null,
-                        fontWeight: seleccionado ? FontWeight.bold : null,
-                      ),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: seleccionado ? color : null,
+                    fontWeight: seleccionado ? FontWeight.bold : null,
+                  ),
             ),
           ],
         ),
@@ -1595,7 +1609,7 @@ class _FechaBoton extends StatelessWidget {
     required this.onTap,
   });
 
-  final String  label;
+  final String label;
   final String? fecha;
   final VoidCallback onTap;
 
@@ -1614,8 +1628,7 @@ class _FechaBoton extends StatelessWidget {
             ),
       ),
       style: OutlinedButton.styleFrom(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
     );
   }
 }
@@ -1628,8 +1641,8 @@ class _SectionLabel extends StatelessWidget {
   });
 
   final IconData icon;
-  final String   label;
-  final Color    color;
+  final String label;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -1656,7 +1669,7 @@ class _EmptyView extends StatelessWidget {
   });
 
   final IconData icono;
-  final String   mensaje;
+  final String mensaje;
 
   @override
   Widget build(BuildContext context) {
@@ -1690,7 +1703,7 @@ class _EmptyView extends StatelessWidget {
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.mensaje, required this.onRetry});
 
-  final String       mensaje;
+  final String mensaje;
   final VoidCallback onRetry;
 
   @override
@@ -1702,8 +1715,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_rounded,
-                size: 56, color: colorScheme.error),
+            Icon(Icons.cloud_off_rounded, size: 56, color: colorScheme.error),
             const SizedBox(height: 16),
             Text(
               mensaje,
@@ -1724,9 +1736,14 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// Pestaña 3 — Historial
+// ─────────────────────────────────────────────
+
 class _HistorialTab extends StatefulWidget {
   const _HistorialTab({required this.obras, required this.ref});
-  final List    obras;
+  final List obras;
   final WidgetRef ref;
 
   @override
@@ -1734,20 +1751,16 @@ class _HistorialTab extends StatefulWidget {
 }
 
 class _HistorialTabState extends State<_HistorialTab> {
-  // Perfil seleccionado actualmente
-  dynamic _perfilSeleccionado; // el objeto que devuelva tu buscador
+  dynamic _perfilSeleccionado;
   String? _perfilId;
   String? _nombre;
 
   void _buscarOperario() {
-    // Reutiliza el mismo modal que ya tienes para buscar personas.
-    // Si tienes un `abrirBuscadorOperarios` análogo a `abrirBuscadorObras`, úsalo aquí.
-    // Si no, adapta este showSearch / showDialog al patrón que uses en la app.
-    abrirBuscadorOperarios(context, (perfil) {   // ← ajusta al nombre real
+    abrirBuscadorOperarios(context, (perfil) {
       setState(() {
         _perfilSeleccionado = perfil;
-        _perfilId           = perfil.id.toString();
-        _nombre             = perfil.nombre;
+        _perfilId = perfil.id.toString();
+        _nombre = perfil.nombre;
       });
     });
   }
@@ -1755,11 +1768,10 @@ class _HistorialTabState extends State<_HistorialTab> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme   = Theme.of(context).textTheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return CustomScrollView(
       slivers: [
-        // ── Selector de operario ────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -1778,13 +1790,14 @@ class _HistorialTabState extends State<_HistorialTab> {
                       backgroundColor: colorScheme.primaryContainer,
                       child: Text(
                         _nombre![0].toUpperCase(),
-                        style: TextStyle(color: colorScheme.onPrimaryContainer,
-                                         fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: colorScheme.onPrimaryContainer,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                     title: Text(_nombre!,
-                                style: textTheme.bodyLarge
-                                    ?.copyWith(fontWeight: FontWeight.w600)),
+                        style: textTheme.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600)),
                     subtitle: const Text('Historial de ausencias'),
                     trailing: TextButton(
                       onPressed: _buscarOperario,
@@ -1793,8 +1806,6 @@ class _HistorialTabState extends State<_HistorialTab> {
                   ),
           ),
         ),
-
-        // ── Contenido ───────────────────────────────────────────────────
         if (_perfilId == null)
           const SliverFillRemaining(
             child: _EmptyView(
@@ -1808,10 +1819,6 @@ class _HistorialTabState extends State<_HistorialTab> {
     );
   }
 }
-
-// ─────────────────────────────────────────────
-// Cuerpo del historial (consumer para el provider)
-// ─────────────────────────────────────────────
 
 class _HistorialBody extends ConsumerWidget {
   const _HistorialBody({required this.perfilId, required this.nombre});
@@ -1831,8 +1838,8 @@ class _HistorialBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historialAsync = ref.watch(historialAusenciasProvider(perfilId));
-    final colorScheme    = Theme.of(context).colorScheme;
-    final textTheme      = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return historialAsync.when(
       loading: () => const SliverFillRemaining(
@@ -1841,11 +1848,11 @@ class _HistorialBody extends ConsumerWidget {
       error: (e, _) => SliverFillRemaining(
         child: _ErrorView(
           mensaje: 'Error al cargar historial: $e',
-          onRetry: () => ref.invalidate(historialAusenciasProvider(perfilId)),
+          onRetry: () =>
+              ref.invalidate(historialAusenciasProvider(perfilId)),
         ),
       ),
       data: (data) {
-        // Ajusta las claves al JSON real que devuelva tu backend
         final ausencias = (data['ausencias'] as List? ?? []);
 
         if (ausencias.isEmpty) {
@@ -1863,22 +1870,31 @@ class _HistorialBody extends ConsumerWidget {
             itemCount: ausencias.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
-              final a    = ausencias[i] as Map<String, dynamic>;
+              final a = ausencias[i] as Map<String, dynamic>;
               final tipo = a['tipo'] as String? ?? '';
 
-              final (Color fondo, Color texto, IconData icono) = switch (tipo) {
-                'BAJA'       => (colorScheme.errorContainer,
-                                  colorScheme.error,
-                                  Icons.local_hospital_rounded),
-                'VACACIONES' => (colorScheme.secondaryContainer,
-                                  colorScheme.secondary,
-                                  Icons.beach_access_rounded),
-                'PATERNIDAD' => (const Color(0xFFBFDBFE),
-                                  const Color(0xFF1D4ED8),
-                                  Icons.child_friendly_rounded),
-                _            => (colorScheme.surfaceVariant,
-                                  colorScheme.onSurfaceVariant,
-                                  Icons.event_busy_rounded),
+              final (Color fondo, Color texto, IconData icono) =
+                  switch (tipo) {
+                'BAJA' => (
+                    colorScheme.errorContainer,
+                    colorScheme.error,
+                    Icons.local_hospital_rounded
+                  ),
+                'VACACIONES' => (
+                    colorScheme.secondaryContainer,
+                    colorScheme.secondary,
+                    Icons.beach_access_rounded
+                  ),
+                'PATERNIDAD' => (
+                    const Color(0xFFBFDBFE),
+                    const Color(0xFF1D4ED8),
+                    Icons.child_friendly_rounded
+                  ),
+                _ => (
+                    colorScheme.surfaceVariant,
+                    colorScheme.onSurfaceVariant,
+                    Icons.event_busy_rounded
+                  ),
               };
 
               return Container(
@@ -1905,7 +1921,8 @@ class _HistorialBody extends ConsumerWidget {
                           Text(
                             '${_formatFecha(a['fechaInicio'] ?? '')}  →  '
                             '${_formatFecha(a['fechaFin'] ?? '')}',
-                            style: textTheme.bodySmall?.copyWith(color: texto),
+                            style:
+                                textTheme.bodySmall?.copyWith(color: texto),
                           ),
                           if ((a['observaciones'] ?? '').isNotEmpty)
                             Padding(
@@ -1922,7 +1939,8 @@ class _HistorialBody extends ConsumerWidget {
                               child: Row(
                                 children: [
                                   Icon(Icons.business_outlined,
-                                      size: 12, color: texto.withOpacity(0.8)),
+                                      size: 12,
+                                      color: texto.withOpacity(0.8)),
                                   const SizedBox(width: 4),
                                   Text(
                                     a['obraNombre'] as String,
@@ -1946,9 +1964,9 @@ class _HistorialBody extends ConsumerWidget {
   }
 
   String _labelTipo(String tipo) => switch (tipo) {
-        'BAJA'       => 'Baja médica',
+        'BAJA' => 'Baja médica',
         'VACACIONES' => 'Vacaciones',
         'PATERNIDAD' => 'Paternidad / Maternidad',
-        _            => tipo,
-  };
+        _ => tipo,
+      };
 }

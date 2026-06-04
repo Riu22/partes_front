@@ -23,36 +23,85 @@ final misObrasProvider = FutureProvider<List<Obra>>((ref) async {
       .toList();
 });
 
-final historialAusenciasProvider = FutureProvider.family<Map<String, dynamic>, String>(
+final historialAusenciasProvider =
+    FutureProvider.family<Map<String, dynamic>, String>(
   (ref, perfilId) async {
     return ref.read(apiServiceProvider).getHistorialAusencias(perfilId);
   },
 );
 
-final diasSinParteProvider =
-    FutureProvider.autoDispose<Map<String, AusenciaInfo>>((ref) async {
-      final api = ref.read(apiServiceProvider);
+// ─────────────────────────────────────────────────────────────────────────────
+// diasSinParteProvider — convertido a AsyncNotifierProvider para poder hacer
+// actualizaciones optimistas sin parpadeos ni pantallas en blanco.
+// ─────────────────────────────────────────────────────────────────────────────
 
-      final results = await Future.wait([
-        api.getDiasSinParte(),
-        api.getFechaLibreActivos(),
-      ]);
+final diasSinParteProvider = AsyncNotifierProvider.autoDispose<
+    DiasSinParteNotifier, Map<String, AusenciaInfo>>(
+  DiasSinParteNotifier.new,
+);
 
-      final raw = results[0] as Map<String, dynamic>;
-      final fechasHabilitadas = results[1] as Map<String, List<DateTime>>;
+class DiasSinParteNotifier
+    extends AutoDisposeAsyncNotifier<Map<String, AusenciaInfo>> {
+  @override
+  Future<Map<String, AusenciaInfo>> build() async {
+    final api = ref.read(apiServiceProvider);
 
-      return raw.map((uuid, value) {
-        final info = value as Map<String, dynamic>;
-        final infoConId = {'perfilId': uuid, ...info};
+    final results = await Future.wait([
+      api.getDiasSinParte(),
+      api.getFechaLibreActivos(),
+    ]);
 
-        final habilitadas = (fechasHabilitadas[uuid] ?? [])
-            .map((dt) =>
-                '${dt.day.toString().padLeft(2, '0')}/'
-                '${dt.month.toString().padLeft(2, '0')}/'
-                '${dt.year}')
-            .toSet();
+    final raw = results[0] as Map<String, dynamic>;
+    final fechasHabilitadas = results[1] as Map<String, List<DateTime>>;
 
-        return MapEntry(uuid, AusenciaInfo.fromJson(infoConId, habilitadas));
-      });
+    return raw.map((uuid, value) {
+      final info = value as Map<String, dynamic>;
+      final infoConId = {'perfilId': uuid, ...info};
+
+      final habilitadas = (fechasHabilitadas[uuid] ?? [])
+          .map((dt) =>
+              '${dt.day.toString().padLeft(2, '0')}/'
+              '${dt.month.toString().padLeft(2, '0')}/'
+              '${dt.year}')
+          .toSet();
+
+      return MapEntry(uuid, AusenciaInfo.fromJson(infoConId, habilitadas));
     });
-    
+  }
+
+  /// Elimina una ausencia del estado local de forma inmediata (optimista).
+  /// Llama a esto ANTES de hacer la petición al servidor para que la UI
+  /// no parpadee ni se quede en blanco.
+  void eliminarAusenciaLocal(int ausenciaId) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+
+    final updated = <String, AusenciaInfo>{};
+
+    for (final entry in current.entries) {
+      final info = entry.value;
+      final nuevasAusencias =
+          info.ausenciasActivas.where((a) => a.id != ausenciaId).toList();
+
+      // Solo mantenemos el perfil si aún tiene algo que mostrar
+      final tieneContenido = nuevasAusencias.isNotEmpty ||
+          info.diasSin.isNotEmpty ||
+          info.diasIncompletos.isNotEmpty;
+
+      if (tieneContenido) {
+        updated[entry.key] = AusenciaInfo(
+          perfilId: info.perfilId,
+          nombre: info.nombre,
+          diasSin: info.diasSin,
+          diasIncompletos: info.diasIncompletos,
+          ausenciasActivas: nuevasAusencias,
+          totalLaborables: info.totalLaborables,
+          fechasHabilitadas: info.fechasHabilitadas,
+        );
+      }
+    }
+
+    // Actualizamos el estado sin pasar por loading — la UI no parpadea
+    state = AsyncData(updated);
+  }
+}
