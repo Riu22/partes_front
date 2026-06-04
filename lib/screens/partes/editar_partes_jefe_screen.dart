@@ -1,3 +1,6 @@
+/// Pantalla para editar un parte de jefe de obra existente.
+/// Permite modificar la fecha, las obras con sus horas (eléctricas/mecánicas)
+/// y la descripción general.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +11,9 @@ import '../../providers/partes_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../widgets/buscador_obras_modal.dart';
 
+/// Formulario de edición para partes de jefe de obra.
+/// Carga las obras existentes del parte y permite añadir, quitar
+/// o modificar las horas de cada una.
 class EditarParteJefeScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> parte;
 
@@ -69,6 +75,8 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
     if (picked != null) setState(() => _fecha = picked);
   }
 
+  /// Envía los cambios del parte de jefe al servidor con las obras
+  /// actualizadas y sus horas desglosadas.
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _enviando = true);

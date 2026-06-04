@@ -1,3 +1,6 @@
+/// Tarjeta que muestra un parte de trabajo para el operario.
+/// Incluye obra, fecha, horas, especialidad, descripción, firma del cliente
+/// y botones para editar o eliminar (si tiene permisos).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

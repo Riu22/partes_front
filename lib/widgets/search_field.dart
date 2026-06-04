@@ -1,3 +1,5 @@
+/// Campo de búsqueda reutilizable con icono personalizable.
+/// Se usa en varias pantallas para buscar obras, operarios, etc.
 import 'package:flutter/material.dart';
 import '../helpers/tema_constants.dart';
 

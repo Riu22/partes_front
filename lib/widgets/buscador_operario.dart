@@ -1,3 +1,5 @@
+/// Campo de texto para buscar operarios por nombre en la misma pantalla.
+/// Notifica al padre cuando el usuario escribe o limpia la búsqueda.
 import 'package:flutter/material.dart';
 
 class BuscadorOperario extends StatefulWidget {

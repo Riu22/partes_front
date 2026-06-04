@@ -1,3 +1,7 @@
+/// Formulario para crear un parte de jefe de obra.
+/// Permite seleccionar un rango de fechas (inicio y fin), añadir una o
+/// varias obras con horas eléctricas y mecánicas desglosadas, y escribir
+/// una descripción general. Si no hay conexión, se guarda en la cola offline.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +14,9 @@ import '../../providers/obras_provider.dart';
 import '../../providers/partes_provider.dart';
 import '../../widgets/buscador_obras_modal.dart';
 
+/// Formulario para que el jefe de obra cree un parte con rango de fechas,
+/// múltiples obras y horas desglosadas en eléctricas y mecánicas.
+/// Soporta guardado offline cuando no hay conexión.
 class FormularioParteJefe extends ConsumerStatefulWidget {
   const FormularioParteJefe({super.key});
 
@@ -353,6 +360,8 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
 
   // ── Envío ──────────────────────────────────────────────────────────
 
+  /// Envía el parte de jefe al servidor con rango de fechas y obras.
+  /// Si no hay red o hay error de conexión, guarda en cola offline.
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_fechasValidas) return;

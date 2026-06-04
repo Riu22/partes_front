@@ -1,3 +1,5 @@
+/// Agrupa los partes por operario dentro de un mismo día.
+/// Cada operario se muestra con su propia fila y total de horas.
 import 'package:flutter/material.dart';
 import '../models/parte_trabajo.dart';
 import 'fila_operario.dart';

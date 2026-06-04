@@ -1,3 +1,7 @@
+/// Formulario para crear un parte de trabajo normal (operario/encargado).
+/// Permite seleccionar operario (si eres gestor), fecha, obra, horas,
+/// especialidad, descripción y firma del cliente. Soporta guardado offline
+/// y selección de fechas permitidas por el administrador.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +20,9 @@ import '../../widgets/buscador_operarios_modal.dart';
 import '../../widgets/seccion_firma.dart';
 import '../../widgets/boton_especialidad.dart';
 
+/// Formulario para registrar un nuevo parte de trabajo de un operario.
+/// Los gestores pueden crear partes para cualquier operario;
+/// los operarios solo crean partes para sí mismos.
 class FormularioParteNormal extends ConsumerStatefulWidget {
   const FormularioParteNormal({
     super.key,
@@ -121,10 +128,15 @@ class _FormularioParteNormalState extends ConsumerState<FormularioParteNormal> {
     }
   }
 
+  /// Comprueba si una fecha está dentro de las fechas habilitadas
+  /// por el administrador (días libres para crear partes).
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
 
+  /// Determina si una fecha se puede seleccionar.
+  /// Los gestores pueden seleccionar cualquier fecha.
+  /// Los operarios solo pueden seleccionar el día de hoy o fechas libres.
   bool _predicate(DateTime dia, bool esGestor) {
     if (esGestor) return true;
     final ahora = DateTime.now();
@@ -141,6 +153,9 @@ class _FormularioParteNormalState extends ConsumerState<FormularioParteNormal> {
     super.dispose();
   }
 
+  /// Abre un selector de fechas restringido a las fechas permitidas.
+  /// Para no gestores, busca automáticamente la fecha disponible más
+  /// cercana si la fecha actual no está permitida.
   Future<void> _pickDate(bool esGestor) async {
     final ahora = DateTime.now();
     DateTime initialDate = _fecha;
@@ -554,6 +569,8 @@ class _FormularioParteNormalState extends ConsumerState<FormularioParteNormal> {
     );
   }
 
+  /// Envía el parte al servidor. Si no hay conexión, lo guarda en la
+  /// cola offline para enviarlo automáticamente cuando se recupere la red.
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;

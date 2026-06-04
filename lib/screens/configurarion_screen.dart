@@ -1,8 +1,13 @@
+/// Pantalla de configuración del perfil del usuario.
+/// Muestra los datos personales, permite cambiar el email y la contraseña,
+/// e indica el estado de la cuenta y el nivel de acceso.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 
+/// Muestra la información del perfil: nombre, email, rol, estado.
+/// Permite cambiar la contraseña y el correo electrónico mediante diálogos.
 class ConfiguracionScreen extends ConsumerWidget {
   const ConfiguracionScreen({super.key});
 
@@ -105,6 +110,8 @@ class ConfiguracionScreen extends ConsumerWidget {
 
   // --- MÉTODOS DE DIÁLOGOS ---
 
+  /// Muestra un diálogo para que el usuario introduzca y confirme
+  /// una nueva contraseña. Valida que tenga al menos 6 caracteres.
   void _mostrarDialogoCambioPassword(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
     bool enviando = false;
@@ -177,6 +184,8 @@ class ConfiguracionScreen extends ConsumerWidget {
     );
   }
 
+  /// Muestra un diálogo para cambiar el correo electrónico.
+  /// Se envía un mensaje de confirmación a la nueva dirección.
   void _mostrarDialogoCambioEmail(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
     bool enviando = false;

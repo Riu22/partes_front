@@ -1,3 +1,6 @@
+/// Resumen semanal de horas trabajadas.
+/// Muestra total de horas de la semana, cantidad de partes, horas de hoy,
+/// una barra de progreso sobre 40h y alerta si hay horas extra.
 import 'package:flutter/material.dart';
 import '../helpers/tema_constants.dart';
 import '../models/parte_trabajo.dart';

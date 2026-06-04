@@ -1,3 +1,6 @@
+/// Selector múltiple de obras con campo de búsqueda.
+/// Permite seleccionar una o varias obras de la lista mediante checkboxes.
+/// Incluye botones para seleccionar todas o ninguna.
 import 'package:flutter/material.dart';
 import '../models/obra.dart';
 

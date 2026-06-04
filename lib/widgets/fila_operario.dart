@@ -1,3 +1,6 @@
+/// Fila que representa a un operario dentro de un grupo.
+/// Muestra su nombre, total de horas (con color según cumpla la jornada)
+/// y la cantidad de partes. Al expandir se ven las tarjetas de cada parte.
 import 'package:flutter/material.dart';
 import '../helpers/tema_constants.dart';
 import '../models/parte_trabajo.dart';

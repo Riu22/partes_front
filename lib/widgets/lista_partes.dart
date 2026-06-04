@@ -1,3 +1,6 @@
+/// Lista completa de partes con scroll infinito.
+/// Agrupa los partes por fecha (de más reciente a más antigua) y
+/// opcionalmente muestra un resumen semanal y agrupación por operario.
 import 'package:flutter/material.dart';
 import '../helpers/fecha_helpers.dart';
 import '../models/parte_trabajo.dart';

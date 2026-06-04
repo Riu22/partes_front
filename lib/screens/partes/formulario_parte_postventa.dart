@@ -1,3 +1,7 @@
+/// Formulario para crear un parte de postventa.
+/// Similar al formulario normal, pero con la particularidad de que el
+/// operario de postventa debe seleccionar una especialidad (electricidad
+/// o fontanería). Incluye firma del cliente y guardado offline.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +20,9 @@ import '../../widgets/buscador_operarios_modal.dart';
 import '../../widgets/seccion_firma.dart';
 import '../../widgets/boton_especialidad.dart';
 
+/// Formulario para registrar un parte de postventa.
+/// Los operarios de postventa eligen especialidad (electricidad/fontanería).
+/// Los gestores pueden crear partes para cualquier operario postventa.
 class FormularioPostVenta extends ConsumerStatefulWidget {
   const FormularioPostVenta({
     super.key,
@@ -121,10 +128,13 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     }
   }
 
+  /// Comprueba si una fecha está dentro de las fechas habilitadas
+  /// por el administrador.
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
 
+  /// Permite o no seleccionar una fecha según el rol del usuario.
   bool _predicate(DateTime dia, bool esGestor) {
     if (esGestor) return true;
     final ahora = DateTime.now();
@@ -141,6 +151,8 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     super.dispose();
   }
 
+  /// Abre el selector de fechas respetando las fechas permitidas.
+  /// Para no gestores busca automáticamente la fecha disponible más cercana.
   Future<void> _pickDate(bool esGestor) async {
     final ahora = DateTime.now();
     DateTime initialDate = _fecha;
@@ -594,6 +606,8 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     );
   }
 
+  /// Envía el parte de postventa al servidor con especialidad incluida.
+  /// Si no hay red, lo guarda en la cola offline.
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;

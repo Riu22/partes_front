@@ -1,3 +1,6 @@
+/// Tarjeta que muestra un parte de trabajo para el jefe de obra.
+/// Muestra la fecha, las obras asociadas con sus porcentajes (eléctrico/mecánico),
+/// la descripción y botones para editar o eliminar.
 import 'package:flutter/material.dart';
 import '../helpers/tema_constants.dart';
 import '../helpers/fecha_helpers.dart';

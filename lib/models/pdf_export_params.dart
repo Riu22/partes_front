@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 
+/// Modo de exportación: ZIP con todos los PDFs, un solo PDF, o ZIP agrupado por operario.
 enum ModoExport { zip, pdf, zipOperario }
 
+/// Parámetros para filtrar la exportación de partes a PDF/ZIP.
+/// Incluye rango de fechas, IDs de obras y perfiles seleccionados.
 @immutable
 class PdfParams {
   final DateTime desde;

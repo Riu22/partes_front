@@ -1,3 +1,6 @@
+/// Caja de estadística simple con una etiqueta y un valor grande.
+/// Se usa en el resumen semanal y otras pantallas para mostrar
+/// totales como horas, cantidad de partes, etc.
 import 'package:flutter/material.dart';
 import '../helpers/tema_constants.dart';
 

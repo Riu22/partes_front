@@ -1,3 +1,6 @@
+/// Representa una obra de construcción.
+/// Cada obra tiene un nombre, ubicación y un código identificador.
+/// Puede estar activa (en curso) o inactiva (finalizada).
 class Obra {
   final int id;
   final String nombre;
@@ -17,6 +20,8 @@ class Obra {
     required this.activa,
   });
 
+  /// Crea una obra a partir del JSON que devuelve el servidor.
+  /// Si algún campo falta, usa un valor por defecto (cadena vacía o true).
   factory Obra.fromJson(Map<String, dynamic> json) => Obra(
   id: json['id'] as int,
   nombre: json['nombre'] as String? ?? '',

@@ -1,3 +1,5 @@
+/// Botón para filtrar por especialidad (Electricidad / Fontanería).
+/// Cambia de color y estilo cuando está seleccionado.
 import 'package:flutter/material.dart';
 
 class BotonEspecialidad extends StatelessWidget {

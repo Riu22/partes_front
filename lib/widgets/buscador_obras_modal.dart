@@ -1,3 +1,6 @@
+/// Ventana modal que permite buscar y seleccionar una obra.
+/// Muestra un campo de texto para filtrar por nombre, municipio o calle,
+/// y una lista con los resultados.
 import 'package:flutter/material.dart';
 
 void abrirBuscadorObras(

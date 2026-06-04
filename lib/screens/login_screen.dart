@@ -1,3 +1,7 @@
+/// Pantalla de inicio de sesión.
+/// Permite al usuario introducir su email y contraseña para acceder.
+/// También incluye un enlace para recuperar contraseña si la ha olvidado,
+/// y una sección para descargar la app Android desde la versión web.
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +10,9 @@ import '../providers/auth_provider.dart';
 import '../config/env.dart';
 import '../services/update_service.dart';
 
+/// Pantalla principal de inicio de sesión.
+/// Muestra los campos de email y contraseña, botón de "Entrar",
+/// enlace para recuperar contraseña y, en web, descarga de la app.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -13,6 +20,8 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
+/// Estado interno del login: controla los textos, la carga, los errores
+/// y la visibilidad de la contraseña.
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -37,6 +46,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// Comprueba si hay una versión más reciente de la app disponible.
+  /// Solo se ejecuta en dispositivos móviles (no en web).
   Future<void> _checkUpdate() async {
     final update = await _updateService.hayActualizacion();
     if (update != null && mounted) {
@@ -84,6 +95,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// Intenta iniciar sesión llamando al proveedor de autenticación.
+  /// Muestra un mensaje de error si las credenciales son incorrectas.
   Future<void> _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       setState(() => _error = 'Por favor, rellena todos los campos');
@@ -116,6 +129,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// Abre un diálogo para que el usuario introduzca su email
+  /// y reciba un enlace para restablecer su contraseña.
   Future<void> _mostrarDialogoRecuperacion() async {
   final recoverEmailController = TextEditingController();
   

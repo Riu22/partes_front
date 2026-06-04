@@ -1,9 +1,14 @@
+/// Pantalla para crear un nuevo usuario en el sistema.
+/// Permite introducir nombre, apellidos, código, email, contraseña,
+/// rol, especialidad, grupo profesional y si es operario de postventa.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 
+/// Formulario completo para crear un nuevo usuario con todos sus datos:
+/// personales, acceso, rol, especialidad y categoría profesional.
 class CrearUsuarioScreen extends ConsumerStatefulWidget {
   const CrearUsuarioScreen({super.key});
 

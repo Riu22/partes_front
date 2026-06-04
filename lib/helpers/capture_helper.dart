@@ -1,10 +1,9 @@
-// capture_helper.dart
-// Enruta automáticamente al helper correcto según la plataforma:
-//   - Web   → capture_helper_web.dart   (dart:html, sin path_provider)
-//   - Móvil → capture_helper_mobile.dart (stub; lanza UnimplementedError)
-//
-// En contabilidad_screen.dart importa SOLO este fichero:
-//   import 'capture_helper.dart';
+/// Este archivo elige automáticamente el helper de captura de pantalla
+/// según la plataforma donde se ejecute la app:
+///   - En web usa el archivo capture_helper_web.dart
+///   - En móvil (Android/iOS) usa capture_helper_mobile.dart
+///
+/// Las pantallas solo deben importar este archivo, no los específicos de cada plataforma.
 
 export 'capture_helper_mobile.dart'
     if (dart.library.html) 'capture_helper_web.dart';

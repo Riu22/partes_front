@@ -1,3 +1,5 @@
+/// Detalle de horas trabajadas por un operario para contabilidad.
+/// Agrupa las horas de un operario en una obra, día por día.
 class ContabilidadDetalle {
   final String codigo;
   final String operario;

@@ -16,6 +16,8 @@ import '../widgets/lazy_screen.dart';
 import '../screens/admin/admin_entry.dart' deferred as admin;
 import '../screens/report_entry.dart' deferred as report;
 
+/// Notifica al router cuando cambia el estado de autenticación (login/logout).
+/// Esto permite que GoRouter redirija automáticamente según si hay sesión o no.
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(this._ref) {
     _ref.listen(authProvider, (_, __) => notifyListeners());
@@ -23,6 +25,12 @@ class _AuthNotifier extends ChangeNotifier {
   final Ref _ref;
 }
 
+/// Proveedor del router de GoRouter con protección de rutas por rol.
+/// Las reglas de navegación son:
+/// 1. Si vas a /nueva-password, dejas pasar sin comprobar nada
+/// 2. Si no hay sesión, redirige a /login
+/// 3. Si ya tienes sesión y vas a /login, ve a /admin o /partes según tu rol
+/// 4. Las rutas de admin solo para ADMINISTRACION y GESTION
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthNotifier(ref);
   ref.onDispose(notifier.dispose);

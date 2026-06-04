@@ -1,8 +1,11 @@
+/// Ventana modal para buscar y seleccionar un operario.
+/// Abre un panel deslizable con lista filtrable de todos los usuarios.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/perfil.dart';
 import '../providers/admin_provider.dart';
 
+/// Cuerpo del buscador de operarios: campo de texto + lista filtrable.
 class CuerpoBuscadorOperarios extends StatefulWidget {
   final List<Perfil> perfiles;
   final Function(Perfil) alSeleccionar;

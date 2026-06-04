@@ -1,3 +1,6 @@
+/// Pantalla de listado de usuarios del sistema.
+/// Muestra todos los perfiles con su rol, email, jefe directo y estado.
+/// Permite buscar, editar, gestionar equipo y eliminar usuarios.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +8,8 @@ import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/buscador_operario.dart';
 
+/// Lista todos los usuarios del sistema con opciones de búsqueda,
+/// edición, gestión de equipo y eliminación.
 class UsuariosScreen extends ConsumerStatefulWidget {
   const UsuariosScreen({super.key});
 

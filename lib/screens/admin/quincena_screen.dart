@@ -1,3 +1,7 @@
+/// Pantalla de exportación contable por quincena.
+/// Muestra una tabla con las horas diarias de cada operario/obra para
+/// un rango de fechas seleccionable. Permite exportar a CSV y PDF.
+/// Incluye chips rápidos para seleccionar la 1ª o 2ª quincena.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +11,9 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
 
+/// Pantalla de exportación contable por quincena.
+/// Muestra tabla de horas diarias, permite exportar a CSV y PDF,
+/// y ofrece atajos para seleccionar 1ª/2ª quincena del mes.
 class QuincenaScreen extends ConsumerStatefulWidget {
   const QuincenaScreen({super.key});
 
@@ -14,6 +21,8 @@ class QuincenaScreen extends ConsumerStatefulWidget {
   ConsumerState<QuincenaScreen> createState() => _QuincenaScreenState();
 }
 
+/// Gestiona la carga de datos contables, la tabla de horas por día
+/// y las exportaciones a CSV y PDF.
 class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   final ApiService _apiService = ApiService();
 
@@ -48,15 +57,19 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
 
   // ── Helpers ───────────────────────────────────────────────────────
 
+  /// Devuelve la letra del día de la semana (L, M, X, J, V, S, D).
   String _letraDia(DateTime d) {
     const letras = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
     return letras[d.weekday - 1];
   }
 
+  /// Comprueba si es sábado o domingo.
   bool _esFinDeSemana(DateTime d) => d.weekday >= 6;
 
+  /// Comprueba si es un festivo nacional fijo (ej. 1 de enero, 25 de diciembre).
   bool _esFestivo(DateTime d) => _festivosFijos.contains((d.month, d.day));
 
+  /// Un día "rojo" es fin de semana o festivo.
   bool _esDiaRojo(DateTime d) => _esFinDeSemana(d) || _esFestivo(d);
 
   ({Color bg, Color fg, String letra})? _infoAusencia(
@@ -339,6 +352,9 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
 
   // ── PDF ───────────────────────────────────────────────────────────
 
+  /// Genera un PDF con la tabla de horas agrupadas por obra u operario.
+  /// Calcula totales por día, subtotales por grupo y los pasa al helper
+  /// de generación de PDF.
   Future<void> _exportarPdf() async {
     if (_rangoSeleccionado == null || _datosPrevia.isEmpty) return;
     setState(() => _exportandoPdf = true);
@@ -1184,6 +1200,8 @@ class _LeyendaCelda extends StatelessWidget {
   }
 }
 
+/// Panel deslizante para filtrar la tabla por operarios u obras.
+/// Muestra checkboxes y un buscador de texto.
 class _FiltroBottomSheet extends StatefulWidget {
   final String titulo;
   final IconData icono;

@@ -1,3 +1,6 @@
+/// Pantalla de informe de dedicación horaria del jefe de obra.
+/// Permite seleccionar un rango de fechas y ver el desglose de horas
+/// eléctricas y mecánicas por obra, con opción de exportar a PDF.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf/pdf.dart';
@@ -7,6 +10,8 @@ import 'package:intl/intl.dart';
 import '../../providers/auth_provider.dart';
 import '../../helpers/tema_constants.dart';
 
+/// Muestra una tabla con las horas eléctricas y mecánicas agrupadas
+/// por obra para un rango de fechas. Permite exportar a PDF.
 class InformeJefeScreen extends ConsumerStatefulWidget {
   const InformeJefeScreen({super.key});
 

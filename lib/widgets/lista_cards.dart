@@ -1,3 +1,5 @@
+/// Lista simple de tarjetas de partes de trabajo.
+/// Renderiza una columna con una tarjeta CardParte por cada elemento.
 import 'package:flutter/material.dart';
 import '../models/parte_trabajo.dart';
 import 'card_parte.dart';

@@ -1,3 +1,6 @@
+/// Widget que carga contenido de forma diferida (lazy loading).
+/// Muestra un indicador de carga mientras se ejecuta una tarea async
+/// y luego renderiza el contenido real. Útil para pantallas pesadas.
 import 'package:flutter/material.dart';
 
 class LazyWidget extends StatefulWidget {

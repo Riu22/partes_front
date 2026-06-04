@@ -1,3 +1,6 @@
+/// Pantalla de gestión de fechas libres (permisos).
+/// Permite al administrador añadir o quitar días sueltos para que un
+/// operario pueda registrar partes fuera del límite normal (día actual).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -5,6 +8,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/perfiles_provider.dart';
 import '../../widgets/app_drawer.dart';
 
+/// Pantalla para gestionar las fechas libres (permisos) de los operarios.
+/// Muestra dos listas: operarios con fechas permitidas y sin ellas.
+/// Permite añadir/quitar días sueltos para cada operario.
 class FechaLibreScreen extends ConsumerStatefulWidget {
   const FechaLibreScreen({super.key});
 

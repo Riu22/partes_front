@@ -1,3 +1,6 @@
+/// Selector múltiple de perfiles (operarios) con búsqueda.
+/// Permite filtrar por nombre, seleccionar por especialidad
+/// (Electricidad, Fontanería, Postventa) o elegir todos/ninguno.
 import 'package:flutter/material.dart';
 import '../models/perfil.dart';
 

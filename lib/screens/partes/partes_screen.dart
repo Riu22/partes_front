@@ -1,3 +1,7 @@
+/// Pantalla principal de partes de trabajo.
+/// Muestra la lista de partes con filtros por obra, operario y especialidad.
+/// Incluye un selector de calendario (vista semanal/mensual), un indicador
+/// de partes pendientes sin conexión y un botón para crear nuevos partes.
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +21,9 @@ import '../../models/perfil.dart';
 import '../../widgets/lista_partes.dart';
 import '../../widgets/partes_views.dart';
 
+/// Lista principal de partes con filtros, vista de calendario y
+/// botón para crear nuevos partes. Soporta carga directa de un parte
+/// concreto (usado desde la tabla de contabilidad).
 class PartesScreen extends ConsumerStatefulWidget {
   const PartesScreen({super.key, this.parteIdInicial});
 
@@ -79,6 +86,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
 
   // ── Carga de parte concreto ───────────────────────────────────────
 
+  /// Carga un parte específico desde el proveedor y lo muestra
+  /// filtrado. Se usa al navegar desde la pantalla de contabilidad.
   Future<void> _cargarParteConcreto(int parteId) async {
     setState(() => _cargandoParte = true);
     try {
@@ -96,6 +105,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
 
   // ── Actualización ─────────────────────────────────────────────────
 
+  /// Comprueba si hay una versión más reciente de la app.
+  /// Muestra un diálogo para descargarla si es necesario.
   Future<void> _checkUpdate() async {
     final update = await _updateService.hayActualizacion();
     if (update != null && mounted) {
@@ -132,6 +143,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   // ── Filtros ───────────────────────────────────────────────────────
 
   /// Llama al endpoint /partes/buscar del backend con los filtros activos.
+  /// Llama al endpoint de búsqueda del backend con los filtros activos
+  /// (obra, operario, especialidad) y actualiza la lista de partes.
   Future<void> _aplicarFiltro() async {
     if (!_hayFiltros) {
       setState(() => _partesFiltradas = null);
@@ -556,6 +569,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
 
 // ── Widget: sección de partes pendientes offline ─────────────────────────────
 
+/// Muestra las tarjetas de partes que aún no se han enviado
+/// por falta de conexión a internet.
 class _PartesPendientesOffline extends ConsumerWidget {
   const _PartesPendientesOffline();
 
@@ -598,6 +613,8 @@ class _PartesPendientesOffline extends ConsumerWidget {
   }
 }
 
+/// Tarjeta que muestra un parte pendiente de envío por falta de conexión.
+/// Indica el estado (intentando enviar / pendiente) y permite borrarlo.
 class _TarjetaParteOffline extends ConsumerWidget {
   const _TarjetaParteOffline({required this.data});
   final Map<String, dynamic> data;
@@ -782,6 +799,8 @@ class _TarjetaParteOffline extends ConsumerWidget {
   }
 }
 
+/// Pequeña etiqueta de color para indicar el tipo de parte
+/// (Post Venta o Jefe Obra).
 class _Badge extends StatelessWidget {
   const _Badge({required this.label, required this.color});
   final String label;

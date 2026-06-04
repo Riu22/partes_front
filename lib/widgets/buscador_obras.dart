@@ -1,3 +1,5 @@
+/// Campo de texto para buscar obras dentro de la misma pantalla.
+/// Incluye un botón para borrar el texto rápidamente.
 import 'package:flutter/material.dart';
 
 class BuscadorObrasFiltro extends StatefulWidget {

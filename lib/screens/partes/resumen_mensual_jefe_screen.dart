@@ -1,3 +1,6 @@
+/// Pantalla de resumen mensual de dedicación del jefe de obra.
+/// Muestra las horas totales por operario y obra, con porcentajes
+/// eléctricos y mecánicos, para un mes seleccionable.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../helpers/tema_constants.dart';
@@ -5,6 +8,9 @@ import '../../providers/auth_provider.dart';
 import '../../providers/partes_provider.dart';
 import '../../widgets/app_drawer.dart';
 
+/// Resumen mensual de dedicación: para cada operario muestra las horas
+/// por obra con porcentajes de especialidad (eléctrico/mecánico).
+/// Los administradores ven todos los usuarios; los jefes solo los suyos.
 class ResumenMensualJefeScreen extends ConsumerStatefulWidget {
   const ResumenMensualJefeScreen({super.key});
 

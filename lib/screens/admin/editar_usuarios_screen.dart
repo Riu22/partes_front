@@ -1,9 +1,15 @@
+/// Pantalla para editar un usuario existente.
+/// Permite modificar datos personales, email, contraseña (opcional),
+/// rol, estado activo, postventa, especialidad y categoría profesional.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 
+/// Formulario para editar un usuario existente. Permite cambiar todos
+/// los campos incluyendo contraseña (opcional), rol, especialidad y
+/// categoría profesional.
 class EditarUsuarioScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> usuario;
   const EditarUsuarioScreen({super.key, required this.usuario});

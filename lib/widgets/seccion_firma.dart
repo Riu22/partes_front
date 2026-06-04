@@ -1,7 +1,12 @@
+/// Sección para capturar la firma del cliente en un parte.
+/// Incluye campos para el nombre del firmante, trabajos extra opcionales
+/// y un pad de firma donde el cliente dibuja su firma con el dedo.
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:signature/signature.dart';
 
+/// Widget principal de la sección de firma.
+/// Permite escribir nombre, trabajos extra y abrir el modal para firmar.
 class SeccionFirma extends StatefulWidget {
   final void Function(String? base64, String? nombreFirma) onFirmaChanged;
   final void Function(String trabajosExtra)? onTrabajosExtraChanged;

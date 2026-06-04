@@ -1,3 +1,5 @@
+/// Widget para seleccionar entre modo normal y modo jefe de obra.
+/// Cada opción se muestra como un recuadro con icono, título y subtítulo.
 import 'package:flutter/material.dart';
 
 class ModoTile extends StatelessWidget {

@@ -24,7 +24,9 @@ class Perfil {
   });
 
   // ── Nombres ──────────────────────────────────────────────────────────────
+  /// Nombre completo: "Juan Pérez"
   String get nombreCompleto => '$nombre $apellidos'.trim();
+  /// Nombre con apellido primero: "Pérez, Juan"
   String get nombreApellidoCompleto => '$apellidos, $nombre'.trim();
 
   // ── Deserialización ──────────────────────────────────────────────────────

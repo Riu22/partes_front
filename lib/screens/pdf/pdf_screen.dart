@@ -1,3 +1,6 @@
+/// Pantalla para exportar informes de partes en PDF o ZIP.
+/// Permite seleccionar rango de fechas, obras, operarios y el formato
+/// de exportación (PDF único, ZIP por obra o ZIP por operario).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/pdf_export_params.dart';
@@ -13,6 +16,9 @@ import '../../widgets/export_preview.dart';
 import '../../providers/obras_provider.dart';
 
 
+/// Pantalla de generación de informes de partes. Permite seleccionar
+/// filtros (fechas, obras, operarios) y elegir formato de exportación
+/// (PDF único, ZIP por obra o ZIP por operario).
 class InformePartesScreen extends ConsumerStatefulWidget {
   const InformePartesScreen({super.key});
 
@@ -21,6 +27,8 @@ class InformePartesScreen extends ConsumerStatefulWidget {
       _InformePartesScreenState();
 }
 
+/// Gestiona los filtros (fechas, obras, operarios, modo) y genera
+/// la previsualización/exportación del informe de partes.
 class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
   DateTime _desde = DateTime.now().subtract(const Duration(days: 15));
   DateTime _hasta = DateTime.now();

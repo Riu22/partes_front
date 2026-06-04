@@ -1,3 +1,6 @@
+/// Pantalla para editar un parte de trabajo existente (operario normal).
+/// Permite cambiar obra, fecha, horas, descripción, especialidad y firma.
+/// Si no hay conexión, guarda el cambio en la cola offline.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +15,9 @@ import '../../widgets/buscador_obras_modal.dart';
 import '../../widgets/boton_especialidad.dart';
 import '../../widgets/seccion_firma.dart';
 
+/// Formulario de edición para un parte de trabajo.
+/// Los gestores pueden editar cualquier campo y cambiar la fecha;
+/// los operarios solo pueden editar el parte del día actual.
 class EditarParteScreen extends ConsumerStatefulWidget {
   final ParteTrabajo parte;
   const EditarParteScreen({super.key, required this.parte});
@@ -338,6 +344,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
 
   // ── Guardar ────────────────────────────────────────────────────────────────
 
+  /// Guarda los cambios del parte. Si no hay conexión, lo encola en
+  /// la cola offline para enviarlo cuando se recupere la red.
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;

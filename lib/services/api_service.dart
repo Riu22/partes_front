@@ -5,6 +5,9 @@ import '../models/parte_trabajo.dart';
 import 'dart:typed_data';
 import '../helpers/download_helper.dart';
 
+/// Servicio principal de comunicación con el backend via HTTP (Dio).
+/// Centraliza todas las llamadas a la API REST: usuarios, obras, partes, PDFs, etc.
+/// Incluye un interceptor que refresca automáticamente el token JWT cuando expira (código 401).
 class ApiService {
   late final Dio _dio;
   final AuthService _authService;
@@ -52,23 +55,24 @@ class ApiService {
     );
   }
 
+  /// Añade el token JWT a los headers de la petición para autenticación.
   Future<Options> _authHeaders() async {
     final token = await _authService.getToken();
     return Options(headers: {'Authorization': 'Bearer $token'});
   }
 
-  // ─────────────────────────────────────────
-  // Perfil
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // PERFIL DEL USUARIO
+  // =====================================================================
 
   Future<Map<String, dynamic>> getMyProfile() async {
     final response = await _dio.get('/user/me', options: await _authHeaders());
     return response.data;
   }
 
-  // ─────────────────────────────────────────
-  // Usuarios
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // USUARIOS (CRUD)
+  // =====================================================================
 
   Future<List<dynamic>> getUsuarios() async {
     final response = await _dio.get('/user/all', options: await _authHeaders());
@@ -95,9 +99,9 @@ class ApiService {
     await _dio.delete('/user/delete_user/$id', options: await _authHeaders());
   }
 
-  // ─────────────────────────────────────────
-  // Obras
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // OBRAS (CRUD)
+  // =====================================================================
 
   Future<List<dynamic>> getObras() async {
     final response = await _dio.get('/obra', options: await _authHeaders());
@@ -135,9 +139,9 @@ class ApiService {
     await _dio.delete('/obra/delete/$id', options: await _authHeaders());
   }
 
-  // ─────────────────────────────────────────
-  // Asignaciones
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // ASIGNACIONES (operarios <-> jefes, operarios <-> obras)
+  // =====================================================================
 
   Future<List<dynamic>> getSubordinadosDe(String jefeId) async {
     final response = await _dio.get(
@@ -240,9 +244,9 @@ class ApiService {
     );
   }
 
-  // ─────────────────────────────────────────
-  // Partes
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // PARTES DE TRABAJO (CRUD)
+  // =====================================================================
 
   Future<List<dynamic>> getPartes() async {
     final response = await _dio.get(
@@ -378,9 +382,9 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
-  // ─────────────────────────────────────────
-  // Fechas con parte — para el DatePicker
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // FECHAS CON PARTE (para el calendario / DatePicker)
+  // =====================================================================
 
   Future<List<DateTime>> getMisFechasConParte() async {
     try {
@@ -410,9 +414,9 @@ class ApiService {
     }
   }
 
-  // ─────────────────────────────────────────
-  // Fecha libre — gestión de días permitidos
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // FECHA LIBRE — Gestión de días habilitados para editar partes anteriores
+  // =====================================================================
 
   Future<void> habilitarFechas(String id, List<DateTime> fechas) async {
     final body = fechas.map(_fmtDate).toList();
@@ -468,9 +472,9 @@ class ApiService {
     }
   }
 
-  // ─────────────────────────────────────────
-  // Quincena
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // QUINCENA / CONTABILIDAD
+  // =====================================================================
 
   Future<List<dynamic>> getQuincena(String desde, String hasta) async {
     final response = await _dio.get(
@@ -574,9 +578,9 @@ class ApiService {
     }
   }
 
-  // ─────────────────────────────────────────
-  // Ausencias — incidencias
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // AUSENCIAS — Días sin parte / incidencias
+  // =====================================================================
 
   Future<Map<String, dynamic>> getDiasSinParte() async {
     final response = await _dio.get(
@@ -586,9 +590,9 @@ class ApiService {
     return response.data as Map<String, dynamic>;
   }
 
-  // ─────────────────────────────────────────
-  // Ausencias laborales — baja / vacaciones
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // AUSENCIAS LABORALES — Bajas / Vacaciones / Paternidad
+  // =====================================================================
 
   Future<Map<String, dynamic>> crearAusenciaLaboral({
     required String perfilId,
@@ -636,9 +640,9 @@ class ApiService {
     return (response.data as List?) ?? [];
   }
 
-  // ─────────────────────────────────────────
-  // PDF / ZIP de partes
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // PDF / ZIP — Exportación de partes
+  // =====================================================================
 
   Map<String, dynamic> _buildPdfParams(
     DateTime desde,
@@ -739,9 +743,9 @@ Future<Map<String, dynamic>> getHistorialAusencias(String perfilId) async {
   final response = await _dio.get('/ausencias/laborales/perfil/$perfilId/historial');
   return response.data as Map<String, dynamic>;
 }
-  // ─────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────
+  // =====================================================================
+  // HELPERS — Utilidades internas
+  // =====================================================================
 
   String _fmtDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

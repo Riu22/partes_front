@@ -2,6 +2,14 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+/// Cola de sincronización offline.
+/// Cuando no hay conexión a internet, los partes se guardan aquí
+/// y se envían automáticamente cuando se recupera la red.
+///
+/// Hay 3 colas separadas:
+/// - partes normales (operario)
+/// - partes de jefe de obra
+/// - updates (ediciones de partes existentes)
 class OfflineQueueService {
   static const _keyPartes = 'offline_partes';
   static const _keyPartesJefe = 'offline_partes_jefe';
@@ -9,7 +17,8 @@ class OfflineQueueService {
 
   final _uuid = const Uuid();
 
-  /// Envuelve los datos de negocio con metadatos de control para la cola offline.
+  /// Envuelve los datos con metadatos (ID único y timestamp)
+  /// para poder identificar cada elemento en la cola.
   Map<String, dynamic> _envolver(Map<String, dynamic> data) {
     return {
       'queue_id': _uuid.v4(),
@@ -18,10 +27,11 @@ class OfflineQueueService {
     };
   }
 
-  // ── GUARDAR ──────────────────────────────
+  // ── Guardar en cola ─────────────────────────────────
+
   Future<void> guardarParteOffline(Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.reload(); // Evita condiciones de carrera (Race Conditions)
+    await prefs.reload();
     final lista = _getLista(prefs, _keyPartes);
     lista.add(jsonEncode(_envolver(data)));
     await prefs.setStringList(_keyPartes, lista);
@@ -43,15 +53,17 @@ class OfflineQueueService {
     await prefs.setStringList(_keyUpdates, lista);
   }
 
-  // ── LEER COLA (Devuelve elementos envueltos) ──
+  // ── Leer cola (devuelve elementos completos con metadatos) ──
+
   Future<List<Map<String, dynamic>>> getPartesOffline() async => _getWrappedItems(_keyPartes);
   Future<List<Map<String, dynamic>>> getPartesJefeOffline() async => _getWrappedItems(_keyPartesJefe);
   Future<List<Map<String, dynamic>>> getUpdatesOffline() async => _getWrappedItems(_keyUpdates);
 
-  // ── BORRADO ATÓMICO POR ID UNICO ──
+  // ── Borrar elementos de la cola por su ID único ──
+
   Future<void> _borrarPorQueueId(String queueId, String key) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.reload(); // Sincroniza con el disco inmediatamente antes de modificar
+    await prefs.reload();
     final lista = _getLista(prefs, key);
 
     lista.removeWhere((itemStr) {
@@ -78,7 +90,8 @@ class OfflineQueueService {
     await _borrarPorQueueId(wrappedData['queue_id'] as String, _keyUpdates);
   }
 
-  // ── LIMPIAR TODO ───────────────────────────
+  // ── Limpiar toda la cola ──
+
   Future<void> limpiarTodo() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyPartes);
@@ -86,7 +99,9 @@ class OfflineQueueService {
     await prefs.remove(_keyUpdates);
   }
 
-  // ── UTILIDADES ────────────────────────────
+  // ── Utilidades ──
+
+  /// Devuelve el número total de elementos pendientes en todas las colas
   Future<int> totalPendientes() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();

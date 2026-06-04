@@ -1,3 +1,5 @@
+/// Etiqueta pequeña que indica la especialidad: "ELECT." para electricidad
+/// o "FONT." para fontanería. Cambia de color según el tipo.
 import 'package:flutter/material.dart';
 import '../helpers/tema_constants.dart';
 

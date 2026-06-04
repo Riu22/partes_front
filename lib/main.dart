@@ -1,3 +1,6 @@
+/// Punto de entrada de la aplicación.
+/// Configura el tema, el enrutador, el idioma (español) y muestra un cartel
+/// de "Sin conexión" cuando el dispositivo no tiene internet.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -19,6 +22,9 @@ void main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
+/// Widget principal de la aplicación.
+/// Envuelve toda la app con los proveedores de estado (Riverpod) y configura
+/// el tema visual, el router y el detector de conexión.
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
@@ -80,6 +86,8 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 }
 
+/// Muestra una barra roja en la parte superior cuando no hay internet.
+/// Desaparece automáticamente cuando se recupera la conexión.
 class _NoConnectionBanner extends ConsumerWidget {
   const _NoConnectionBanner();
 

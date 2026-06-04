@@ -1,3 +1,6 @@
+/// Representa un parte de trabajo (reporte diario de un operario).
+/// Contiene la información de qué operario trabajó en qué obra,
+/// cuántas horas, qué tareas hizo, y si tiene firma del cliente.
 class ParteTrabajo {
   final int id;
   final int? obraId;
@@ -33,6 +36,7 @@ class ParteTrabajo {
     this.trabajosExtra = '',
   });
 
+  /// Devuelve el nombre del operario en formato "Apellidos, Nombre"
   String get operarioNombreCompleto {
     final ap = operarioApellidos.trim();
     final nm = operarioNombre.trim();
@@ -40,6 +44,8 @@ class ParteTrabajo {
     return '$ap, $nm';
   }
 
+  /// Crea un ParteTrabajo a partir del JSON que devuelve el servidor.
+  /// Los campos del JSON están en español (obra, perfil, horas_normales, etc.)
   factory ParteTrabajo.fromJson(Map<String, dynamic> json) => ParteTrabajo(
     id: json['id'],
     obraId: json['obra']?['id'],
@@ -59,7 +65,7 @@ class ParteTrabajo {
     trabajosExtra: json['trabajos_extra'] ?? '',
   );
 
-  // Solo se puede editar un parte si es del día de hoy
+  /// Solo se puede editar un parte si es del día de hoy
   bool get puedeEditarse {
     final hoy = DateTime.now();
     return fecha.year == hoy.year &&
@@ -67,7 +73,7 @@ class ParteTrabajo {
         fecha.day == hoy.day;
   }
 
-  // También permite editar si el gestor habilitó fechas concretas para ese operario
+  /// También permite editar si el gestor habilitó fechas concretas para ese operario
   bool puedeEditarseConFechas(List<DateTime> fechasPermitidas) {
     if (puedeEditarse) return true;
     return fechasPermitidas.any(

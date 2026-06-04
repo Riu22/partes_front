@@ -1,5 +1,8 @@
+/// Tipos de ausencia laboral que puede tener un operario.
 enum AusenciaTipo { BAJA, VACACIONES, PATERNIDAD }
 
+/// Representa un período de ausencia laboral (baja, vacaciones, paternidad).
+/// Tiene fecha de inicio y fin, y opcionalmente observaciones.
 class AusenciaLaboral {
   final int? id;
   final String tipo;
@@ -26,6 +29,7 @@ class AusenciaLaboral {
   }
 }
 
+/// Un día en que el operario trabajó menos horas de las esperadas.
 class DiaIncompleto {
   final String fecha;
   final String horas;
@@ -40,6 +44,8 @@ class DiaIncompleto {
   }
 }
 
+/// Resumen de incidencias de un operario: días sin parte, días incompletos,
+/// ausencias activas, y fechas habilitadas por el gestor.
 class AusenciaInfo {
   final String perfilId;
   final String nombre;
@@ -59,8 +65,10 @@ class AusenciaInfo {
     this.fechasHabilitadas = const {},
   });
 
+  /// Total de días con incidencias (días sin parte + días incompletos)
   int get totalIncidencias => diasSin.length + diasIncompletos.length;
 
+  /// True si solo tiene ausencias laborales (sin días sin parte ni incompletos)
   bool get soloAusencias =>
       diasSin.isEmpty && diasIncompletos.isEmpty && ausenciasActivas.isNotEmpty;
 

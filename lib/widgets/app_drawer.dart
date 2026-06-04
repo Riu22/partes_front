@@ -1,8 +1,14 @@
+/// Menú lateral de navegación (Drawer).
+/// Muestra enlaces a las secciones según el rol del usuario:
+/// operario, jefe de obra, administrador o gestión.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 
+/// Widget que construye el menú lateral completo.
+/// Dependiendo del perfil del usuario muestra opciones como:
+/// Mis partes, Crear parte, Obras, Detalle de horas, Informes, Admin, etc.
 class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
 

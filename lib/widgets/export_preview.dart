@@ -1,3 +1,6 @@
+/// Vista previa de la exportación de partes a PDF o ZIP.
+/// Muestra el tamaño del archivo generado y un botón para descargarlo.
+/// Soporta exportación normal (PDF), ZIP por obra y ZIP por operario.
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

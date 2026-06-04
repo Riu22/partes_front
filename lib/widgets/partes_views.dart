@@ -1,3 +1,6 @@
+/// Pantallas combinadas de partes: vista normal para operarios,
+/// vista para jefe de obra y vista combinada que muestra ambas
+/// (partes por porcentaje del jefe + partes por especialidad).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

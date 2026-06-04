@@ -1,9 +1,15 @@
+/// Versión para ordenador (Windows, Linux, macOS) del helper de descarga.
+/// Guarda un archivo en la carpeta de Descargas del usuario.
+
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 
+/// Guarda un archivo en el ordenador y muestra un mensaje con la ruta.
+///
+/// - [bytes]: el contenido del archivo como datos binarios
+/// - [fileName]: el nombre que tendrá el archivo (ej. "datos.csv")
 void saveAndLaunchFile(Uint8List bytes, String fileName) async {
-  // Obtenemos la ruta de descargas o documentos del usuario
   Directory? directory = await getDownloadsDirectory();
   directory ??= await getApplicationDocumentsDirectory();
 
@@ -13,5 +19,4 @@ void saveAndLaunchFile(Uint8List bytes, String fileName) async {
   await file.writeAsBytes(bytes);
 
   print("Archivo guardado en: $fullPath");
-  // Opcional: Podrías usar el paquete 'url_launcher' para abrir la carpeta automáticamente
 }

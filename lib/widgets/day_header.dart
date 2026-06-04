@@ -1,3 +1,6 @@
+/// Encabezado de un día en el calendario de partes.
+/// Muestra la fecha, total de horas, cantidad de partes y permite
+/// expandir para ver los partes o agruparlos por operario.
 import 'package:flutter/material.dart';
 import '../helpers/tema_constants.dart';
 import '../models/parte_trabajo.dart';

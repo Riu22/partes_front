@@ -1,3 +1,5 @@
+/// Widget para seleccionar un rango de fechas (desde / hasta).
+/// Al tocarlo abre un selector de fechas y notifica el nuevo rango.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 

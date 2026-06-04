@@ -1,3 +1,6 @@
+/// Pantalla de gestión de obras.
+/// Los administradores pueden crear, editar, asignar personal y eliminar
+/// obras. Los operarios/encargados ven solo las obras que tienen asignadas.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/admin_provider.dart';
@@ -30,6 +33,9 @@ class ObrasScreen extends ConsumerWidget {
 // ─────────────────────────────────────────
 // Vista admin — ahora con buscador
 // ─────────────────────────────────────────
+/// Vista de administración de obras: lista todas las obras con filtros
+/// por nombre, municipio y estado. Permite crear, editar, asignar
+/// personal y eliminar obras.
 class _ObrasAdminView extends ConsumerStatefulWidget {
   final bool esAdmin;
   const _ObrasAdminView({required this.esAdmin});
@@ -475,6 +481,8 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
 // ─────────────────────────────────────────
 // Vista operario/encargado — sin cambios
 // ─────────────────────────────────────────
+/// Vista para operarios/encargados: muestra solo las obras que tiene
+/// asignadas el usuario actual.
 class _MisObrasView extends ConsumerWidget {
   const _MisObrasView();
 
@@ -539,6 +547,8 @@ class _MisObrasView extends ConsumerWidget {
 // ─────────────────────────────────────────
 // Widget asignaciones — sin cambios
 // ─────────────────────────────────────────
+/// Widget que muestra las personas asignadas a una obra dentro del
+/// ExpansionTile, con opción para desasignarlas.
 class _AsignacionesObraWidget extends ConsumerWidget {
   final int obraId;
   const _AsignacionesObraWidget({required this.obraId});

@@ -1,3 +1,7 @@
+/// Panel de administración principal con tres pestañas:
+/// 1. Partes: muestra operarios sin parte o con horas incompletas.
+/// 2. Ausencias: gestiona bajas, vacaciones y paternidad.
+/// 3. Historial: consulta el historial de ausencias por operario.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +13,8 @@ import '../../services/api_service.dart';
 import '../../widgets/buscador_obras_modal.dart';
 import '../../widgets/buscador_operarios_modal.dart';
 
+/// Panel de administración con tres pestañas: Partes (incidencias),
+/// Ausencias (bajas/vacaciones) e Historial de ausencias por operario.
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
 
@@ -90,6 +96,8 @@ class AdminHomeScreen extends ConsumerWidget {
 // Pestaña 1 — Partes
 // ─────────────────────────────────────────────
 
+/// Pestaña "Partes": muestra un resumen de incidencias y la lista de
+/// operarios que tienen días sin parte o con horas incompletas.
 class _PartesTab extends StatelessWidget {
   const _PartesTab({
     required this.ausenciasAsync,
@@ -116,11 +124,13 @@ class _PartesTab extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
-                DateFormat("EEEE, d 'de' MMMM 'de' yyyy", 'es')
-                    .format(DateTime.now()),
+                DateFormat(
+                  "EEEE, d 'de' MMMM 'de' yyyy",
+                  'es',
+                ).format(DateTime.now()),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -141,11 +151,12 @@ class _PartesTab extends StatelessWidget {
               ),
               data: (ausencias) {
                 final conPartes = ausencias.values
-                    .where((a) =>
-                        a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty)
+                    .where(
+                      (a) =>
+                          a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty,
+                    )
                     .toList();
-                final fechasSin =
-                    conPartes.expand((a) => a.diasSin).toSet();
+                final fechasSin = conPartes.expand((a) => a.diasSin).toSet();
                 final fechasInc = conPartes
                     .expand((a) => a.diasIncompletos.map((d) => d.fecha))
                     .toSet();
@@ -164,9 +175,9 @@ class _PartesTab extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Text(
                 'Incidencias de partes — histórico completo',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -182,8 +193,9 @@ class _PartesTab extends StatelessWidget {
             ),
             data: (ausencias) {
               final lista = ausencias.values
-                  .where((a) =>
-                      a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty)
+                  .where(
+                    (a) => a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty,
+                  )
                   .toList();
 
               if (lista.isEmpty) {
@@ -211,7 +223,8 @@ class _PartesTab extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                  'Fecha $fecha habilitada correctamente'),
+                                'Fecha $fecha habilitada correctamente',
+                              ),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -276,6 +289,9 @@ class _PartesTab extends StatelessWidget {
 // Pestaña 2 — Ausencias laborales
 // ─────────────────────────────────────────────
 
+/// Pestaña "Ausencias": lista los operarios con ausencias activas
+/// (bajas, vacaciones, paternidad). Permite registrar nuevas ausencias
+/// y editar o eliminar las existentes.
 class _AusenciasTab extends StatelessWidget {
   const _AusenciasTab({
     required this.ausenciasAsync,
@@ -301,9 +317,9 @@ class _AusenciasTab extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
                 'Ausencias laborales registradas',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -372,8 +388,9 @@ class _AusenciasTab extends StatelessWidget {
                           obras: obras,
                           ausenciaExistente: ausencia,
                           onGuardar: (tipo, inicio, fin, obs, obraId) async {
-                            await ApiService()
-                                .eliminarAusenciaLaboral(ausencia.id!);
+                            await ApiService().eliminarAusenciaLaboral(
+                              ausencia.id!,
+                            );
                             await ApiService().crearAusenciaLaboral(
                               perfilId: perfilId,
                               tipo: tipo,
@@ -394,17 +411,25 @@ class _AusenciasTab extends StatelessWidget {
                         builder: (_) => AlertDialog(
                           title: const Text('Eliminar ausencia'),
                           content: const Text(
-                              '¿Seguro que quieres eliminar esta ausencia?'),
+                            '¿Seguro que quieres eliminar esta ausencia?',
+                          ),
                           actions: [
-TextButton(
-  onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
-  child: const Text('Cancelar'),
-),
-FilledButton(
-  onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
+                            TextButton(
+                              onPressed: () => Navigator.of(
+                                context,
+                                rootNavigator: true,
+                              ).pop(false),
+                              child: const Text('Cancelar'),
+                            ),
+                            FilledButton(
+                              onPressed: () => Navigator.of(
+                                context,
+                                rootNavigator: true,
+                              ).pop(true),
                               style: FilledButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).colorScheme.error,
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
                               ),
                               child: const Text('Eliminar'),
                             ),
@@ -423,8 +448,7 @@ FilledButton(
 
                       try {
                         // 2️⃣ Llamada real al servidor
-                        await ApiService()
-                            .eliminarAusenciaLaboral(ausenciaId);
+                        await ApiService().eliminarAusenciaLaboral(ausenciaId);
 
                         // 3️⃣ Sincronización en segundo plano (silenciosa,
                         //    no provoca spinner porque el estado ya es AsyncData)
@@ -457,6 +481,8 @@ FilledButton(
 // Tarjeta resumen
 // ─────────────────────────────────────────────
 
+/// Tarjeta resumen que muestra el total de personas con incidencias,
+/// días sin parte y días con horas incompletas.
 class _ResumenPartes extends StatelessWidget {
   const _ResumenPartes({
     required this.cargando,
@@ -485,8 +511,7 @@ class _ResumenPartes extends StatelessWidget {
     } else if (totalPersonas == 0) {
       subtitulo = 'Sin incidencias de partes';
     } else {
-      final p =
-          '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
+      final p = '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
       final s =
           '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
       final i =
@@ -503,8 +528,7 @@ class _ResumenPartes extends StatelessWidget {
         color: sinIncidencias
             ? colorScheme.primaryContainer
             : colorScheme.errorContainer,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
@@ -556,6 +580,9 @@ class _ResumenPartes extends StatelessWidget {
 // Tarjeta por persona
 // ─────────────────────────────────────────────
 
+/// Tarjeta por persona que muestra sus días sin parte, horas incompletas
+/// o ausencias activas. Incluye acciones para habilitar fechas, crear
+/// partes o registrar/editar/eliminar ausencias laborales.
 class _AusenciaCard extends StatefulWidget {
   const _AusenciaCard({
     required this.ausencia,
@@ -573,12 +600,15 @@ class _AusenciaCard extends StatefulWidget {
   final bool mostrarAusencias;
   final Future<void> Function(String perfilId, String fecha)? onHabilitarFecha;
   final void Function(String perfilId, String nombre, String fecha)?
-      onCrearParte;
+  onCrearParte;
   final Future<void> Function(String perfilId, String nombre)?
-      onRegistrarAusencia;
+  onRegistrarAusencia;
   final Future<void> Function(
-          AusenciaLaboral ausencia, String perfilId, String nombre)?
-      onEditarAusencia;
+    AusenciaLaboral ausencia,
+    String perfilId,
+    String nombre,
+  )?
+  onEditarAusencia;
   final Future<void> Function(int ausenciaId)? onEliminarAusencia;
 
   @override
@@ -591,42 +621,42 @@ class _AusenciaCardState extends State<_AusenciaCard> {
   bool _habilitando = false;
 
   void _toggleFecha(String fecha) => setState(() {
-        _fechaActiva = _fechaActiva == fecha ? null : fecha;
-        _ausenciaActivaId = null;
-      });
+    _fechaActiva = _fechaActiva == fecha ? null : fecha;
+    _ausenciaActivaId = null;
+  });
 
   void _toggleAusencia(int id) => setState(() {
-        _ausenciaActivaId = _ausenciaActivaId == id ? null : id;
-        _fechaActiva = null;
-      });
+    _ausenciaActivaId = _ausenciaActivaId == id ? null : id;
+    _fechaActiva = null;
+  });
 
   Color _colorFondoAusencia(String tipo, ColorScheme cs) => switch (tipo) {
-        'BAJA' => cs.errorContainer,
-        'VACACIONES' => cs.secondaryContainer,
-        'PATERNIDAD' => const Color(0xFFBFDBFE),
-        _ => cs.surfaceVariant,
-      };
+    'BAJA' => cs.errorContainer,
+    'VACACIONES' => cs.secondaryContainer,
+    'PATERNIDAD' => const Color(0xFFBFDBFE),
+    _ => cs.surfaceVariant,
+  };
 
   Color _colorTextoAusencia(String tipo, ColorScheme cs) => switch (tipo) {
-        'BAJA' => cs.error,
-        'VACACIONES' => cs.secondary,
-        'PATERNIDAD' => const Color(0xFF1D4ED8),
-        _ => cs.onSurfaceVariant,
-      };
+    'BAJA' => cs.error,
+    'VACACIONES' => cs.secondary,
+    'PATERNIDAD' => const Color(0xFF1D4ED8),
+    _ => cs.onSurfaceVariant,
+  };
 
   IconData _iconoAusencia(String tipo) => switch (tipo) {
-        'BAJA' => Icons.local_hospital_rounded,
-        'VACACIONES' => Icons.beach_access_rounded,
-        'PATERNIDAD' => Icons.child_friendly_rounded,
-        _ => Icons.event_busy_rounded,
-      };
+    'BAJA' => Icons.local_hospital_rounded,
+    'VACACIONES' => Icons.beach_access_rounded,
+    'PATERNIDAD' => Icons.child_friendly_rounded,
+    _ => Icons.event_busy_rounded,
+  };
 
   String _labelAusencia(String tipo) => switch (tipo) {
-        'BAJA' => 'Baja',
-        'VACACIONES' => 'Vacaciones',
-        'PATERNIDAD' => 'Paternidad',
-        _ => tipo,
-      };
+    'BAJA' => 'Baja',
+    'VACACIONES' => 'Vacaciones',
+    'PATERNIDAD' => 'Paternidad',
+    _ => tipo,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -642,8 +672,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
     return Card(
       elevation: 0,
       color: colorScheme.surfaceContainerHighest,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -667,14 +696,17 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                 Expanded(
                   child: Text(
                     nombre,
-                    style: textTheme.bodyLarge
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                    style: textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: widget.mostrarAusencias
                         ? colorScheme.secondaryContainer
@@ -718,7 +750,9 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 7),
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
                           decoration: BoxDecoration(
                             color: expandida
                                 ? colorScheme.inverseSurface
@@ -728,12 +762,13 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(_iconoAusencia(a.tipo),
-                                  size: 14,
-                                  color: expandida
-                                      ? colorScheme.onInverseSurface
-                                      : _colorTextoAusencia(
-                                          a.tipo, colorScheme)),
+                              Icon(
+                                _iconoAusencia(a.tipo),
+                                size: 14,
+                                color: expandida
+                                    ? colorScheme.onInverseSurface
+                                    : _colorTextoAusencia(a.tipo, colorScheme),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 '${_labelAusencia(a.tipo)}  '
@@ -755,7 +790,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                     style: textTheme.labelSmall?.copyWith(
                                       color: expandida
                                           ? colorScheme.onInverseSurface
-                                              .withOpacity(0.7)
+                                                .withOpacity(0.7)
                                           : colorScheme.onSurfaceVariant,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -787,7 +822,8 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                     color: colorScheme.surface,
                                     borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                        color: colorScheme.outlineVariant),
+                                      color: colorScheme.outlineVariant,
+                                    ),
                                   ),
                                   child: IntrinsicWidth(
                                     child: Column(
@@ -798,80 +834,89 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                         if (widget.onEditarAusencia != null)
                                           InkWell(
                                             onTap: () {
-                                              setState(() =>
-                                                  _ausenciaActivaId = null);
+                                              setState(
+                                                () => _ausenciaActivaId = null,
+                                              );
                                               widget.onEditarAusencia!(
-                                                  a,
-                                                  ausencia.perfilId,
-                                                  nombre);
+                                                a,
+                                                ausencia.perfilId,
+                                                nombre,
+                                              );
                                             },
                                             borderRadius:
                                                 const BorderRadius.vertical(
-                                                    top: Radius.circular(10)),
+                                                  top: Radius.circular(10),
+                                                ),
                                             child: Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 10),
+                                                    horizontal: 12,
+                                                    vertical: 10,
+                                                  ),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.edit_rounded,
-                                                      size: 15,
-                                                      color:
-                                                          colorScheme.primary),
+                                                  Icon(
+                                                    Icons.edit_rounded,
+                                                    size: 15,
+                                                    color: colorScheme.primary,
+                                                  ),
                                                   const SizedBox(width: 6),
-                                                  Text('Editar ausencia',
-                                                      style: textTheme
-                                                          .labelSmall
-                                                          ?.copyWith(
-                                                        color:
-                                                            colorScheme.primary,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      )),
+                                                  Text(
+                                                    'Editar ausencia',
+                                                    style: textTheme.labelSmall
+                                                        ?.copyWith(
+                                                          color: colorScheme
+                                                              .primary,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
                                           ),
                                         Divider(
-                                            height: 1,
-                                            color:
-                                                colorScheme.outlineVariant),
+                                          height: 1,
+                                          color: colorScheme.outlineVariant,
+                                        ),
                                         if (widget.onEliminarAusencia != null)
                                           InkWell(
                                             onTap: () {
-                                              setState(() =>
-                                                  _ausenciaActivaId = null);
-                                              widget.onEliminarAusencia!(
-                                                  a.id!);
+                                              setState(
+                                                () => _ausenciaActivaId = null,
+                                              );
+                                              widget.onEliminarAusencia!(a.id!);
                                             },
                                             borderRadius:
                                                 const BorderRadius.vertical(
-                                                    bottom:
-                                                        Radius.circular(10)),
+                                                  bottom: Radius.circular(10),
+                                                ),
                                             child: Padding(
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 10),
+                                                    horizontal: 12,
+                                                    vertical: 10,
+                                                  ),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.delete_rounded,
-                                                      size: 15,
-                                                      color:
-                                                          colorScheme.error),
+                                                  Icon(
+                                                    Icons.delete_rounded,
+                                                    size: 15,
+                                                    color: colorScheme.error,
+                                                  ),
                                                   const SizedBox(width: 6),
-                                                  Text('Eliminar ausencia',
-                                                      style: textTheme
-                                                          .labelSmall
-                                                          ?.copyWith(
-                                                        color:
-                                                            colorScheme.error,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      )),
+                                                  Text(
+                                                    'Eliminar ausencia',
+                                                    style: textTheme.labelSmall
+                                                        ?.copyWith(
+                                                          color:
+                                                              colorScheme.error,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -890,8 +935,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
             ],
 
             // ── Días sin parte ───────────────────────────────────────────
-            if (!widget.mostrarAusencias &&
-                ausencia.diasSin.isNotEmpty) ...[
+            if (!widget.mostrarAusencias && ausencia.diasSin.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
                 icon: Icons.cancel_outlined,
@@ -908,8 +952,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     label: widget.formatFecha(fecha),
                     activa: activa,
                     habilitando: activa && _habilitando,
-                    estaHabilitada:
-                        ausencia.fechasHabilitadas.contains(fecha),
+                    estaHabilitada: ausencia.fechasHabilitadas.contains(fecha),
                     chipColor: colorScheme.errorContainer,
                     chipTextColor: colorScheme.onErrorContainer,
                     onTap: () => _toggleFecha(fecha),
@@ -918,7 +961,9 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                         : () async {
                             setState(() => _habilitando = true);
                             await widget.onHabilitarFecha!(
-                                ausencia.perfilId, fecha);
+                              ausencia.perfilId,
+                              fecha,
+                            );
                             if (mounted) {
                               setState(() {
                                 _habilitando = false;
@@ -931,7 +976,10 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                         : () {
                             setState(() => _fechaActiva = null);
                             widget.onCrearParte!(
-                                ausencia.perfilId, nombre, fecha);
+                              ausencia.perfilId,
+                              nombre,
+                              fecha,
+                            );
                           },
                   );
                 }).toList(),
@@ -944,8 +992,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               const SizedBox(height: 12),
               _SectionLabel(
                 icon: Icons.schedule_outlined,
-                label:
-                    'Horas incompletas (${ausencia.diasIncompletos.length})',
+                label: 'Horas incompletas (${ausencia.diasIncompletos.length})',
                 color: colorScheme.tertiary,
               ),
               const SizedBox(height: 6),
@@ -958,8 +1005,9 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     label: '${widget.formatFecha(d.fecha)} · ${d.horas}h',
                     activa: activa,
                     habilitando: activa && _habilitando,
-                    estaHabilitada:
-                        ausencia.fechasHabilitadas.contains(d.fecha),
+                    estaHabilitada: ausencia.fechasHabilitadas.contains(
+                      d.fecha,
+                    ),
                     chipColor: colorScheme.tertiaryContainer,
                     chipTextColor: colorScheme.onTertiaryContainer,
                     onTap: () => _toggleFecha(d.fecha),
@@ -968,7 +1016,9 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                         : () async {
                             setState(() => _habilitando = true);
                             await widget.onHabilitarFecha!(
-                                ausencia.perfilId, d.fecha);
+                              ausencia.perfilId,
+                              d.fecha,
+                            );
                             if (mounted) {
                               setState(() {
                                 _habilitando = false;
@@ -981,7 +1031,10 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                         : () {
                             setState(() => _fechaActiva = null);
                             widget.onCrearParte!(
-                                ausencia.perfilId, nombre, d.fecha);
+                              ausencia.perfilId,
+                              nombre,
+                              d.fecha,
+                            );
                           },
                   );
                 }).toList(),
@@ -996,14 +1049,16 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               SizedBox(
                 width: double.infinity,
                 child: TextButton.icon(
-                  onPressed: () => widget.onRegistrarAusencia!(
-                      ausencia.perfilId, nombre),
+                  onPressed: () =>
+                      widget.onRegistrarAusencia!(ausencia.perfilId, nombre),
                   icon: const Icon(Icons.event_busy_rounded, size: 16),
                   label: const Text('Registrar baja / vacaciones'),
                   style: TextButton.styleFrom(
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 6),
+                      horizontal: 4,
+                      vertical: 6,
+                    ),
                   ),
                 ),
               ),
@@ -1019,6 +1074,9 @@ class _AusenciaCardState extends State<_AusenciaCard> {
 // Diálogo registrar / editar ausencia
 // ─────────────────────────────────────────────
 
+/// Diálogo para registrar o editar una ausencia laboral.
+/// Permite elegir el tipo (baja, vacaciones, paternidad), las fechas
+/// de inicio y fin, observaciones y obra asociada (solo vacaciones).
 class _DialogoAusencia extends StatefulWidget {
   const _DialogoAusencia({
     required this.perfilId,
@@ -1033,16 +1091,20 @@ class _DialogoAusencia extends StatefulWidget {
   final List obras;
   final AusenciaLaboral? ausenciaExistente;
   final Future<void> Function(
-      String tipo,
-      DateTime inicio,
-      DateTime fin,
-      String? obs,
-      int? obraId) onGuardar;
+    String tipo,
+    DateTime inicio,
+    DateTime fin,
+    String? obs,
+    int? obraId,
+  )
+  onGuardar;
 
   @override
   State<_DialogoAusencia> createState() => _DialogoAusenciaState();
 }
 
+/// Estado del diálogo de ausencia: controla tipo, fechas,
+/// observaciones y obra seleccionada.
 class _DialogoAusenciaState extends State<_DialogoAusencia> {
   late String _tipo;
   DateTime? _inicio;
@@ -1109,8 +1171,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
       return;
     }
     if (_fin!.isBefore(_inicio!)) {
-      setState(
-          () => _error = 'La fecha fin no puede ser anterior al inicio');
+      setState(() => _error = 'La fecha fin no puede ser anterior al inicio');
       return;
     }
     setState(() {
@@ -1126,9 +1187,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
         _tipo,
         _inicio!,
         _fin!,
-        _obsController.text.trim().isEmpty
-            ? null
-            : _obsController.text.trim(),
+        _obsController.text.trim().isEmpty ? null : _obsController.text.trim(),
         obraId,
       );
       if (mounted) Navigator.of(context).pop();
@@ -1159,8 +1218,9 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
           children: [
             Text(
               widget.nombre,
-              style: textTheme.bodySmall
-                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -1205,8 +1265,11 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
               if (_obraSeleccionada == null)
                 OutlinedButton.icon(
                   onPressed: _seleccionarObra,
-                  icon: const Icon(Icons.business_outlined,
-                      size: 16, color: Colors.orange),
+                  icon: const Icon(
+                    Icons.business_outlined,
+                    size: 16,
+                    color: Colors.orange,
+                  ),
                   label: const Text(
                     'Asignar obra (opcional)',
                     style: TextStyle(color: Colors.orange),
@@ -1214,13 +1277,16 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.orange),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 )
               else
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -1228,8 +1294,11 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.business,
-                          color: Colors.orange, size: 18),
+                      const Icon(
+                        Icons.business,
+                        color: Colors.orange,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -1237,30 +1306,37 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
                           children: [
                             Text(
                               _obraSeleccionada.nombre ?? '',
-                              style: textTheme.labelMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                              style: textTheme.labelMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            if ((_obraSeleccionada.municipio ?? '')
-                                .isNotEmpty)
+                            if ((_obraSeleccionada.municipio ?? '').isNotEmpty)
                               Text(
                                 _obraSeleccionada.municipio ?? '',
                                 style: textTheme.labelSmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant),
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.swap_horiz,
-                            color: Colors.orange, size: 18),
+                        icon: const Icon(
+                          Icons.swap_horiz,
+                          color: Colors.orange,
+                          size: 18,
+                        ),
                         tooltip: 'Cambiar obra',
                         onPressed: _seleccionarObra,
                         constraints: const BoxConstraints(),
                         padding: const EdgeInsets.all(4),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close,
-                            color: Colors.grey, size: 18),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.grey,
+                          size: 18,
+                        ),
                         tooltip: 'Quitar obra (imputar a oficina)',
                         onPressed: () =>
                             setState(() => _obraSeleccionada = null),
@@ -1309,9 +1385,10 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
 
             if (_error != null) ...[
               const SizedBox(height: 10),
-              Text(_error!,
-                  style: textTheme.bodySmall
-                      ?.copyWith(color: colorScheme.error)),
+              Text(
+                _error!,
+                style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
+              ),
             ],
           ],
         ),
@@ -1397,34 +1474,34 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
           onTap: _habilitado ? null : widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: _habilitado
                   ? Colors.green.shade100
                   : widget.activa
-                      ? colorScheme.inverseSurface
-                      : widget.chipColor,
+                  ? colorScheme.inverseSurface
+                  : widget.chipColor,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (_habilitado) ...[
-                  Icon(Icons.check_circle_rounded,
-                      size: 13, color: Colors.green.shade700),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 13,
+                    color: Colors.green.shade700,
+                  ),
                   const SizedBox(width: 4),
                 ],
                 Text(
-                  _habilitado
-                      ? '${widget.label} · Permitido'
-                      : widget.label,
+                  _habilitado ? '${widget.label} · Permitido' : widget.label,
                   style: textTheme.labelSmall?.copyWith(
                     color: _habilitado
                         ? Colors.green.shade700
                         : widget.activa
-                            ? colorScheme.onInverseSurface
-                            : widget.chipTextColor,
+                        ? colorScheme.onInverseSurface
+                        : widget.chipTextColor,
                     fontWeight: widget.activa
                         ? FontWeight.bold
                         : FontWeight.normal,
@@ -1472,10 +1549,13 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
                                       widget.onHabilitar!();
                                     },
                               borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(10)),
+                                top: Radius.circular(10),
+                              ),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -1489,9 +1569,11 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
                                         ),
                                       )
                                     else
-                                      Icon(Icons.lock_open_rounded,
-                                          size: 15,
-                                          color: colorScheme.primary),
+                                      Icon(
+                                        Icons.lock_open_rounded,
+                                        size: 15,
+                                        color: colorScheme.primary,
+                                      ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Habilitar día',
@@ -1507,22 +1589,28 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
                           if (widget.onHabilitar != null &&
                               widget.onCrearParte != null)
                             Divider(
-                                height: 1,
-                                color: colorScheme.outlineVariant),
+                              height: 1,
+                              color: colorScheme.outlineVariant,
+                            ),
                           if (widget.onCrearParte != null)
                             InkWell(
                               onTap: widget.onCrearParte,
                               borderRadius: const BorderRadius.vertical(
-                                  bottom: Radius.circular(10)),
+                                bottom: Radius.circular(10),
+                              ),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.add_circle_outline_rounded,
-                                        size: 15,
-                                        color: colorScheme.tertiary),
+                                    Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      size: 15,
+                                      color: colorScheme.tertiary,
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Crear parte',
@@ -1574,13 +1662,10 @@ class _TipoChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: seleccionado
-              ? color.withOpacity(0.15)
-              : Colors.transparent,
+          color: seleccionado ? color.withOpacity(0.15) : Colors.transparent,
           border: Border.all(
-              color: seleccionado
-                  ? color
-                  : Theme.of(context).dividerColor),
+            color: seleccionado ? color : Theme.of(context).dividerColor,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -1591,9 +1676,9 @@ class _TipoChip extends StatelessWidget {
             Text(
               label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: seleccionado ? color : null,
-                    fontWeight: seleccionado ? FontWeight.bold : null,
-                  ),
+                color: seleccionado ? color : null,
+                fontWeight: seleccionado ? FontWeight.bold : null,
+              ),
             ),
           ],
         ),
@@ -1622,13 +1707,14 @@ class _FechaBoton extends StatelessWidget {
       label: Text(
         fecha ?? label,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: fecha != null
-                  ? colorScheme.onSurface
-                  : colorScheme.onSurfaceVariant,
-            ),
+          color: fecha != null
+              ? colorScheme.onSurface
+              : colorScheme.onSurfaceVariant,
+        ),
       ),
       style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      ),
     );
   }
 }
@@ -1653,9 +1739,9 @@ class _SectionLabel extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -1682,17 +1768,17 @@ class _EmptyView extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'Sin incidencias',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
             mensaje,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -1721,8 +1807,8 @@ class _ErrorView extends StatelessWidget {
               mensaje,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
@@ -1741,6 +1827,8 @@ class _ErrorView extends StatelessWidget {
 // Pestaña 3 — Historial
 // ─────────────────────────────────────────────
 
+/// Pestaña "Historial": permite seleccionar un operario y ver
+/// el historial completo de sus ausencias laborales registradas.
 class _HistorialTab extends StatefulWidget {
   const _HistorialTab({required this.obras, required this.ref});
   final List obras;
@@ -1791,13 +1879,17 @@ class _HistorialTabState extends State<_HistorialTab> {
                       child: Text(
                         _nombre![0].toUpperCase(),
                         style: TextStyle(
-                            color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.bold),
+                          color: colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    title: Text(_nombre!,
-                        style: textTheme.bodyLarge
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      _nombre!,
+                      style: textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     subtitle: const Text('Historial de ausencias'),
                     trailing: TextButton(
                       onPressed: _buscarOperario,
@@ -1848,8 +1940,7 @@ class _HistorialBody extends ConsumerWidget {
       error: (e, _) => SliverFillRemaining(
         child: _ErrorView(
           mensaje: 'Error al cargar historial: $e',
-          onRetry: () =>
-              ref.invalidate(historialAusenciasProvider(perfilId)),
+          onRetry: () => ref.invalidate(historialAusenciasProvider(perfilId)),
         ),
       ),
       data: (data) {
@@ -1873,33 +1964,34 @@ class _HistorialBody extends ConsumerWidget {
               final a = ausencias[i] as Map<String, dynamic>;
               final tipo = a['tipo'] as String? ?? '';
 
-              final (Color fondo, Color texto, IconData icono) =
-                  switch (tipo) {
+              final (Color fondo, Color texto, IconData icono) = switch (tipo) {
                 'BAJA' => (
-                    colorScheme.errorContainer,
-                    colorScheme.error,
-                    Icons.local_hospital_rounded
-                  ),
+                  colorScheme.errorContainer,
+                  colorScheme.error,
+                  Icons.local_hospital_rounded,
+                ),
                 'VACACIONES' => (
-                    colorScheme.secondaryContainer,
-                    colorScheme.secondary,
-                    Icons.beach_access_rounded
-                  ),
+                  colorScheme.secondaryContainer,
+                  colorScheme.secondary,
+                  Icons.beach_access_rounded,
+                ),
                 'PATERNIDAD' => (
-                    const Color(0xFFBFDBFE),
-                    const Color(0xFF1D4ED8),
-                    Icons.child_friendly_rounded
-                  ),
+                  const Color(0xFFBFDBFE),
+                  const Color(0xFF1D4ED8),
+                  Icons.child_friendly_rounded,
+                ),
                 _ => (
-                    colorScheme.surfaceVariant,
-                    colorScheme.onSurfaceVariant,
-                    Icons.event_busy_rounded
-                  ),
+                  colorScheme.surfaceVariant,
+                  colorScheme.onSurfaceVariant,
+                  Icons.event_busy_rounded,
+                ),
               };
 
               return Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: fondo,
                   borderRadius: BorderRadius.circular(12),
@@ -1915,14 +2007,15 @@ class _HistorialBody extends ConsumerWidget {
                           Text(
                             _labelTipo(tipo),
                             style: textTheme.labelMedium?.copyWith(
-                                color: texto, fontWeight: FontWeight.bold),
+                              color: texto,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '${_formatFecha(a['fechaInicio'] ?? '')}  →  '
                             '${_formatFecha(a['fechaFin'] ?? '')}',
-                            style:
-                                textTheme.bodySmall?.copyWith(color: texto),
+                            style: textTheme.bodySmall?.copyWith(color: texto),
                           ),
                           if ((a['observaciones'] ?? '').isNotEmpty)
                             Padding(
@@ -1930,7 +2023,8 @@ class _HistorialBody extends ConsumerWidget {
                               child: Text(
                                 a['observaciones'] as String,
                                 style: textTheme.bodySmall?.copyWith(
-                                    color: texto.withOpacity(0.75)),
+                                  color: texto.withOpacity(0.75),
+                                ),
                               ),
                             ),
                           if (a['obraNombre'] != null)
@@ -1938,14 +2032,17 @@ class _HistorialBody extends ConsumerWidget {
                               padding: const EdgeInsets.only(top: 2),
                               child: Row(
                                 children: [
-                                  Icon(Icons.business_outlined,
-                                      size: 12,
-                                      color: texto.withOpacity(0.8)),
+                                  Icon(
+                                    Icons.business_outlined,
+                                    size: 12,
+                                    color: texto.withOpacity(0.8),
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
                                     a['obraNombre'] as String,
                                     style: textTheme.bodySmall?.copyWith(
-                                        color: texto.withOpacity(0.8)),
+                                      color: texto.withOpacity(0.8),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1964,9 +2061,9 @@ class _HistorialBody extends ConsumerWidget {
   }
 
   String _labelTipo(String tipo) => switch (tipo) {
-        'BAJA' => 'Baja médica',
-        'VACACIONES' => 'Vacaciones',
-        'PATERNIDAD' => 'Paternidad / Maternidad',
-        _ => tipo,
-      };
+    'BAJA' => 'Baja médica',
+    'VACACIONES' => 'Vacaciones',
+    'PATERNIDAD' => 'Paternidad / Maternidad',
+    _ => tipo,
+  };
 }

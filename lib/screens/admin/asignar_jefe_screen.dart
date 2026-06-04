@@ -1,3 +1,7 @@
+/// Pantalla para gestionar el equipo y las obras asignadas a un usuario.
+/// Tiene dos pestañas:
+/// - Equipo: asigna o quita subordinados (encargados/operarios).
+/// - Obras: asigna o quita obras al usuario.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/obra.dart';
@@ -5,6 +9,8 @@ import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/obras_provider.dart';
 
+/// Pantalla con dos pestañas para gestionar el equipo (subordinados)
+/// y las obras asignadas a un jefe, encargado o gestor.
 class AsignarJefeScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> usuario;
   final List<dynamic> todos;

@@ -1,8 +1,13 @@
+/// Pantalla para restablecer la contraseña desde un enlace recibido por email.
+/// Verifica que el token del enlace sea válido y permite escribir una nueva
+/// contraseña con confirmación.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 
+/// Recibe un token de recuperación desde la URL, lo verifica y
+/// muestra un formulario para establecer una nueva contraseña.
 class NuevaPasswordScreen extends ConsumerStatefulWidget {
   const NuevaPasswordScreen({super.key});
 
@@ -26,6 +31,8 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
     _verificarToken();
   }
 
+  /// Lee el token de recuperación de la URL actual y lo valida con el backend.
+  /// Si es inválido o ha expirado, muestra un mensaje de error.
   Future<void> _verificarToken() async {
     try {
       _accessToken = await ref
@@ -43,6 +50,8 @@ class _NuevaPasswordScreenState extends ConsumerState<NuevaPasswordScreen> {
     }
   }
 
+  /// Envía la nueva contraseña al servidor junto con el token de recuperación.
+  /// Si es exitoso, redirige al login.
   Future<void> _actualizarContrasena() async {
     if (!_formKey.currentState!.validate()) return;
     if (_accessToken == null) return;
