@@ -70,6 +70,12 @@ class Obra {
   /// Por defecto en fromJson se asume true si falta el campo.
   final bool activa;
 
+  /// Indica si la obra es de postventa (trabajos posteriores a la entrega).
+  /// Las obras de postventa requieren confirmacion adicional al crear
+  /// partes de trabajo y muestran un banner de advertencia al seleccionarlas.
+  /// Por defecto es false si el campo no viene en la respuesta de la API.
+  final bool postventa;
+
   // --------------------------------------------------------------------------
   // CONSTRUCTOR PRINCIPAL
   // --------------------------------------------------------------------------
@@ -92,6 +98,7 @@ class Obra {
     required this.municipio,
     required this.codigo,
     required this.activa,
+    this.postventa = false,
   });
 
   // --------------------------------------------------------------------------
@@ -139,5 +146,7 @@ class Obra {
     codigo: json['codigo'] as String? ?? '',
     // Campo activa: bool o null. Si null, se asume true (activa).
     activa: json['activa'] as bool? ?? true,
+    // Campo postventa: bool o null. Si null, se asume false.
+    postventa: json['postventa'] as bool? ?? false,
   );
 }

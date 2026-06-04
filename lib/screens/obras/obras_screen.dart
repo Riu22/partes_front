@@ -271,51 +271,67 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     final municipioCtrl = TextEditingController();
     final poblacionCtrl = TextEditingController();
     final codigoCtrl = TextEditingController();
+    // Estado del switch de postventa declarado aqui para que el boton
+    // CREAR pueda leerlo (si estuviera dentro del StatefulBuilder no
+    // seria accesible desde actions).
+    bool postventa = false;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Nueva obra'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTextField(nombreCtrl, 'Nombre'),
-              const SizedBox(height: 12),
-              _buildTextField(direccionCtrl, 'Direccion'),
-              const SizedBox(height: 12),
-              _buildTextField(municipioCtrl, 'Municipio'),
-              const SizedBox(height: 12),
-              _buildTextField(poblacionCtrl, 'Poblacion'),
-              const SizedBox(height: 12),
-              _buildTextField(codigoCtrl, 'Codigo'),
-            ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Nueva obra'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTextField(nombreCtrl, 'Nombre'),
+                const SizedBox(height: 12),
+                _buildTextField(direccionCtrl, 'Direccion'),
+                const SizedBox(height: 12),
+                _buildTextField(municipioCtrl, 'Municipio'),
+                const SizedBox(height: 12),
+                _buildTextField(poblacionCtrl, 'Poblacion'),
+                const SizedBox(height: 12),
+                _buildTextField(codigoCtrl, 'Codigo'),
+                const SizedBox(height: 12),
+                // Switch para postventa
+                SwitchListTile(
+                  title: const Text('Obra en postventa'),
+                  subtitle: Text(postventa ? 'Sí' : 'No'),
+                  value: postventa,
+                  onChanged: (v) => setState(() => postventa = v),
+                  activeColor: Colors.blue,
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCELAR'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  await ref.read(apiServiceProvider).crearObra({
+                    'nombre': nombreCtrl.text.trim(),
+                    'direccion': direccionCtrl.text.trim(),
+                    'municipio': municipioCtrl.text.trim(),
+                    'poblacion': poblacionCtrl.text.trim(),
+                    'codigo': codigoCtrl.text.trim(),
+                    'postventa': postventa,
+                  });
+                  ref.invalidate(obrasProvider);
+                  if (context.mounted) Navigator.pop(context);
+                } catch (e) {
+                  _mostrarError(context, e.toString());
+                }
+              },
+              child: const Text('CREAR'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCELAR'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await ref.read(apiServiceProvider).crearObra({
-                  'nombre': nombreCtrl.text.trim(),
-                  'direccion': direccionCtrl.text.trim(),
-                  'municipio': municipioCtrl.text.trim(),
-                  'poblacion': poblacionCtrl.text.trim(),
-                  'codigo': codigoCtrl.text.trim(),
-                });
-                ref.invalidate(obrasProvider);
-                if (context.mounted) Navigator.pop(context);
-              } catch (e) {
-                _mostrarError(context, e.toString());
-              }
-            },
-            child: const Text('CREAR'),
-          ),
-        ],
       ),
     );
   }
@@ -330,30 +346,41 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     final direccionCtrl = TextEditingController(text: obra.ubicacion);
     final municipioCtrl = TextEditingController(text: obra.municipio);
     bool activa = obra.activa;
+    bool postventa = obra.postventa ?? false;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           title: const Text('Editar obra'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTextField(nombreCtrl, 'Nombre'),
-              const SizedBox(height: 12),
-              _buildTextField(direccionCtrl, 'Direccion'),
-              const SizedBox(height: 12),
-              _buildTextField(municipioCtrl, 'Municipio'),
-              const SizedBox(height: 12),
-              // Switch para activar/desactivar obra
-              SwitchListTile(
-                title: const Text('Obra activa'),
-                subtitle: Text(activa ? 'Activa' : 'Inactiva'),
-                value: activa,
-                onChanged: (v) => setState(() => activa = v),
-                activeColor: Colors.green,
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTextField(nombreCtrl, 'Nombre'),
+                const SizedBox(height: 12),
+                _buildTextField(direccionCtrl, 'Direccion'),
+                const SizedBox(height: 12),
+                _buildTextField(municipioCtrl, 'Municipio'),
+                const SizedBox(height: 12),
+                // Switch para activar/desactivar obra
+                SwitchListTile(
+                  title: const Text('Obra activa'),
+                  subtitle: Text(activa ? 'Activa' : 'Inactiva'),
+                  value: activa,
+                  onChanged: (v) => setState(() => activa = v),
+                  activeColor: Colors.green,
+                ),
+                // Switch para postventa
+                SwitchListTile(
+                  title: const Text('Obra en postventa'),
+                  subtitle: Text(postventa ? 'Sí' : 'No'),
+                  value: postventa,
+                  onChanged: (v) => setState(() => postventa = v),
+                  activeColor: Colors.blue,
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -368,6 +395,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
                     'direccion': direccionCtrl.text.trim(),
                     'municipio': municipioCtrl.text.trim(),
                     'activa': activa,
+                    'postventa': postventa,
                   });
                   ref.invalidate(obrasProvider);
                   if (context.mounted) Navigator.pop(context);
