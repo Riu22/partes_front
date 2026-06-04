@@ -1,12 +1,24 @@
-/// Pantalla de gestión de obras.
-/// Los administradores pueden crear, editar, asignar personal y eliminar
-/// obras. Los operarios/encargados ven solo las obras que tienen asignadas.
+// =============================================================================
+// obras_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla de gestion de obras.
+// PARA QUE:     Administradores: crear, editar, asignar personal y eliminar
+//               obras. Operarios/encargados: ver solo sus obras asignadas.
+// QUIEN LO USA: Todos los roles, con diferentes niveles de acceso.
+// COMO SE LLEGA: Desde el menu del panel de administracion o AppDrawer.
+// A DONDE VA:   CRUD /api/obras, GET /api/asignaciones (servidor).
+// QUE DATOS USA: admin_provider, auth_provider, obras_provider.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/obras_provider.dart';
 
+/// Punto de entrada para la pantalla de obras.
+/// Redirige a la vista de admin o a la de operario segun el rol.
 class ObrasScreen extends ConsumerWidget {
   const ObrasScreen({super.key});
 
@@ -30,10 +42,10 @@ class ObrasScreen extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────
-// Vista admin — ahora con buscador
-// ─────────────────────────────────────────
-/// Vista de administración de obras: lista todas las obras con filtros
+// ============================================
+// Vista admin - con buscador y CRUD completo
+// ============================================
+/// Vista de administracion de obras: lista todas las obras con filtros
 /// por nombre, municipio y estado. Permite crear, editar, asignar
 /// personal y eliminar obras.
 class _ObrasAdminView extends ConsumerStatefulWidget {
@@ -45,15 +57,18 @@ class _ObrasAdminView extends ConsumerStatefulWidget {
 }
 
 class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
+  // -- Controladores para filtros --
   final _nombreCtrl = TextEditingController();
   final _municipioCtrl = TextEditingController();
   bool? _activaFiltro; // null = todas, true = activas, false = inactivas
 
+  /// Verifica si hay algun filtro activo.
   bool get _hayFiltros =>
       _nombreCtrl.text.isNotEmpty ||
       _municipioCtrl.text.isNotEmpty ||
       _activaFiltro != null;
 
+  /// Filtra la lista de obras segun los criterios activos.
   List<dynamic> _filtrar(List<dynamic> obras) {
     return obras.where((o) {
       final nombre = o.nombre.toString().toLowerCase();
@@ -69,6 +84,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     }).toList();
   }
 
+  /// Limpia todos los filtros de busqueda.
   void _limpiarBusqueda() {
     _nombreCtrl.clear();
     _municipioCtrl.clear();
@@ -115,6 +131,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
                     child: Text('No hay obras que coincidan'),
                   );
                 }
+                // Lista de obras con ExpansionTile
                 return ListView.builder(
                   itemCount: filtradas.length,
                   padding: const EdgeInsets.only(
@@ -139,7 +156,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
                           o.nombre,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text('${o.municipio} • ${o.ubicacion}'),
+                        subtitle: Text('${o.municipio} - ${o.ubicacion}'),
                         trailing: PopupMenuButton<String>(
                           onSelected: (accion) {
                             if (accion == 'editar') {
@@ -171,6 +188,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
                               ),
                           ],
                         ),
+                        // Muestra las personas asignadas a esta obra
                         children: [_AsignacionesObraWidget(obraId: o.id)],
                       ),
                     );
@@ -184,12 +202,14 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     );
   }
 
+  /// Construye la barra de filtros de busqueda.
   Widget _buildBuscador() {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       color: Colors.grey[50],
       child: Column(
         children: [
+          // Filtro por nombre
           Row(
             children: [
               Expanded(
@@ -208,6 +228,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
             ],
           ),
           const SizedBox(height: 8),
+          // Filtro por estado (activa/inactiva)
           Row(
             children: [
               Expanded(
@@ -241,8 +262,9 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     );
   }
 
-  // ── Dialogs (sin cambios) ──────────────────────────────────────
+  // ---- Dialogs de CRUD ----
 
+  /// Dialogo para crear una nueva obra.
   void _mostrarDialogoCrear(BuildContext context, WidgetRef ref) {
     final nombreCtrl = TextEditingController();
     final direccionCtrl = TextEditingController();
@@ -260,13 +282,13 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
             children: [
               _buildTextField(nombreCtrl, 'Nombre'),
               const SizedBox(height: 12),
-              _buildTextField(direccionCtrl, 'Dirección'),
+              _buildTextField(direccionCtrl, 'Direccion'),
               const SizedBox(height: 12),
               _buildTextField(municipioCtrl, 'Municipio'),
               const SizedBox(height: 12),
-              _buildTextField(poblacionCtrl, 'Población'),
+              _buildTextField(poblacionCtrl, 'Poblacion'),
               const SizedBox(height: 12),
-              _buildTextField(codigoCtrl, 'Código'),
+              _buildTextField(codigoCtrl, 'Codigo'),
             ],
           ),
         ),
@@ -298,6 +320,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     );
   }
 
+  /// Dialogo para editar una obra existente.
   void _mostrarDialogoEditar(
     BuildContext context,
     WidgetRef ref,
@@ -318,10 +341,11 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
             children: [
               _buildTextField(nombreCtrl, 'Nombre'),
               const SizedBox(height: 12),
-              _buildTextField(direccionCtrl, 'Dirección'),
+              _buildTextField(direccionCtrl, 'Direccion'),
               const SizedBox(height: 12),
               _buildTextField(municipioCtrl, 'Municipio'),
               const SizedBox(height: 12),
+              // Switch para activar/desactivar obra
               SwitchListTile(
                 title: const Text('Obra activa'),
                 subtitle: Text(activa ? 'Activa' : 'Inactiva'),
@@ -359,6 +383,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     );
   }
 
+  /// Dialogo para asignar una persona (jefe/encargado) a una obra.
   void _mostrarDialogoAsignar(BuildContext context, WidgetRef ref, int obraId) {
     final usuariosAsync = ref.read(usuariosProvider);
     String? perfilSeleccionado;
@@ -375,6 +400,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
             ),
             error: (e, _) => Text('Error al cargar usuarios: $e'),
             data: (usuarios) {
+              // Filtra solo jefes de obra y encargados
               final elegibles = usuarios
                   .where(
                     (u) => ['JEFE_DE_OBRA', 'ENCARGADO'].contains(u['rol']),
@@ -424,12 +450,13 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     );
   }
 
+  /// Dialogo de confirmacion para eliminar una obra.
   void _confirmarEliminar(BuildContext context, WidgetRef ref, int id) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('¿Eliminar obra?'),
-        content: const Text('Esta acción no se puede deshacer.'),
+        title: const Text('Eliminar obra?'),
+        content: const Text('Esta accion no se puede deshacer.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -456,6 +483,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     );
   }
 
+  /// Construye un TextField generico para los dialogs.
   Widget _buildTextField(TextEditingController ctrl, String label) {
     return TextField(
       controller: ctrl,
@@ -466,6 +494,7 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
     );
   }
 
+  /// Muestra un mensaje de error en SnackBar.
   void _mostrarError(BuildContext context, String mensaje) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -478,9 +507,9 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
   }
 }
 
-// ─────────────────────────────────────────
-// Vista operario/encargado — sin cambios
-// ─────────────────────────────────────────
+// ============================================
+// Vista operario/encargado
+// ============================================
 /// Vista para operarios/encargados: muestra solo las obras que tiene
 /// asignadas el usuario actual.
 class _MisObrasView extends ConsumerWidget {
@@ -488,7 +517,7 @@ class _MisObrasView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final misObrasAsync = ref.watch(misAsignacionesProvider); // <-- cambiado
+    final misObrasAsync = ref.watch(misAsignacionesProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mis Obras Asignadas')),
@@ -521,7 +550,7 @@ class _MisObrasView extends ConsumerWidget {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        '${obra['municipio'] ?? ''} • ${obra['ubicacion'] ?? ''}',
+                        '${obra['municipio'] ?? ''} - ${obra['ubicacion'] ?? ''}',
                       ),
                       trailing: Chip(
                         label: Text(
@@ -544,11 +573,11 @@ class _MisObrasView extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────
-// Widget asignaciones — sin cambios
-// ─────────────────────────────────────────
+// ============================================
+// Widget de asignaciones por obra
+// ============================================
 /// Widget que muestra las personas asignadas a una obra dentro del
-/// ExpansionTile, con opción para desasignarlas.
+/// ExpansionTile, con opcion para desasignarlas.
 class _AsignacionesObraWidget extends ConsumerWidget {
   final int obraId;
   const _AsignacionesObraWidget({required this.obraId});

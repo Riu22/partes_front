@@ -1,3 +1,16 @@
+// =============================================================================
+// dias_quincena_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla de detalle de dias de la quincena por trabajador.
+// PARA QUE:     Mostrar tabla detallada de horas diarias por operario y obra
+//               para contabilidad, con exportacion a CSV y PDF.
+// QUIEN LO USA: Administradores y jefes de obra.
+// COMO SE LLEGA: Desde el menu de administracion.
+// A DONDE VA:   GET /api/contabilidad/detalle (servidor), CSV/PDF.
+// QUE DATOS USA: auth_provider, api_service, capture_helper, intl.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +19,8 @@ import '../../helpers/capture_helper.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 
+/// Pantalla de detalle contable: tabla de horas diarias por operario/obra,
+/// con filtros, leyendas y exportacion a CSV/PDF.
 class ContabilidadScreen extends ConsumerStatefulWidget {
   const ContabilidadScreen({super.key});
 
@@ -28,7 +43,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   List<String> _obrasDisponibles  = [];
   Set<String>  _obrasSeleccionadas = {};
 
-  // ── Festivos nacionales fijos ─────────────────────────────────────
+  // Festivos nacionales fijos
   static const Set<(int, int)> _festivosFijos = {
     (1,  1), (1,  6), (5,  1), (8, 15),
     (10,12), (11, 1), (12, 6), (12, 8), (12,25),
@@ -44,7 +59,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   bool get _esJefeObra =>
       ref.read(authProvider).valueOrNull?.esJefeObra == true;
 
-  // ── Helpers ───────────────────────────────────────────────────────
+  // -- Helpers --
 
   bool _esFinDeSemana(DateTime d) =>
       d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
@@ -53,6 +68,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
   bool _esDiaRojo(DateTime d) => _esFinDeSemana(d) || _esFestivo(d);
 
+  /// Informacion de ausencia para una celda (B=baja, V=vacaciones, P=paternidad).
   ({Color bg, Color fg, String letra})? _infoAusencia(
     Map<String, dynamic> fila,
     String isoFecha,
@@ -70,7 +86,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     return (bg: Colors.amber.shade100,  fg: Colors.amber.shade800, letra: 'V');
   }
 
-  // ── Helpers de extracción ─────────────────────────────────────────
+  // -- Helpers de extraccion --
 
   static double _extractHoras(dynamic raw) {
     if (raw == null) return 0;
@@ -84,7 +100,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     return null;
   }
 
-  // ── Celda de horas ────────────────────────────────────────────────
+  // -- Celda de horas --
 
   DataCell _celdaH(
     dynamic raw,
@@ -118,6 +134,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
     }
 
+    // Dia rojo (finde/festivo)
     if (esDiaRojo) {
       if (parteId != null && v > 0) {
         return DataCell(
@@ -174,6 +191,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
       );
     }
 
+    // Dia normal con parte (navegable)
     if (parteId != null && v > 0) {
       return DataCell(
         Tooltip(
@@ -227,7 +245,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
   }
 
-  // ── Fechas ────────────────────────────────────────────────────────
+  // -- Fechas --
 
   Future<void> _seleccionarFechas(BuildContext context) async {
     final nuevoRango = await showDateRangePicker(
@@ -258,7 +276,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     _obrasSeleccionadas      = {};
   }
 
-  // ── Carga ─────────────────────────────────────────────────────────
+  // -- Carga --
 
   Future<void> _cargarVistaPrevia() async {
     if (_rangoSeleccionado == null) return;
@@ -298,7 +316,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     }
   }
 
-  // ── CSV ───────────────────────────────────────────────────────────
+  // -- CSV --
 
   Future<void> _ejecutarDescarga() async {
     if (_rangoSeleccionado == null) return;
@@ -318,7 +336,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     }
   }
 
-  // ── PDF ───────────────────────────────────────────────────────────
+  // -- PDF --
 
   Future<void> _exportarPdf() async {
     if (_rangoSeleccionado == null || _datosPrevia.isEmpty) return;
@@ -403,7 +421,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         filas: filas,
         subtotales: indicesSubtotal,
         titulo:
-            '${_esJefeObra ? 'Mis obras' : 'Exportacion Contable'} — ${_labelRango()}',
+            '${_esJefeObra ? 'Mis obras' : 'Exportacion Contable'} - ${_labelRango()}',
       );
     } catch (e) {
       _mostrarError('Error al generar PDF: $e');
@@ -412,7 +430,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     }
   }
 
-  // ── Utilidades ────────────────────────────────────────────────────
+  // -- Utilidades --
 
   List<DateTime> _diasDelRango() {
     final List<DateTime> dias = [];
@@ -462,9 +480,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         ),
       );
 
-  // ─────────────────────────────────────────────────────────────────
-  //  BUILD
-  // ─────────────────────────────────────────────────────────────────
+  // -- BUILD --
 
   @override
   Widget build(BuildContext context) {
@@ -484,7 +500,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────────
+  // -- Header --
 
   Widget _buildSelectorHeader() {
     final hayDatos      = _datosPrevia.isNotEmpty;
@@ -629,7 +645,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
   }
 
-  // ── Chips quincena ────────────────────────────────────────────────
+  // -- Chips quincena --
 
   Widget _buildBotonesQuincena() {
     final ahora = DateTime.now();
@@ -689,7 +705,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
     );
   }
 
-  // ── Empty state ───────────────────────────────────────────────────
+  // -- Empty state --
 
   Widget _buildEmptyState() => Center(
         child: Column(
@@ -702,9 +718,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
         ),
       );
 
-  // ─────────────────────────────────────────────────────────────────
-  //  TABLA — FIX pantalla grande
-  // ─────────────────────────────────────────────────────────────────
+  // -- TABLA --
 
   Widget _buildTabla() {
     final datosFiltrados = _datosFiltrados();
@@ -722,7 +736,7 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
 
     final List<DataColumn> columnas = [
       const DataColumn(
-          label: Text('Cód.',
+          label: Text('Cod.',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
       const DataColumn(
           label: Text('Trabajador',
@@ -907,7 +921,6 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
                   controller: _horizontalController,
                   scrollDirection: Axis.horizontal,
                   child: ConstrainedBox(
-                    // ← FIX: fuerza ancho mínimo igual al ancho disponible
                     constraints: BoxConstraints(
                       minWidth: constraints.maxWidth,
                     ),
@@ -937,9 +950,9 @@ class _ContabilidadScreenState extends ConsumerState<ContabilidadScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Leyenda
-// ─────────────────────────────────────────────────────────────────────────────
+// ============================================
+// Leyenda
+// ============================================
 
 class _LeyendaCelda extends StatelessWidget {
   final Color  color;
@@ -972,9 +985,9 @@ class _LeyendaCelda extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Bottom sheet filtro obras
-// ─────────────────────────────────────────────────────────────────────────────
+// ============================================
+// Bottom sheet filtro obras
+// ============================================
 
 class _FiltroBottomSheet extends StatefulWidget {
   final String   titulo;
@@ -1139,9 +1152,9 @@ class _FiltroBottomSheetState extends State<_FiltroBottomSheet> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ============================================
+// Helpers
+// ============================================
 
 class _Quincena {
   final String   label;

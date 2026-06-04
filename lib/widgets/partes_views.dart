@@ -1,3 +1,33 @@
+// =============================================================================
+// partes_views.dart  -  Pantallas de vistas de partes
+// =============================================================================
+// ASPECTO EN PANTALLA:
+//   Contiene tres vistas:
+//
+//   1. PartesNormalesView: Lista de partes de operarios, con resumen
+//      semanal opcional, agrupados por fecha (usando ListaPartes).
+//   2. PartesJefeView: Lista de partes del jefe de obra (tarjetas
+//      CardParteJefe con porcentajes), con botones editar/eliminar.
+//   3. PartesJefeCombinadaView: Vista combinada que muestra primero
+//      "Mis partes por porcentaje" (jefe) y luego separa por
+//      especialidad "Electricidad" y "Fontaneria", cada una agrupada
+//      por obra o por fecha segun el rol.
+//
+// USO:
+//   Renderizado condicional segun el rol del usuario. Se usa en la
+//   pantalla de partes con tabs o selector de modo.
+//
+// DATOS QUE NECESITA:
+//   - partesProvider: lista de partes de operarios
+//   - partesJefeProvider: lista de partes del jefe de obra
+//   - authProvider: para permisos y roles
+//
+// INTERACCION DEL USUARIO:
+//   - Expandir/colapsar secciones y tarjetas
+//   - Editar/Eliminar partes (solo si tiene permisos)
+//   - Navegar a pantallas de edicion
+// =============================================================================
+
 /// Pantallas combinadas de partes: vista normal para operarios,
 /// vista para jefe de obra y vista combinada que muestra ambas
 /// (partes por porcentaje del jefe + partes por especialidad).
@@ -13,8 +43,12 @@ import 'lista_partes.dart';
 import 'card_parte_jefe.dart';
 import 'day_header.dart';
 
-// ── Helper compartido ────────────────────────────────────────────────────────
+// ── HELPER COMPARTIDO ────────────────────────────────────────────────────────
 
+/// Muestra dialogo de confirmacion y elimina un parte de jefe de obra.
+///
+/// Usa [showDialog] para confirmar, luego llama al API via
+/// [apiServiceProvider] e invalida [partesJefeProvider].
 Future<void> _confirmarEliminar(
   BuildContext context,
   WidgetRef ref,
@@ -67,8 +101,13 @@ Future<void> _confirmarEliminar(
   }
 }
 
-// ── Vistas ───────────────────────────────────────────────────────────────────
+// ── VISTAS ───────────────────────────────────────────────────────────────────
 
+/// Vista de partes normales (operarios). Muestra [ListaPartes] con datos
+/// de [partesProvider]. Opcionalmente agrupa por operario.
+///
+/// [ConsumerWidget] para acceder a providers de Riverpod.
+/// ref.watch() escucha cambios; el widget se reconstruye al cambiar.
 class PartesNormalesView extends ConsumerWidget {
   final bool agruparPorOperario;
 
@@ -76,11 +115,15 @@ class PartesNormalesView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Escucha el provider de partes. Se reconstruye al cambiar.
     final partesAsync = ref.watch(partesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
+
+    // El resumen semanal solo se muestra para operarios y encargados.
     final mostrarResumen =
         perfil?.esOperario == true || perfil?.esEncargado == true;
 
+    // [.when] maneja los tres estados de AsyncValue: loading, error, data.
     return partesAsync.when(
       loading: () =>
           const Center(child: CircularProgressIndicator(color: blue)),
@@ -96,6 +139,8 @@ class PartesNormalesView extends ConsumerWidget {
   }
 }
 
+/// Vista de partes del jefe de obra. Muestra lista de [CardParteJefe]
+/// con botones editar/eliminar. Datos de [partesJefeProvider].
 class PartesJefeView extends ConsumerWidget {
   const PartesJefeView({super.key});
 
@@ -117,6 +162,7 @@ class PartesJefeView extends ConsumerWidget {
             ),
           );
         }
+        // ListView con cada parte como CardParteJefe.
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: 80, left: 12, right: 12),
           itemCount: partes.length,
@@ -124,6 +170,7 @@ class PartesJefeView extends ConsumerWidget {
             final p = partes[index];
             return CardParteJefe(
               parte: p,
+              // Navega a edicion con los datos del parte como Map.
               onEditar: () => context.push(
                 '/partes/editar-jefe/${p['id']}',
                 extra: Map<String, dynamic>.from(p as Map),
@@ -137,6 +184,9 @@ class PartesJefeView extends ConsumerWidget {
   }
 }
 
+/// Vista combinada: partes del jefe (porcentajes) + partes separados
+/// por especialidad (Electricidad / Fontaneria). Cada especialidad se
+/// agrupa por obra o por fecha segun el rol.
 class PartesJefeCombinadaView extends ConsumerWidget {
   const PartesJefeCombinadaView({super.key});
 
@@ -150,7 +200,7 @@ class PartesJefeCombinadaView extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.only(bottom: 80),
       children: [
-        // ── Mis partes por porcentaje (siempre visibles, primero) ──
+        // ── PARTES DEL JEFE (siempre visibles, primero) ──
         partesJefeAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(24),
@@ -187,6 +237,7 @@ class PartesJefeCombinadaView extends ConsumerWidget {
                     ),
                   ),
                 ),
+                // Renderiza cada parte del jefe como CardParteJefe.
                 ...partes.map(
                   (p) => Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -210,7 +261,7 @@ class PartesJefeCombinadaView extends ConsumerWidget {
         const Divider(color: cardBorder, height: 1),
         const SizedBox(height: 4),
 
-        // ── Partes de la obra separados por especialidad ──
+        // ── PARTES POR ESPECIALIDAD ──────────────────────────
         partesNormalesAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.all(24),
@@ -224,6 +275,7 @@ class PartesJefeCombinadaView extends ConsumerWidget {
             ),
           ),
           data: (partes) {
+            // Separa partes por especialidad.
             final electricos = partes
                 .where((p) => p.especialidad == 'ELECTRICIDAD')
                 .toList();
@@ -255,8 +307,11 @@ class PartesJefeCombinadaView extends ConsumerWidget {
   }
 }
 
-// ── Sección desplegable por especialidad ────────────────────────────────────
+// ── SECCION DESPLEGABLE POR ESPECIALIDAD ────────────────────────────────────
 
+/// Seccion expandible para una especialidad (Electricidad/Fontaneria).
+/// Muestra icono, nombre, total de horas, cantidad de personas.
+/// Al expandir, si agruparPorObra=true agrupa por obra, si no, por fecha.
 class _SeccionEspecialidad extends StatefulWidget {
   final String titulo;
   final IconData icono;
@@ -279,6 +334,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
 
   @override
   Widget build(BuildContext context) {
+    // Calcula total de horas de todos los partes de esta especialidad.
     final totalHoras = widget.partes.fold<double>(
       0,
       (s, p) => s + p.horasNormales,
@@ -286,6 +342,8 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
     final horasLabel = totalHoras == totalHoras.truncateToDouble()
         ? '${totalHoras.toInt()}h'
         : '${totalHoras.toStringAsFixed(1)}h';
+
+    // Cuenta operarios unicos en esta especialidad.
     final operariosUnicos = widget.partes
         .map((p) => p.operarioNombreCompleto)
         .toSet()
@@ -294,6 +352,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
     Widget contenido;
 
     if (widget.agruparPorObra) {
+      // Agrupacion por obra: obra -> dia -> operarios.
       final Map<String, List<ParteTrabajo>> porObra = {};
       for (final p in widget.partes) {
         porObra.putIfAbsent(p.obraNombre, () => []).add(p);
@@ -306,6 +365,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
             .toList(),
       );
     } else {
+      // Agrupacion por fecha (default).
       final Map<String, List<ParteTrabajo>> porFecha = {};
       for (final p in widget.partes) {
         porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);
@@ -331,15 +391,17 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── CABECERA DE ESPECIALIDAD ─────────────────────────
         GestureDetector(
           onTap: widget.partes.isEmpty
-              ? null
+              ? null // No se expande si no hay partes.
               : () => setState(() => _expandido = !_expandido),
           child: Container(
             color: Colors.transparent,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
             child: Row(
               children: [
+                // Flecha expandir/colapsar.
                 Icon(
                   widget.partes.isEmpty
                       ? Icons.keyboard_arrow_right
@@ -350,12 +412,14 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
                   color: widget.partes.isEmpty ? cardBorder : textSecondary,
                 ),
                 const SizedBox(width: 4),
+                // Icono de la especialidad.
                 Icon(
                   widget.icono,
                   size: 15,
                   color: widget.partes.isEmpty ? cardBorder : textSecondary,
                 ),
                 const SizedBox(width: 6),
+                // Nombre de la especialidad.
                 Text(
                   widget.titulo,
                   style: TextStyle(
@@ -365,6 +429,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                // Pastilla con total de horas.
                 if (widget.partes.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -385,6 +450,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
                     ),
                   ),
                 const Spacer(),
+                // Cantidad de personas o "Sin partes".
                 Text(
                   widget.partes.isEmpty
                       ? 'Sin partes'
@@ -398,6 +464,7 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
             ),
           ),
         ),
+        // ── CONTENIDO EXPANDIDO ─────────────────────────────
         if (_expandido && widget.partes.isNotEmpty) contenido,
         const SizedBox(height: 4),
       ],
@@ -405,8 +472,11 @@ class _SeccionEspecialidadState extends State<_SeccionEspecialidad> {
   }
 }
 
-// ── Grupo por obra (obra → día → operarios) ──────────────────────────────────
+// ── GRUPO POR OBRA (obra -> dia -> operarios) ─────────────────────────────────
 
+/// Grupo expandible por obra dentro de una especialidad.
+/// Muestra nombre de obra, total de horas. Al expandir, muestra
+/// los partes agrupados por fecha con DayHeader.
 class _ObraGroup extends StatefulWidget {
   final String obraNombre;
   final List<ParteTrabajo> partes;
@@ -418,7 +488,7 @@ class _ObraGroup extends StatefulWidget {
 }
 
 class _ObraGroupState extends State<_ObraGroup> {
-  bool _expandido = true;
+  bool _expandido = true; // Por defecto expandido.
 
   @override
   Widget build(BuildContext context) {
@@ -430,6 +500,7 @@ class _ObraGroupState extends State<_ObraGroup> {
         ? '${totalHoras.toInt()}h'
         : '${totalHoras.toStringAsFixed(1)}h';
 
+    // Agrupa por fecha.
     final Map<String, List<ParteTrabajo>> porFecha = {};
     for (final p in widget.partes) {
       porFecha.putIfAbsent(fmtYMD(p.fecha), () => []).add(p);
@@ -440,6 +511,7 @@ class _ObraGroupState extends State<_ObraGroup> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── CABECERA DE OBRA ────────────────────────────────
         GestureDetector(
           onTap: () => setState(() => _expandido = !_expandido),
           child: Container(
@@ -447,6 +519,7 @@ class _ObraGroupState extends State<_ObraGroup> {
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
             child: Row(
               children: [
+                // Flecha expandir/colapsar.
                 Icon(
                   _expandido
                       ? Icons.keyboard_arrow_down
@@ -473,6 +546,7 @@ class _ObraGroupState extends State<_ObraGroup> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                // Pastilla con total de horas.
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -495,6 +569,7 @@ class _ObraGroupState extends State<_ObraGroup> {
             ),
           ),
         ),
+        // ── CONTENIDO EXPANDIDO ─────────────────────────────
         if (_expandido)
           Padding(
             padding: const EdgeInsets.only(left: 16),

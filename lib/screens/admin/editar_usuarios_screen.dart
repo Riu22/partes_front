@@ -1,6 +1,16 @@
-/// Pantalla para editar un usuario existente.
-/// Permite modificar datos personales, email, contraseña (opcional),
-/// rol, estado activo, postventa, especialidad y categoría profesional.
+// =============================================================================
+// editar_usuarios_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla para editar un usuario existente.
+// PARA QUE:     Modificar datos personales, email, contrasena (opcional),
+//               rol, estado activo, postventa, especialidad y categoria.
+// QUIEN LO USA: Administradores.
+// COMO SE LLEGA: Desde usuarios_screen.dart al pulsar "Editar" en un usuario.
+// A DONDE VA:   PUT /api/usuarios/{id} (servidor).
+// QUE DATOS USA: admin_provider, auth_provider.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,8 +18,8 @@ import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 
 /// Formulario para editar un usuario existente. Permite cambiar todos
-/// los campos incluyendo contraseña (opcional), rol, especialidad y
-/// categoría profesional.
+/// los campos incluyendo contrasena (opcional), rol, especialidad y
+/// categoria profesional.
 class EditarUsuarioScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> usuario;
   const EditarUsuarioScreen({super.key, required this.usuario});
@@ -19,7 +29,10 @@ class EditarUsuarioScreen extends ConsumerStatefulWidget {
       _EditarUsuarioScreenState();
 }
 
+/// Estado del formulario de edicion: inicializa controladores con datos
+/// existentes, gestiona cambios y envio.
 class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
+  // -- Controladores --
   late final TextEditingController _nameCtrl;
   late final TextEditingController _lastNameCtrl;
   late final TextEditingController _codigoCtrl;
@@ -27,6 +40,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   late final TextEditingController _emailCtrl;
   late final TextEditingController _passwordCtrl;
 
+  // -- Estado --
   late String _rol;
   late String _especialidad;
   late bool _activo;
@@ -36,20 +50,21 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   bool _enviando = false;
   bool _mostrarPassword = false;
 
+  // Opciones de grupo profesional
   static const List<String> _gruposOpciones = [
-    'OF 1ª - Electricidad',
-    'OF 2ª - Electricidad',
-    'OF 3ª - Electricidad',
-    'Peón - Electricidad',
-    'OF 1ª - Fontanería',
-    'OF 2ª - Fontanería',
-    'OF 3ª - Fontanería',
-    'Peón - Fontanería',
-    'OF 1ª - Climatización',
-    'OF 2ª - Climatización',
-    'OF 3ª - Climatización',
-    'Peón - Climatización',
-    'Peón - Almacén',
+    'OF 1a - Electricidad',
+    'OF 2a - Electricidad',
+    'OF 3a - Electricidad',
+    'Peon - Electricidad',
+    'OF 1a - Fontaneria',
+    'OF 2a - Fontaneria',
+    'OF 3a - Fontaneria',
+    'Peon - Fontaneria',
+    'OF 1a - Climatizacion',
+    'OF 2a - Climatizacion',
+    'OF 3a - Climatizacion',
+    'Peon - Climatizacion',
+    'Peon - Almacen',
     'Jefe de Obra',
     'Encargado',
     'Otro (escribir a mano)',
@@ -65,19 +80,21 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   @override
   void initState() {
     super.initState();
+    // Inicializa controladores con datos existentes
     _nameCtrl = TextEditingController(text: widget.usuario['name'] ?? '');
     _lastNameCtrl = TextEditingController(
       text: widget.usuario['apellidos'] ?? '',
     );
     _codigoCtrl = TextEditingController(text: widget.usuario['codigo'] ?? '');
     _emailCtrl = TextEditingController(text: widget.usuario['email'] ?? '');
-    _passwordCtrl = TextEditingController(); // siempre vacío por seguridad
+    _passwordCtrl = TextEditingController(); // Siempre vacio por seguridad
 
     _rol = widget.usuario['rol'] ?? 'OPERARIO';
     _activo = widget.usuario['activo'] ?? true;
     _postventa = widget.usuario['postventa'] ?? false;
     _especialidad = widget.usuario['especialidad'] ?? 'ELECTRICIDAD';
 
+    // Determina si el grupo profesional es uno predefinido o personalizado
     final grupoActual = widget.usuario['grupo_profesional']?.toString() ?? '';
     if (grupoActual.isEmpty) {
       _grupoProfesionalSeleccionado = null;
@@ -108,13 +125,13 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Editar — ${_nameCtrl.text}')),
+      appBar: AppBar(title: Text('Editar - ${_nameCtrl.text}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── SECCIÓN: Datos personales ──────────────────────────────
+            // ---- SECCION: Datos personales ----
             _seccionTitulo('Datos personales'),
             const SizedBox(height: 12),
 
@@ -145,18 +162,18 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Código
+            // Codigo
             TextFormField(
               controller: _codigoCtrl,
               decoration: const InputDecoration(
-                labelText: 'Código',
+                labelText: 'Codigo',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.badge),
               ),
             ),
             const SizedBox(height: 24),
 
-            // ── SECCIÓN: Acceso ────────────────────────────────────────
+            // ---- SECCION: Acceso ----
             _seccionTitulo('Acceso'),
             const SizedBox(height: 12),
 
@@ -165,20 +182,20 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: 'Correo electrónico',
+                labelText: 'Correo electronico',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.email_outlined),
               ),
             ),
             const SizedBox(height: 16),
 
-            // Contraseña
+            // Contrasena (opcional)
             TextFormField(
               controller: _passwordCtrl,
               obscureText: !_mostrarPassword,
               decoration: InputDecoration(
-                labelText: 'Nueva contraseña',
-                hintText: 'Dejar vacío para no cambiarla',
+                labelText: 'Nueva contrasena',
+                hintText: 'Dejar vacio para no cambiarla',
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
@@ -194,7 +211,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ── SECCIÓN: Rol y permisos ────────────────────────────────
+            // ---- SECCION: Rol y permisos ----
             _seccionTitulo('Rol y permisos'),
             const SizedBox(height: 12),
 
@@ -212,10 +229,10 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                   value: 'JEFE_DE_OBRA',
                   child: Text('Jefe de obra'),
                 ),
-                DropdownMenuItem(value: 'GESTION', child: Text('Gestión')),
+                DropdownMenuItem(value: 'GESTION', child: Text('Gestion')),
                 DropdownMenuItem(
                   value: 'ADMINISTRACION',
-                  child: Text('Administración'),
+                  child: Text('Administracion'),
                 ),
               ],
               onChanged: (v) => setState(() {
@@ -242,8 +259,8 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
 
             const SizedBox(height: 24),
 
-            // ── SECCIÓN: Especialidad y categoría ─────────────────────
-            _seccionTitulo('Especialidad y categoría'),
+            // ---- SECCION: Especialidad y categoria ----
+            _seccionTitulo('Especialidad y categoria'),
             const SizedBox(height: 12),
 
             // Especialidad
@@ -261,7 +278,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 ),
                 DropdownMenuItem(
                   value: 'FONTANERIA',
-                  child: Text('Fontanería'),
+                  child: Text('Fontaneria'),
                 ),
               ],
               onChanged: (v) => setState(() => _especialidad = v!),
@@ -272,11 +289,11 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
             DropdownButtonFormField<String>(
               value: _grupoProfesionalSeleccionado,
               decoration: const InputDecoration(
-                labelText: 'Categoría profesional',
+                labelText: 'Categoria profesional',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.work),
               ),
-              hint: const Text('Seleccionar categoría'),
+              hint: const Text('Seleccionar categoria'),
               items: _gruposOpciones.map((grupo) {
                 final esOtro = grupo == 'Otro (escribir a mano)';
                 return DropdownMenuItem(
@@ -306,17 +323,17 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
                 controller: _grupoProfesionalCtrl,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  labelText: 'Escribe la categoría profesional',
+                  labelText: 'Escribe la categoria profesional',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.edit),
-                  hintText: 'Ej: OF 4ª - Climatización',
+                  hintText: 'Ej: OF 4a - Climatizacion',
                 ),
               ),
             ],
 
             const SizedBox(height: 32),
 
-            // Botón guardar
+            // ---- Boton guardar ----
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -339,7 +356,7 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     );
   }
 
-  /// Cabecera de sección con línea divisoria
+  /// Cabecera de seccion con linea divisoria.
   Widget _seccionTitulo(String titulo) {
     return Row(
       children: [
@@ -358,12 +375,13 @@ class _EditarUsuarioScreenState extends ConsumerState<EditarUsuarioScreen> {
     );
   }
 
+  /// Guarda los cambios del usuario en el servidor.
   Future<void> _guardar() async {
-    // Validación mínima de contraseña
+    // Validacion minima de contrasena
     if (_passwordCtrl.text.isNotEmpty && _passwordCtrl.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('La contraseña debe tener al menos 6 caracteres'),
+          content: Text('La contrasena debe tener al menos 6 caracteres'),
           backgroundColor: Colors.orange,
         ),
       );

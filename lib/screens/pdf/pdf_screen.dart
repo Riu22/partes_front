@@ -1,6 +1,17 @@
-/// Pantalla para exportar informes de partes en PDF o ZIP.
-/// Permite seleccionar rango de fechas, obras, operarios y el formato
-/// de exportación (PDF único, ZIP por obra o ZIP por operario).
+// =============================================================================
+// pdf_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla de generacion de informes de partes en PDF/ZIP.
+// PARA QUE:     Seleccionar filtros (fechas, obras, operarios) y formato de
+//               exportacion (PDF unico, ZIP por obra, ZIP por operario).
+// QUIEN LO USA: Administradores, gestion, jefes de obra.
+// COMO SE LLEGA: Desde el AppDrawer.
+// A DONDE VA:   GET /api/exportar-partes (servidor) - genera PDF/ZIP.
+// QUE DATOS USA: auth_provider, admin_provider, perfiles_provider,
+//                obras_provider, pdf_export_params, widgets varios.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/pdf_export_params.dart';
@@ -15,10 +26,9 @@ import '../../widgets/perfiles_selector.dart';
 import '../../widgets/export_preview.dart';
 import '../../providers/obras_provider.dart';
 
-
-/// Pantalla de generación de informes de partes. Permite seleccionar
-/// filtros (fechas, obras, operarios) y elegir formato de exportación
-/// (PDF único, ZIP por obra o ZIP por operario).
+/// Pantalla de generacion de informes de partes. Permite seleccionar
+/// filtros (fechas, obras, operarios) y elegir formato de exportacion
+/// (PDF unico, ZIP por obra o ZIP por operario).
 class InformePartesScreen extends ConsumerStatefulWidget {
   const InformePartesScreen({super.key});
 
@@ -28,26 +38,32 @@ class InformePartesScreen extends ConsumerStatefulWidget {
 }
 
 /// Gestiona los filtros (fechas, obras, operarios, modo) y genera
-/// la previsualización/exportación del informe de partes.
+/// la previsualizacion/exportacion del informe de partes.
 class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
+  // -- Fechas (default: ultimos 15 dias) --
   DateTime _desde = DateTime.now().subtract(const Duration(days: 15));
   DateTime _hasta = DateTime.now();
 
+  // -- Selecciones --
   final Set<int> _obrasSeleccionadas = {};
   final Set<String> _perfilesSeleccionados = {};
 
+  // -- Modo de exportacion --
   ModoExport _modo = ModoExport.zip;
 
+  // -- Parametros para preview --
   PdfParams? _params;
 
+  /// Callback cuando cambia el rango de fechas.
   void _onRangoChanged(DateTimeRange rango) {
     setState(() {
       _desde = rango.start;
       _hasta = rango.end;
-      _params = null;
+      _params = null; // Invalida la preview anterior
     });
   }
 
+  /// Genera el informe con los filtros actuales.
   void _generarInforme() {
     final params = PdfParams(
       desde: _desde,
@@ -65,11 +81,11 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
   @override
   Widget build(BuildContext context) {
     final perfil = ref.watch(authProvider).valueOrNull;
+    // Los jefes de obra solo ven sus obras asignadas
     final esJefe = perfil?.esJefeObra == true &&
         perfil?.esAdmin != true &&
         perfil?.esGestion != true;
 
-    // Los jefes ven solo sus obras asignadas; admin/gestión ven todas
     final obrasAsync =
         esJefe ? ref.watch(misObrasProvider) : ref.watch(obrasProvider);
     final perfilesAsync = ref.watch(perfilesProvider);
@@ -85,6 +101,7 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ---- Rango de fechas ----
                   const Text(
                     'Rango de fechas',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -96,6 +113,8 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                     onChanged: _onRangoChanged,
                   ),
                   const SizedBox(height: 20),
+
+                  // ---- Selector de obras ----
                   obrasAsync.when(
                     loading: () => const LinearProgressIndicator(),
                     error: (e, _) => Text('Error: $e'),
@@ -112,6 +131,8 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                       },
                     ),
                   ),
+
+                  // ---- Selector de operarios (solo no jefes) ----
                   if (!esJefe) ...[
                     const SizedBox(height: 20),
                     perfilesAsync.when(
@@ -132,8 +153,10 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                     ),
                   ],
                   const SizedBox(height: 20),
+
+                  // ---- Formato de exportacion ----
                   const Text(
-                    'Formato de exportación',
+                    'Formato de exportacion',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -156,7 +179,7 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ModoTile(
-                          label: 'PDF único',
+                          label: 'PDF unico',
                           subtitulo: 'Todas las obras en un archivo',
                           icono: Icons.picture_as_pdf,
                           seleccionado: _modo == ModoExport.pdf,
@@ -171,6 +194,8 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
+
+                  // ZIP por operario
                   ModoTile(
                     label: 'ZIP por operario',
                     subtitulo: 'Un PDF por operario con todas sus obras',
@@ -184,6 +209,8 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
+
+                  // ---- Boton de generacion ----
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -214,6 +241,8 @@ class _InformePartesScreenState extends ConsumerState<InformePartesScreen> {
                       ),
                     ),
                   ),
+
+                  // ---- Preview de exportacion ----
                   if (_params != null) ...[
                     const SizedBox(height: 16),
                     const Divider(),

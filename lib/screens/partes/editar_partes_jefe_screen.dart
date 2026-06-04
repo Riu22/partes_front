@@ -1,6 +1,18 @@
+// =============================================================================
+// PANTALLA: EditarParteJefeScreen
+// -----------------------------------------------------------------------------
+// QUE ES: Formulario para editar un parte de jefe de obra existente.
+// PARA QUE SIRVE: Modificar fecha, obras con horas (electricas/mecanicas) y descripcion.
+// QUIEN LA VE (rol): Jefes de obra y gestores administradores.
+// COMO SE LLEGA: Pulsando sobre un parte de jefe en la lista de partes_screen.
+// A DONDE VA DESPUES: Vuelve a '/partes' al guardar o cancelar.
+// QUE DATOS NECESITA: El Map<String, dynamic> del parte de jefe a editar.
+// OFFLINE: No, solo online para editar partes de jefe.
+// =============================================================================
+
 /// Pantalla para editar un parte de jefe de obra existente.
-/// Permite modificar la fecha, las obras con sus horas (eléctricas/mecánicas)
-/// y la descripción general.
+/// Permite modificar la fecha, las obras con sus horas (electricas/mecanicas)
+/// y la descripcion general.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,8 +23,8 @@ import '../../providers/partes_provider.dart';
 import '../../providers/obras_provider.dart';
 import '../../widgets/buscador_obras_modal.dart';
 
-/// Formulario de edición para partes de jefe de obra.
-/// Carga las obras existentes del parte y permite añadir, quitar
+/// Formulario de edicion para partes de jefe de obra.
+/// Carga las obras existentes del parte y permite anadir, quitar
 /// o modificar las horas de cada una.
 class EditarParteJefeScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> parte;
@@ -24,11 +36,19 @@ class EditarParteJefeScreen extends ConsumerStatefulWidget {
       _EditarParteJefeScreenState();
 }
 
+/// Estado del formulario de edicion de parte de jefe.
+///
+/// Lifecycle:
+/// 1. initState: parsea las obras existentes del JSON del parte.
+/// 2. build: renderiza el formulario con fecha, obras y descripcion.
+/// 3. dispose: no requiere limpieza especial (sin controladores propios).
 class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
   final _formKey = GlobalKey<FormState>();
   late String _descripcion;
   bool _enviando = false;
   late DateTime _fecha;
+  // Lista de lineas de obra: cada una tiene obra_id, obra_nombre,
+  // horas_electricas, horas_mecanicas
   late List<Map<String, dynamic>> _lineas;
 
   @override
@@ -38,9 +58,11 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
     _descripcion = p['descripcion'] ?? '';
     _fecha = DateTime.tryParse(p['fecha'] ?? '') ?? DateTime.now();
 
-    // Carga las obras existentes del parte
+    // Carga las obras existentes del parte desde el JSON
+    // La API devuelve las obras con su desglose de horas
     final obras = (p['obras'] as List?) ?? [];
     _lineas = obras.map<Map<String, dynamic>>((o) {
+      // Calcula el total de horas de la obra
       final totalHoras =
           ((o['porcentaje_electrico'] as num?)?.toDouble() ?? 0.0) +
           ((o['porcentaje_mecanico'] as num?)?.toDouble() ?? 0.0);
@@ -55,6 +77,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
     }).toList();
   }
 
+  // Propiedad calculada: suma total de horas de todas las lineas
   double get _totalHoras => _lineas.fold(
     0.0,
     (sum, l) =>
@@ -63,6 +86,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
         ((l['horas_mecanicas'] as double?) ?? 0.0),
   );
 
+  /// Abre el selector de fecha nativo.
   Future<void> _seleccionarFecha() async {
     final ahora = DateTime.now();
     final picked = await showDatePicker(
@@ -75,8 +99,14 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
     if (picked != null) setState(() => _fecha = picked);
   }
 
-  /// Envía los cambios del parte de jefe al servidor con las obras
+  /// Envia los cambios del parte de jefe al servidor con las obras
   /// actualizadas y sus horas desglosadas.
+  ///
+  /// Flujo:
+  /// 1. Valida el formulario
+  /// 2. Construye payload con fecha, descripcion y obras
+  /// 3. Llama al API para actualizar
+  /// 4. Invalida el provider de partes de jefe para refrescar la lista
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _enviando = true);
@@ -107,10 +137,11 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
         context.go('/partes');
       }
     } on DioException catch (e) {
+      // Manejo especifico de errores HTTP con Dio
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.response?.data?.toString() ?? 'Error de conexión'),
+            content: Text(e.response?.data?.toString() ?? 'Error de conexion'),
             backgroundColor: Colors.red,
           ),
         );
@@ -148,7 +179,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Fecha ────────────────────────────────────────────
+              // -- Fecha ----------------------------------------------------
               const Text(
                 'Fecha del parte',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -190,7 +221,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
 
               const SizedBox(height: 25),
 
-              // ── Obras ────────────────────────────────────────────
+              // -- Obras ----------------------------------------------------
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -210,14 +241,17 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
               ),
               const SizedBox(height: 12),
 
+              // Renderiza cada linea de obra como una tarjeta
               ..._lineas.asMap().entries.map(
                 (e) => _buildCardLinea(e.key, e.value),
               ),
 
+              // Boton para anadir nuevas obras (solo las no asignadas)
               obrasAsync.when(
                 loading: () => const SizedBox(),
                 error: (e, _) => const SizedBox(),
                 data: (obras) {
+                  // Filtra las obras que ya estan en la lista
                   final obraIds = _lineas.map((l) => l['obra_id']).toSet();
                   final disponibles = obras
                       .where((o) => !obraIds.contains(o.id))
@@ -239,16 +273,16 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
                           );
                         }),
                     icon: const Icon(Icons.search),
-                    label: const Text('Buscar y añadir obra'),
+                    label: const Text('Buscar y anadir obra'),
                   );
                 },
               ),
 
               const SizedBox(height: 25),
 
-              // ── Descripción ──────────────────────────────────────
+              // -- Descripcion ----------------------------------------------
               const Text(
-                'Descripción general',
+                'Descripcion general',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -262,7 +296,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
 
               const SizedBox(height: 30),
 
-              // ── Botón guardar ────────────────────────────────────
+              // -- Boton guardar --------------------------------------------
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -290,6 +324,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
     );
   }
 
+  /// Tarjeta para una linea de obra con sus campos de horas.
   Widget _buildCardLinea(int i, Map<String, dynamic> linea) {
     final electricas = (linea['horas_electricas'] as double?) ?? 0.0;
     final mecanicas = (linea['horas_mecanicas'] as double?) ?? 0.0;
@@ -303,6 +338,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Cabecera con nombre de obra y boton eliminar
             Row(
               children: [
                 Expanded(
@@ -318,11 +354,12 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
               ],
             ),
             const SizedBox(height: 8),
+            // Inputs de horas electricas y mecanicas
             Row(
               children: [
                 Expanded(
                   child: _buildInputHoras(
-                    label: '⚡ Eléctricas (h)',
+                    label: 'Electricas (h)',
                     valor: electricas,
                     onChanged: (v) =>
                         setState(() => _lineas[i]['horas_electricas'] = v),
@@ -331,7 +368,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildInputHoras(
-                    label: '🔧 Mecánicas (h)',
+                    label: 'Mecanicas (h)',
                     valor: mecanicas,
                     onChanged: (v) =>
                         setState(() => _lineas[i]['horas_mecanicas'] = v),
@@ -339,6 +376,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
                 ),
               ],
             ),
+            // Subtotal de la linea
             if (totalLinea > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -353,6 +391,7 @@ class _EditarParteJefeScreenState extends ConsumerState<EditarParteJefeScreen> {
     );
   }
 
+  /// Input numerico para horas electricas o mecanicas.
   Widget _buildInputHoras({
     required String label,
     required double valor,

@@ -1,6 +1,17 @@
-/// Pantalla de gestión de fechas libres (permisos).
-/// Permite al administrador añadir o quitar días sueltos para que un
-/// operario pueda registrar partes fuera del límite normal (día actual).
+// =============================================================================
+// fecha_libre_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla de gestion de fechas libres (permisos).
+// PARA QUE:     Anadir o quitar dias sueltos para que un operario pueda
+//               registrar partes fuera del limite normal (dia actual).
+// QUIEN LO USA: Administradores.
+// COMO SE LLEGA: Desde el menu del panel de administracion o AppDrawer.
+// A DONDE VA:   GET/POST/DELETE /api/fechas-libres (servidor).
+// QUE DATOS USA: auth_provider, perfiles_provider, api_service_provider,
+//                app_drawer, intl.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -10,7 +21,7 @@ import '../../widgets/app_drawer.dart';
 
 /// Pantalla para gestionar las fechas libres (permisos) de los operarios.
 /// Muestra dos listas: operarios con fechas permitidas y sin ellas.
-/// Permite añadir/quitar días sueltos para cada operario.
+/// Permite anadir/quitar dias sueltos para cada operario.
 class FechaLibreScreen extends ConsumerStatefulWidget {
   const FechaLibreScreen({super.key});
 
@@ -18,8 +29,10 @@ class FechaLibreScreen extends ConsumerStatefulWidget {
   ConsumerState<FechaLibreScreen> createState() => _FechaLibreScreenState();
 }
 
+/// Estado de la pantalla: gestiona carga de operarios con permisos,
+/// busqueda, anadido y eliminacion de fechas libres.
 class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
-  Map<String, List<DateTime>> _activos = {};
+  Map<String, List<DateTime>> _activos = {}; // Mapa: id_perfil -> fechas permitidas
   bool _cargando = true;
   String _textoBusqueda = '';
 
@@ -29,6 +42,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
     _cargar();
   }
 
+  /// Carga los operarios con fechas libres activas desde el servidor.
   Future<void> _cargar() async {
     setState(() => _cargando = true);
     try {
@@ -45,11 +59,12 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
     }
   }
 
+  /// Abre dialogo para anadir fechas libres a un operario.
   Future<void> _anadirFechas(String id, String nombre) async {
     final seleccionadas = await showDialog<List<DateTime>>(
       context: context,
       builder: (ctx) => _DialogSelectorFechas(
-        titulo: 'Añadir fechas para $nombre',
+        titulo: 'Anadir fechas para $nombre',
         fechasYaPermitidas: _activos[id] ?? [],
       ),
     );
@@ -61,7 +76,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${seleccionadas.length} fecha(s) añadidas para $nombre',
+              '${seleccionadas.length} fecha(s) anadidas para $nombre',
             ),
             backgroundColor: Colors.green,
           ),
@@ -77,13 +92,14 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
     }
   }
 
+  /// Confirma y elimina una fecha libre de un operario.
   Future<void> _quitarFecha(String id, String nombre, DateTime fecha) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Quitar fecha'),
         content: Text(
-          '¿Quitar el permiso del ${DateFormat('dd/MM/yyyy').format(fecha)} a $nombre?',
+          'Quitar el permiso del ${DateFormat('dd/MM/yyyy').format(fecha)} a $nombre?',
         ),
         actions: [
           TextButton(
@@ -122,12 +138,13 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
     }
   }
 
+  /// Confirma y elimina todas las fechas libres de un operario.
   Future<void> _quitarTodas(String id, String nombre) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Quitar todos los permisos'),
-        content: Text('¿Quitar todas las fechas permitidas a $nombre?'),
+        content: Text('Quitar todas las fechas permitidas a $nombre?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -185,7 +202,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (perfiles) {
-                // Filtrar activos y ordenar por apellido
+                // Filtra activos y ordena por apellido
                 final activos = perfiles.where((p) => p.activo).toList()
                   ..sort(
                     (a, b) => a.apellidos.toLowerCase().compareTo(
@@ -193,7 +210,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
                     ),
                   );
 
-                // Aplicar búsqueda por nombre o apellidos
+                // Aplica busqueda por nombre/apellidos
                 final filtrados = _textoBusqueda.isEmpty
                     ? activos
                     : activos
@@ -208,6 +225,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
                           )
                           .toList();
 
+                // Separa entre los que tienen permisos y los que no
                 final conPermiso = filtrados
                     .where((p) => _activos[p.id]?.isNotEmpty ?? false)
                     .toList();
@@ -217,18 +235,18 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
 
                 return Column(
                   children: [
-                    // ── Buscador ──
+                    // Buscador
                     _BuscadorOperario(
                       onBuscar: (v) => setState(() => _textoBusqueda = v),
                       onLimpiar: () => setState(() => _textoBusqueda = ''),
                     ),
 
-                    // ── Lista ──
+                    // Lista
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                         children: [
-                          // ── Banner informativo ──
+                          // Banner informativo
                           Container(
                             padding: const EdgeInsets.all(12),
                             margin: const EdgeInsets.only(bottom: 20),
@@ -248,7 +266,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
                                 SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    'Puedes añadir días sueltos para que un operario pueda registrar partes fuera del límite.',
+                                    'Puedes anadir dias sueltos para que un operario pueda registrar partes fuera del limite.',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.blue,
@@ -259,20 +277,20 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
                             ),
                           ),
 
-                          // ── Sin resultados ──
+                          // Sin resultados
                           if (filtrados.isEmpty)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 32),
                               child: Center(
                                 child: Text(
-                                  'No se encontró ningún operario con "${_textoBusqueda}"',
+                                  'No se encontro ningun operario con "$_textoBusqueda"',
                                   style: const TextStyle(color: Colors.grey),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
                             )
                           else ...[
-                            // ── Con fechas activas ──
+                            // Con fechas activas
                             if (conPermiso.isNotEmpty) ...[
                               _SectionHeader(
                                 label:
@@ -303,7 +321,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
                               const SizedBox(height: 24),
                             ],
 
-                            // ── Sin permisos ──
+                            // Sin permisos
                             _SectionHeader(
                               label:
                                   'Sin fechas permitidas (${sinPermiso.length})',
@@ -343,7 +361,7 @@ class _FechaLibreScreenState extends ConsumerState<FechaLibreScreen> {
   }
 }
 
-// ─── Buscador de operario ─────────────────────────────────────────────────────
+// ---- Buscador de operario ----
 class _BuscadorOperario extends StatefulWidget {
   final Function(String) onBuscar;
   final VoidCallback onLimpiar;
@@ -395,7 +413,7 @@ class _BuscadorOperarioState extends State<_BuscadorOperario> {
   }
 }
 
-// ─── Card con permisos activos ────────────────────────────────────────────────
+// ---- Card con permisos activos ----
 class _CardPermisoFechas extends StatefulWidget {
   final String nombre;
   final List<DateTime> fechas;
@@ -460,7 +478,7 @@ class _CardPermisoFechasState extends State<_CardPermisoFechas> {
                     Icons.add_circle_outline,
                     color: Colors.green,
                   ),
-                  tooltip: 'Añadir fechas',
+                  tooltip: 'Anadir fechas',
                   onPressed: widget.onAnadir,
                 ),
                 IconButton(
@@ -471,6 +489,7 @@ class _CardPermisoFechasState extends State<_CardPermisoFechas> {
               ],
             ),
           ),
+          // Lista expandible de fechas
           if (_expandido) ...[
             const Divider(height: 1),
             ...fechasOrdenadas.map(
@@ -500,7 +519,7 @@ class _CardPermisoFechasState extends State<_CardPermisoFechas> {
   }
 }
 
-// ─── Card sin permisos ────────────────────────────────────────────────────────
+// ---- Card sin permisos ----
 class _CardSinPermiso extends StatelessWidget {
   final String nombre;
   final VoidCallback onAnadir;
@@ -530,7 +549,7 @@ class _CardSinPermiso extends StatelessWidget {
         ),
         trailing: IconButton(
           icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-          tooltip: 'Añadir fechas',
+          tooltip: 'Anadir fechas',
           onPressed: onAnadir,
         ),
       ),
@@ -538,8 +557,8 @@ class _CardSinPermiso extends StatelessWidget {
   }
 }
 
-// ─── Dialog selector de fechas múltiples ─────────────────────────────────────
-// Diálogo para seleccionar múltiples fechas con un DatePicker + lista selccionada
+// ---- Dialog selector de fechas multiples ----
+/// Dialogo para seleccionar multiples fechas con DatePicker + lista seleccionada.
 class _DialogSelectorFechas extends StatefulWidget {
   final String titulo;
   final List<DateTime> fechasYaPermitidas;
@@ -606,20 +625,20 @@ class _DialogSelectorFechasState extends State<_DialogSelectorFechas> {
             OutlinedButton.icon(
               onPressed: _abrirDatePicker,
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('Añadir fecha'),
+              label: const Text('Anadir fecha'),
             ),
             const SizedBox(height: 12),
             if (_seleccionadas.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text(
-                  'Ninguna fecha seleccionada todavía.\nToca "Añadir fecha" para elegir.',
+                  'Ninguna fecha seleccionada todavia.\nToca "Anadir fecha" para elegir.',
                   style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
               )
             else ...[
               Text(
-                '${_seleccionadas.length} fecha(s) a añadir:',
+                '${_seleccionadas.length} fecha(s) a anadir:',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
@@ -669,14 +688,14 @@ class _DialogSelectorFechasState extends State<_DialogSelectorFechas> {
           onPressed: _seleccionadas.isEmpty
               ? null
               : () => Navigator.pop(context, _seleccionadas),
-          child: Text('Añadir ${_seleccionadas.length} fecha(s)'),
+          child: Text('Anadir ${_seleccionadas.length} fecha(s)'),
         ),
       ],
     );
   }
 }
 
-// ─── Cabecera de sección ──────────────────────────────────────────────────────
+// ---- Cabecera de seccion ----
 class _SectionHeader extends StatelessWidget {
   final String label;
   final Color color;

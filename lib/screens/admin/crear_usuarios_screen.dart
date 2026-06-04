@@ -1,6 +1,16 @@
-/// Pantalla para crear un nuevo usuario en el sistema.
-/// Permite introducir nombre, apellidos, código, email, contraseña,
-/// rol, especialidad, grupo profesional y si es operario de postventa.
+// =============================================================================
+// crear_usuarios_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla para crear un nuevo usuario en el sistema.
+// PARA QUE:     Registrar un usuario con nombre, apellidos, codigo, email,
+//               contrasena, rol, especialidad y categoria profesional.
+// QUIEN LO USA: Administradores.
+// COMO SE LLEGA: Desde usuarios_screen.dart al pulsar FAB.
+// A DONDE VA:   POST /api/usuarios (servidor).
+// QUE DATOS USA: admin_provider, auth_provider.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +18,7 @@ import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 
 /// Formulario completo para crear un nuevo usuario con todos sus datos:
-/// personales, acceso, rol, especialidad y categoría profesional.
+/// personales, acceso, rol, especialidad y categoria profesional.
 class CrearUsuarioScreen extends ConsumerStatefulWidget {
   const CrearUsuarioScreen({super.key});
 
@@ -16,7 +26,10 @@ class CrearUsuarioScreen extends ConsumerStatefulWidget {
   ConsumerState<CrearUsuarioScreen> createState() => _CrearUsuarioScreenState();
 }
 
+/// Estado del formulario de creacion: gestiona controladores,
+/// validacion, seleccion de rol/especialidad/grupo y envio.
 class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
+  // -- Claves y controladores --
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
@@ -25,6 +38,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
   final _codigoCtrl = TextEditingController();
   final _grupoProfesionalCtrl = TextEditingController();
 
+  // -- Estado del formulario --
   String _rol = 'OPERARIO';
   bool _postventa = false;
   bool _enviando = false;
@@ -32,20 +46,21 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
   String? _grupoProfesionalSeleccionado;
   bool _grupoPersonalizado = false;
 
+  // Opciones de grupo profesional predefinidas
   static const List<String> _gruposOpciones = [
-    'OF 1ª - Electricidad',
-    'OF 2ª - Electricidad',
-    'OF 3ª - Electricidad',
-    'Peón - Electricidad',
-    'OF 1ª - Fontanería',
-    'OF 2ª - Fontanería',
-    'OF 3ª - Fontanería',
-    'Peón - Fontanería',
-    'OF 1ª - Climatización',
-    'OF 2ª - Climatización',
-    'OF 3ª - Climatización',
-    'Peón - Climatización',
-    'Peón - Almacén',
+    'OF 1a - Electricidad',
+    'OF 2a - Electricidad',
+    'OF 3a - Electricidad',
+    'Peon - Electricidad',
+    'OF 1a - Fontaneria',
+    'OF 2a - Fontaneria',
+    'OF 3a - Fontaneria',
+    'Peon - Fontaneria',
+    'OF 1a - Climatizacion',
+    'OF 2a - Climatizacion',
+    'OF 3a - Climatizacion',
+    'Peon - Climatizacion',
+    'Peon - Almacen',
     'Jefe de Obra',
     'Encargado',
     'Otro (escribir a mano)',
@@ -53,7 +68,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
 
   bool get _puedeSerPostventa => _rol == 'OPERARIO' || _rol == 'JEFE_DE_OBRA';
 
-  // Devuelve el grupo profesional: el seleccionado del dropdown o el escrito a mano
+  // Devuelve el grupo profesional final (seleccionado o escrito a mano)
   String get _grupoFinal {
     if (_grupoPersonalizado) return _grupoProfesionalCtrl.text.trim();
     return _grupoProfesionalSeleccionado ?? '';
@@ -93,7 +108,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Nombre y apellidos
+                // ---- Nombre y apellidos ----
                 Row(
                   children: [
                     Expanded(
@@ -122,18 +137,18 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Código
+                // ---- Codigo ----
                 TextFormField(
                   controller: _codigoCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Código',
+                    labelText: 'Codigo',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.badge),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Email
+                // ---- Email ----
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
@@ -147,21 +162,21 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Contraseña
+                // ---- Contrasena ----
                 TextFormField(
                   controller: _passCtrl,
                   obscureText: true,
                   decoration: const InputDecoration(
-                    labelText: 'Contraseña',
+                    labelText: 'Contrasena',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.lock),
                   ),
                   validator: (v) =>
-                      v!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                      v!.length < 6 ? 'Minimo 6 caracteres' : null,
                 ),
                 const SizedBox(height: 16),
 
-                // Rol
+                // ---- Rol ----
                 DropdownButtonFormField<String>(
                   value: _rol,
                   decoration: const InputDecoration(
@@ -181,10 +196,10 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                       value: 'JEFE_DE_OBRA',
                       child: Text('Jefe de obra'),
                     ),
-                    DropdownMenuItem(value: 'GESTION', child: Text('Gestión')),
+                    DropdownMenuItem(value: 'GESTION', child: Text('Gestion')),
                     DropdownMenuItem(
                       value: 'ADMINISTRACION',
-                      child: Text('Administración'),
+                      child: Text('Administracion'),
                     ),
                   ],
                   onChanged: (v) => setState(() {
@@ -193,15 +208,15 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                   }),
                 ),
 
-                // Postventa
+                // ---- Postventa (solo si aplica) ----
                 if (_puedeSerPostventa) ...[
                   const SizedBox(height: 8),
                   SwitchListTile(
                     title: const Text('Operario de postventa'),
                     subtitle: Text(
                       _postventa
-                          ? 'Verá el formulario de especialidad'
-                          : 'Formulario estándar',
+                          ? 'Vera el formulario de especialidad'
+                          : 'Formulario estandar',
                     ),
                     value: _postventa,
                     onChanged: (v) => setState(() => _postventa = v),
@@ -210,7 +225,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
 
                 const SizedBox(height: 16),
 
-                // Especialidad
+                // ---- Especialidad ----
                 DropdownButtonFormField<String>(
                   value: _especialidad,
                   decoration: const InputDecoration(
@@ -234,15 +249,15 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Grupo profesional — desplegable
+                // ---- Grupo profesional (dropdown) ----
                 DropdownButtonFormField<String>(
                   value: _grupoProfesionalSeleccionado,
                   decoration: const InputDecoration(
-                    labelText: 'Categoría Profesional',
+                    labelText: 'Categoria Profesional',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.work),
                   ),
-                  hint: const Text('Seleccionar categoría profesional'),
+                  hint: const Text('Seleccionar categoria profesional'),
                   items: _gruposOpciones.map((grupo) {
                     final esOtro = grupo == 'Otro (escribir a mano)';
                     return DropdownMenuItem(
@@ -265,7 +280,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                   },
                 ),
 
-                // Campo libre si elige "Otro"
+                // ---- Campo libre para grupo personalizado ----
                 if (_grupoPersonalizado) ...[
                   const SizedBox(height: 12),
                   TextFormField(
@@ -275,7 +290,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
                       labelText: 'Escribe el grupo profesional',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.edit),
-                      hintText: 'Ej: OF 4ª - Climatización',
+                      hintText: 'Ej: OF 4a - Climatizacion',
                     ),
                     validator: (v) {
                       if (_grupoPersonalizado &&
@@ -289,7 +304,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
 
                 const SizedBox(height: 32),
 
-                // Botón crear
+                // ---- Boton crear ----
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -318,6 +333,7 @@ class _CrearUsuarioScreenState extends ConsumerState<CrearUsuarioScreen> {
     );
   }
 
+  /// Envia los datos de creacion al servidor.
   Future<void> _crear() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _enviando = true);

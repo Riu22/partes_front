@@ -1,6 +1,16 @@
-/// Pantalla de listado de usuarios del sistema.
-/// Muestra todos los perfiles con su rol, email, jefe directo y estado.
-/// Permite buscar, editar, gestionar equipo y eliminar usuarios.
+// =============================================================================
+// usuarios_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla de listado de usuarios del sistema.
+// PARA QUE:     Mostrar todos los perfiles con rol, email, jefe y estado.
+//               Permite buscar, editar, gestionar equipo y eliminar usuarios.
+// QUIEN LO USA: Administradores y gestion.
+// COMO SE LLEGA: Desde el panel admin, ruta /usuarios.
+// A DONDE VA:   GET /api/usuarios, DELETE /api/usuarios (servidor).
+// QUE DATOS USA: admin_provider, auth_provider, buscador_operario widget.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,8 +18,8 @@ import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/buscador_operario.dart';
 
-/// Lista todos los usuarios del sistema con opciones de búsqueda,
-/// edición, gestión de equipo y eliminación.
+/// Lista todos los usuarios del sistema con opciones de busqueda,
+/// edicion, gestion de equipo y eliminacion.
 class UsuariosScreen extends ConsumerStatefulWidget {
   const UsuariosScreen({super.key});
 
@@ -17,8 +27,10 @@ class UsuariosScreen extends ConsumerStatefulWidget {
   ConsumerState<UsuariosScreen> createState() => _UsuariosScreenState();
 }
 
+/// Estado del listado de usuarios: gestiona filtro de busqueda,
+/// carga de usuarios y construccion de la UI.
 class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
-  String _filtro = '';
+  String _filtro = ''; // Texto para filtrar usuarios
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +45,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
       ),
       body: Column(
         children: [
+          // Barra de busqueda
           BuscadorOperario(
             onBuscar: (texto) => setState(() => _filtro = texto),
             onLimpiar: () => setState(() => _filtro = ''),
@@ -42,6 +55,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (usuarios) {
+                // Filtra usuarios por nombre, apellido o email
                 final listaFiltrada = usuarios.where((u) {
                   final nombre = (u['name'] ?? '').toString().toLowerCase();
                   final apellidos = (u['apellidos'] ?? '')
@@ -82,6 +96,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     );
   }
 
+  /// Construye el nombre completo a partir de apellidos + nombre.
   String _nombreCompleto(dynamic u) {
     final apellidos = (u['apellidos'] ?? '').toString().trim();
     final nombre = (u['name'] ?? '').toString().trim();
@@ -89,6 +104,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     return completo.isEmpty ? 'Sin nombre' : completo;
   }
 
+  /// Obtiene la inicial del usuario para el avatar.
   String _inicial(dynamic u) {
     final apellidos = (u['apellidos'] ?? '').toString().trim();
     if (apellidos.isNotEmpty) return apellidos[0].toUpperCase();
@@ -99,6 +115,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     return '?';
   }
 
+  /// Construye una tarjeta de usuario con acciones disponibles.
   Widget _buildUsuarioCard(
     BuildContext context,
     WidgetRef ref,
@@ -110,6 +127,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     final jefe = u['jefeDirecto'];
     final String rol = u['rol'] ?? 'OPERARIO';
 
+    // Roles que pueden tener equipo a su cargo
     final bool puedeTenerEquipo = [
       'JEFE_DE_OBRA',
       'ENCARGADO',
@@ -141,10 +159,12 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Email
               Text(
                 u['email'] ?? '',
                 style: TextStyle(color: Colors.grey[600], fontSize: 13),
               ),
+              // Jefe directo (si tiene)
               if (jefe != null) ...[
                 const SizedBox(height: 4),
                 Container(
@@ -167,11 +187,13 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
                 ),
               ],
               const SizedBox(height: 8),
+              // Chips de rol y estado
               Wrap(spacing: 6, children: [_chipRol(rol), _chipActivo(activo)]),
             ],
           ),
         ),
         isThreeLine: true,
+        // Menu de acciones (editar, equipo, eliminar)
         trailing: PopupMenuButton(
           icon: const Icon(Icons.more_vert),
           onSelected: (accion) {
@@ -223,6 +245,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     );
   }
 
+  /// Color de avatar segun el rol.
   Color _colorRol(String? rol) {
     switch (rol) {
       case 'ADMINISTRACION':
@@ -238,6 +261,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     }
   }
 
+  /// Chip con el nombre del rol.
   Widget _chipRol(String rol) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     decoration: BoxDecoration(
@@ -254,6 +278,7 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     ),
   );
 
+  /// Chip indicando si el usuario esta activo o inactivo.
   Widget _chipActivo(bool activo) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     decoration: BoxDecoration(
@@ -270,13 +295,14 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
     ),
   );
 
+  /// Dialogo de confirmacion para eliminar un usuario.
   void _confirmarEliminar(BuildContext context, WidgetRef ref, String id) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('¿Eliminar usuario?'),
+        title: const Text('Eliminar usuario?'),
         content: const Text(
-          'Esta acción no se puede deshacer y afectará a las asignaciones actuales.',
+          'Esta accion no se puede deshacer y afectara a las asignaciones actuales.',
         ),
         actions: [
           TextButton(

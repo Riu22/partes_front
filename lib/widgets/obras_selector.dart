@@ -1,9 +1,37 @@
+// =============================================================================
+// obras_selector.dart  -  Selector multiple de obras con busqueda
+// =============================================================================
+// ASPECTO EN PANTALLA:
+//   Titulo con contador "Obras (N de M seleccionadas)", boton "Todas/Ninguna",
+//   campo de busqueda con lupa, y lista con checkboxes dentro de un recuadro
+//   con borde y altura maxima de 260px. Si no hay coincidencias: mensaje
+//   "No hay obras que coincidan".
+//
+// USO:
+//   Filtrar obras en pantallas de exportacion, informes, o seleccion multiple
+//   donde se necesita elegir un subconjunto de obras.
+//
+// DATOS QUE NECESITA:
+//   - obras: List<Obra> completa
+//   - seleccionadas: Set<int> con IDs de obras seleccionadas
+//   - onChanged: callback con el nuevo Set<int> de seleccionadas
+//
+// INTERACCION DEL USUARIO:
+//   - Escribir en el campo filtra la lista en tiempo real
+//   - Tocar un item o su checkbox lo selecciona/deselecciona
+//   - Tocar "Todas" selecciona todas, "Ninguna" deselecciona todas
+//   - El boton Todas/Ninguna alterna segun el estado actual
+// =============================================================================
+
 /// Selector múltiple de obras con campo de búsqueda.
 /// Permite seleccionar una o varias obras de la lista mediante checkboxes.
 /// Incluye botones para seleccionar todas o ninguna.
 import 'package:flutter/material.dart';
 import '../models/obra.dart';
 
+/// Selector de obras con checkboxes, busqueda y botones todo/nada.
+///
+/// [StatefulWidget] porque gestiona el estado del filtro de busqueda.
 class ObrasSelector extends StatefulWidget {
   final List<Obra> obras;
   final Set<int> seleccionadas;
@@ -24,6 +52,8 @@ class _ObrasSelectorState extends State<ObrasSelector> {
   String _busqueda = '';
   final _ctrl = TextEditingController();
 
+  /// Getter que devuelve las obras filtradas por el texto de busqueda
+  /// y ordenadas alfabeticamente por nombre.
   List<Obra> get _filtradas {
     final base = [
       ...widget.obras,
@@ -34,6 +64,7 @@ class _ObrasSelectorState extends State<ObrasSelector> {
     return base.where((o) => o.nombre.toLowerCase().contains(q)).toList();
   }
 
+  /// Selecciona o deselecciona todas las obras.
   void _toggleTodas(bool seleccionar) {
     final ids = widget.obras.map((o) => o.id).toSet();
     widget.onChanged(seleccionar ? ids : {});
@@ -55,12 +86,13 @@ class _ObrasSelectorState extends State<ObrasSelector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── CABECERA: titulo + boton Todas/Ninguna ────────────
         Row(
           children: [
             Expanded(
               child: Text(
                 totalSel == 0
-                    ? 'Obras (vacío = todas)'
+                    ? 'Obras (vacio = todas)'
                     : 'Obras ($totalSel de $total seleccionadas)',
                 style: const TextStyle(
                   fontSize: 16,
@@ -68,6 +100,7 @@ class _ObrasSelectorState extends State<ObrasSelector> {
                 ),
               ),
             ),
+            // Boton que alterna entre "Todas" y "Ninguna".
             TextButton.icon(
               onPressed: () => _toggleTodas(!todasSel),
               icon: Icon(
@@ -79,12 +112,15 @@ class _ObrasSelectorState extends State<ObrasSelector> {
           ],
         ),
         const SizedBox(height: 8),
+
+        // ── CAMPO DE BUSQUEDA ───────────────────────────────
         TextField(
           controller: _ctrl,
           decoration: InputDecoration(
             hintText: 'Buscar obra...',
             prefixIcon: const Icon(Icons.search),
             border: const OutlineInputBorder(),
+            // Boton X para limpiar la busqueda.
             suffixIcon: _busqueda.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear),
@@ -98,6 +134,8 @@ class _ObrasSelectorState extends State<ObrasSelector> {
           onChanged: (v) => setState(() => _busqueda = v),
         ),
         const SizedBox(height: 8),
+
+        // ── LISTA CON CHECKBOXES ────────────────────────────
         Container(
           constraints: const BoxConstraints(maxHeight: 260),
           decoration: BoxDecoration(
@@ -128,9 +166,11 @@ class _ObrasSelectorState extends State<ObrasSelector> {
                       title: Text(
                         o.nombre,
                         style: TextStyle(
+                          // Negrita si seleccionado, normal si no.
                           fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
+                      // Tocar en cualquier parte del item tambien alterna.
                       onTap: () {
                         final nuevas = Set<int>.from(widget.seleccionadas);
                         sel ? nuevas.remove(o.id) : nuevas.add(o.id);

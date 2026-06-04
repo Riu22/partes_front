@@ -1,7 +1,19 @@
-/// Panel de administración principal con tres pestañas:
-/// 1. Partes: muestra operarios sin parte o con horas incompletas.
-/// 2. Ausencias: gestiona bajas, vacaciones y paternidad.
-/// 3. Historial: consulta el historial de ausencias por operario.
+// =============================================================================
+// admin_home_screen.dart
+// =============================================================================
+// QUE ES:       Panel de administracion principal con tres pestanas:
+//               1. Partes: operarios sin parte o con horas incompletas.
+//               2. Ausencias: gestion de bajas, vacaciones y paternidad.
+//               3. Historial: consulta de ausencias por operario.
+// PARA QUE:     Gestion de incidencias de partes y ausencias laborales.
+// QUIEN LO USA: Administradores y gestion.
+// COMO SE LLEGA: Desde /admin (ruta principal del panel).
+// A DONDE VA:   GET /api/dias-sin-parte (servidor), POST /api/ausencias, etc.
+// QUE DATOS USA: admin_provider, obras_provider, api_service, modelos
+//                (ausencia_info), widgets (buscador_obras_modal, etc.).
+// OFFLINE:      No aplica (datos siempre en linea).
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,11 +25,12 @@ import '../../services/api_service.dart';
 import '../../widgets/buscador_obras_modal.dart';
 import '../../widgets/buscador_operarios_modal.dart';
 
-/// Panel de administración con tres pestañas: Partes (incidencias),
+/// Panel de administracion con tres pestanas: Partes (incidencias),
 /// Ausencias (bajas/vacaciones) e Historial de ausencias por operario.
 class AdminHomeScreen extends ConsumerWidget {
   const AdminHomeScreen({super.key});
 
+  /// Formatea fecha dd/MM/yyyy a formato legible en espanol.
   String _formatFecha(String fecha) {
     try {
       final parts = fecha.split('/');
@@ -32,6 +45,7 @@ class AdminHomeScreen extends ConsumerWidget {
     }
   }
 
+  /// Convierte fecha dd/MM/yyyy a yyyy-MM-dd para rutas.
   String _fechaParaRuta(String fecha) {
     try {
       final parts = fecha.split('/');
@@ -51,7 +65,7 @@ class AdminHomeScreen extends ConsumerWidget {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Panel de Administración'),
+          title: const Text('Panel de Administracion'),
           centerTitle: false,
           elevation: 0,
           actions: [
@@ -92,12 +106,12 @@ class AdminHomeScreen extends ConsumerWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// Pestaña 1 — Partes
-// ─────────────────────────────────────────────
+// ============================================
+// Pestana 1 - Partes (incidencias)
+// ============================================
 
-/// Pestaña "Partes": muestra un resumen de incidencias y la lista de
-/// operarios que tienen días sin parte o con horas incompletas.
+/// Pestana "Partes": muestra un resumen de incidencias y la lista de
+/// operarios que tienen dias sin parte o con horas incompletas.
 class _PartesTab extends StatelessWidget {
   const _PartesTab({
     required this.ausenciasAsync,
@@ -120,6 +134,7 @@ class _PartesTab extends StatelessWidget {
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
+          // Fecha actual
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -134,6 +149,7 @@ class _PartesTab extends StatelessWidget {
               ),
             ),
           ),
+          // Tarjeta resumen
           SliverToBoxAdapter(
             child: ausenciasAsync.when(
               loading: () => const _ResumenPartes(
@@ -170,17 +186,19 @@ class _PartesTab extends StatelessWidget {
             ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          // Titulo de incidencias
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Text(
-                'Incidencias de partes — histórico completo',
+                'Incidencias de partes - historico completo',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
           ),
+          // Lista de operarios con incidencias
           ausenciasAsync.when(
             loading: () => const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
@@ -201,7 +219,7 @@ class _PartesTab extends StatelessWidget {
               if (lista.isEmpty) {
                 return const SliverFillRemaining(
                   child: _EmptyView(
-                    mensaje: 'Todos los operarios tienen\nsus partes al día.',
+                    mensaje: 'Todos los operarios tienen\nsus partes al dia.',
                   ),
                 );
               }
@@ -285,11 +303,11 @@ class _PartesTab extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// Pestaña 2 — Ausencias laborales
-// ─────────────────────────────────────────────
+// ============================================
+// Pestana 2 - Ausencias laborales
+// ============================================
 
-/// Pestaña "Ausencias": lista los operarios con ausencias activas
+/// Pestana "Ausencias": lista los operarios con ausencias activas
 /// (bajas, vacaciones, paternidad). Permite registrar nuevas ausencias
 /// y editar o eliminar las existentes.
 class _AusenciasTab extends StatelessWidget {
@@ -404,14 +422,14 @@ class _AusenciasTab extends StatelessWidget {
                         ),
                       );
                     },
-                    // ── CAMBIO PRINCIPAL: eliminación optimista ──────────
+                    // Eliminacion optimista: actualiza UI antes de llamar al servidor
                     onEliminarAusencia: (ausenciaId) async {
                       final confirmar = await showDialog<bool>(
                         context: context,
                         builder: (_) => AlertDialog(
                           title: const Text('Eliminar ausencia'),
                           content: const Text(
-                            '¿Seguro que quieres eliminar esta ausencia?',
+                            'Seguro que quieres eliminar esta ausencia?',
                           ),
                           actions: [
                             TextButton(
@@ -439,22 +457,18 @@ class _AusenciasTab extends StatelessWidget {
 
                       if (confirmar != true || !context.mounted) return;
 
-                      // 1️⃣ Actualización optimista: quitamos la ausencia
-                      //    del estado local ANTES de llamar al servidor.
-                      //    La UI se actualiza de inmediato sin parpadeo.
+                      // 1) Actualizacion optimista: quita la ausencia del estado local
                       ref
                           .read(diasSinParteProvider.notifier)
                           .eliminarAusenciaLocal(ausenciaId);
 
                       try {
-                        // 2️⃣ Llamada real al servidor
+                        // 2) Llamada real al servidor
                         await ApiService().eliminarAusenciaLaboral(ausenciaId);
-
-                        // 3️⃣ Sincronización en segundo plano (silenciosa,
-                        //    no provoca spinner porque el estado ya es AsyncData)
+                        // 3) Sincronizacion silenciosa (sin spinner)
                         ref.invalidate(diasSinParteProvider);
                       } catch (e) {
-                        // 4️⃣ Si falla, recargamos para revertir el estado optimista
+                        // 4) Si falla, recarga para revertir
                         ref.invalidate(diasSinParteProvider);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -477,12 +491,12 @@ class _AusenciasTab extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
+// ============================================
 // Tarjeta resumen
-// ─────────────────────────────────────────────
+// ============================================
 
 /// Tarjeta resumen que muestra el total de personas con incidencias,
-/// días sin parte y días con horas incompletas.
+/// dias sin parte y dias con horas incompletas.
 class _ResumenPartes extends StatelessWidget {
   const _ResumenPartes({
     required this.cargando,
@@ -513,10 +527,10 @@ class _ResumenPartes extends StatelessWidget {
     } else {
       final p = '$totalPersonas ${totalPersonas == 1 ? 'persona' : 'personas'}';
       final s =
-          '$totalSin ${totalSin == 1 ? 'día sin parte' : 'días sin parte'}';
+          '$totalSin ${totalSin == 1 ? 'dia sin parte' : 'dias sin parte'}';
       final i =
-          '$totalIncompletos ${totalIncompletos == 1 ? 'día incompleto' : 'días incompletos'}';
-      subtitulo = '$p · $s · $i';
+          '$totalIncompletos ${totalIncompletos == 1 ? 'dia incompleto' : 'dias incompletos'}';
+      subtitulo = '$p - $s - $i';
     }
 
     final sinIncidencias = !cargando && !hayError && totalPersonas == 0;
@@ -548,7 +562,7 @@ class _ResumenPartes extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      sinIncidencias ? 'Todo al día' : 'Partes pendientes',
+                      sinIncidencias ? 'Todo al dia' : 'Partes pendientes',
                       style: textTheme.titleMedium?.copyWith(
                         color: sinIncidencias
                             ? colorScheme.onPrimaryContainer
@@ -576,11 +590,11 @@ class _ResumenPartes extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
+// ============================================
 // Tarjeta por persona
-// ─────────────────────────────────────────────
+// ============================================
 
-/// Tarjeta por persona que muestra sus días sin parte, horas incompletas
+/// Tarjeta por persona que muestra sus dias sin parte, horas incompletas
 /// o ausencias activas. Incluye acciones para habilitar fechas, crear
 /// partes o registrar/editar/eliminar ausencias laborales.
 class _AusenciaCard extends StatefulWidget {
@@ -678,7 +692,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Cabecera ─────────────────────────────────────────────────
+            // ---- Cabecera con nombre y contador ----
             Row(
               children: [
                 CircleAvatar(
@@ -702,6 +716,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                // Badge con numero de incidencias/ausencias
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -728,7 +743,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ],
             ),
 
-            // ── Ausencias laborales ──────────────────────────────────────
+            // ---- Ausencias laborales activas ----
             if (widget.mostrarAusencias &&
                 ausencia.ausenciasActivas.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -745,6 +760,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Chip de ausencia (tipo + fechas)
                       GestureDetector(
                         onTap: () => _toggleAusencia(a.id!),
                         child: AnimatedContainer(
@@ -772,7 +788,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                               const SizedBox(width: 6),
                               Text(
                                 '${_labelAusencia(a.tipo)}  '
-                                '${widget.formatFecha(a.fechaInicio)} → '
+                                '${widget.formatFecha(a.fechaInicio)} -> '
                                 '${widget.formatFecha(a.fechaFin)}',
                                 style: textTheme.labelSmall?.copyWith(
                                   color: expandida
@@ -786,7 +802,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
-                                    '· ${a.observaciones}',
+                                    '- ${a.observaciones}',
                                     style: textTheme.labelSmall?.copyWith(
                                       color: expandida
                                           ? colorScheme.onInverseSurface
@@ -811,6 +827,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                           ),
                         ),
                       ),
+                      // Panel expandido con acciones (editar/eliminar)
                       AnimatedSize(
                         duration: const Duration(milliseconds: 180),
                         curve: Curves.easeInOut,
@@ -876,10 +893,12 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                                               ),
                                             ),
                                           ),
-                                        Divider(
-                                          height: 1,
-                                          color: colorScheme.outlineVariant,
-                                        ),
+                                        if (widget.onEditarAusencia != null &&
+                                            widget.onEliminarAusencia != null)
+                                          Divider(
+                                            height: 1,
+                                            color: colorScheme.outlineVariant,
+                                          ),
                                         if (widget.onEliminarAusencia != null)
                                           InkWell(
                                             onTap: () {
@@ -934,7 +953,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               }),
             ],
 
-            // ── Días sin parte ───────────────────────────────────────────
+            // ---- Dias sin parte ----
             if (!widget.mostrarAusencias && ausencia.diasSin.isNotEmpty) ...[
               const SizedBox(height: 12),
               _SectionLabel(
@@ -986,7 +1005,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ),
             ],
 
-            // ── Días incompletos ─────────────────────────────────────────
+            // ---- Dias incompletos ----
             if (!widget.mostrarAusencias &&
                 ausencia.diasIncompletos.isNotEmpty) ...[
               const SizedBox(height: 12),
@@ -1002,7 +1021,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
                 children: ausencia.diasIncompletos.map((d) {
                   final activa = _fechaActiva == d.fecha;
                   return _ChipConAcciones(
-                    label: '${widget.formatFecha(d.fecha)} · ${d.horas}h',
+                    label: '${widget.formatFecha(d.fecha)} - ${d.horas}h',
                     activa: activa,
                     habilitando: activa && _habilitando,
                     estaHabilitada: ausencia.fechasHabilitadas.contains(
@@ -1041,7 +1060,7 @@ class _AusenciaCardState extends State<_AusenciaCard> {
               ),
             ],
 
-            // ── Botón registrar ausencia ─────────────────────────────────
+            // ---- Boton registrar ausencia ----
             if (widget.onRegistrarAusencia != null) ...[
               const SizedBox(height: 12),
               const Divider(height: 1),
@@ -1070,11 +1089,11 @@ class _AusenciaCardState extends State<_AusenciaCard> {
   }
 }
 
-// ─────────────────────────────────────────────
-// Diálogo registrar / editar ausencia
-// ─────────────────────────────────────────────
+// ============================================
+// Dialogo registrar / editar ausencia
+// ============================================
 
-/// Diálogo para registrar o editar una ausencia laboral.
+/// Dialogo para registrar o editar una ausencia laboral.
 /// Permite elegir el tipo (baja, vacaciones, paternidad), las fechas
 /// de inicio y fin, observaciones y obra asociada (solo vacaciones).
 class _DialogoAusencia extends StatefulWidget {
@@ -1103,7 +1122,7 @@ class _DialogoAusencia extends StatefulWidget {
   State<_DialogoAusencia> createState() => _DialogoAusenciaState();
 }
 
-/// Estado del diálogo de ausencia: controla tipo, fechas,
+/// Estado del dialogo de ausencia: controla tipo, fechas,
 /// observaciones y obra seleccionada.
 class _DialogoAusenciaState extends State<_DialogoAusencia> {
   late String _tipo;
@@ -1126,6 +1145,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
     }
   }
 
+  /// Convierte fecha dd/MM/yyyy a DateTime.
   DateTime? _parseFecha(String ddMMyyyy) {
     try {
       final p = ddMMyyyy.split('/');
@@ -1141,6 +1161,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
     super.dispose();
   }
 
+  /// Abre selector de fecha para inicio o fin.
   Future<void> _seleccionarFecha({required bool esInicio}) async {
     final picked = await showDatePicker(
       context: context,
@@ -1159,12 +1180,14 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
     });
   }
 
+  /// Abre el buscador de obras para asignar a la ausencia.
   void _seleccionarObra() {
     abrirBuscadorObras(context, widget.obras, (obra) {
       setState(() => _obraSeleccionada = obra);
     });
   }
 
+  /// Guarda la ausencia validando los datos.
   Future<void> _guardar() async {
     if (_inicio == null || _fin == null) {
       setState(() => _error = 'Selecciona las fechas de inicio y fin');
@@ -1179,6 +1202,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
       _error = null;
     });
     try {
+      // Solo asigna obra si es VACACIONES y hay obra seleccionada
       final obraId = (_tipo == 'VACACIONES' && _obraSeleccionada != null)
           ? _obraSeleccionada.id as int?
           : null;
@@ -1216,6 +1240,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Nombre del operario
             Text(
               widget.nombre,
               style: textTheme.bodySmall?.copyWith(
@@ -1224,7 +1249,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
             ),
             const SizedBox(height: 16),
 
-            // ── Selector de tipo ──────────────────────────────────────────
+            // Selector de tipo
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -1259,7 +1284,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
               ],
             ),
 
-            // ── Selector de obra (solo VACACIONES) ────────────────────────
+            // Selector de obra (solo para VACACIONES)
             if (_tipo == 'VACACIONES') ...[
               const SizedBox(height: 12),
               if (_obraSeleccionada == null)
@@ -1310,7 +1335,8 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if ((_obraSeleccionada.municipio ?? '').isNotEmpty)
+                            if ((_obraSeleccionada.municipio ?? '')
+                                .isNotEmpty)
                               Text(
                                 _obraSeleccionada.municipio ?? '',
                                 style: textTheme.labelSmall?.copyWith(
@@ -1350,7 +1376,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
 
             const SizedBox(height: 16),
 
-            // ── Fechas ───────────────────────────────────────────────────
+            // Fechas inicio y fin
             Row(
               children: [
                 Expanded(
@@ -1372,7 +1398,7 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
             ),
             const SizedBox(height: 16),
 
-            // ── Observaciones ────────────────────────────────────────────
+            // Observaciones
             TextField(
               controller: _obsController,
               decoration: const InputDecoration(
@@ -1413,9 +1439,9 @@ class _DialogoAusenciaState extends State<_DialogoAusencia> {
   }
 }
 
-// ─────────────────────────────────────────────
+// ============================================
 // Chip con acciones inline
-// ─────────────────────────────────────────────
+// ============================================
 
 class _ChipConAcciones extends StatefulWidget {
   const _ChipConAcciones({
@@ -1470,6 +1496,7 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Chip principal
         GestureDetector(
           onTap: _habilitado ? null : widget.onTap,
           child: AnimatedContainer(
@@ -1495,7 +1522,7 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
                   const SizedBox(width: 4),
                 ],
                 Text(
-                  _habilitado ? '${widget.label} · Permitido' : widget.label,
+                  _habilitado ? '${widget.label} - Permitido' : widget.label,
                   style: textTheme.labelSmall?.copyWith(
                     color: _habilitado
                         ? Colors.green.shade700
@@ -1523,6 +1550,7 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
             ),
           ),
         ),
+        // Panel expandido con acciones
         AnimatedSize(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeInOut,
@@ -1576,7 +1604,7 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
                                       ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'Habilitar día',
+                                      'Habilitar dia',
                                       style: textTheme.labelSmall?.copyWith(
                                         color: colorScheme.primary,
                                         fontWeight: FontWeight.w600,
@@ -1635,9 +1663,9 @@ class _ChipConAccionesState extends State<_ChipConAcciones> {
   }
 }
 
-// ─────────────────────────────────────────────
+// ============================================
 // Widgets auxiliares
-// ─────────────────────────────────────────────
+// ============================================
 
 class _TipoChip extends StatelessWidget {
   const _TipoChip({
@@ -1823,11 +1851,11 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// Pestaña 3 — Historial
-// ─────────────────────────────────────────────
+// ============================================
+// Pestana 3 - Historial
+// ============================================
 
-/// Pestaña "Historial": permite seleccionar un operario y ver
+/// Pestana "Historial": permite seleccionar un operario y ver
 /// el historial completo de sus ausencias laborales registradas.
 class _HistorialTab extends StatefulWidget {
   const _HistorialTab({required this.obras, required this.ref});
@@ -1860,6 +1888,7 @@ class _HistorialTabState extends State<_HistorialTab> {
 
     return CustomScrollView(
       slivers: [
+        // Selector de operario
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -1912,6 +1941,7 @@ class _HistorialTabState extends State<_HistorialTab> {
   }
 }
 
+/// Cuerpo del historial que carga y muestra las ausencias del operario.
 class _HistorialBody extends ConsumerWidget {
   const _HistorialBody({required this.perfilId, required this.nombre});
   final String perfilId;
@@ -1964,6 +1994,7 @@ class _HistorialBody extends ConsumerWidget {
               final a = ausencias[i] as Map<String, dynamic>;
               final tipo = a['tipo'] as String? ?? '';
 
+              // Determina colores e icono segun tipo
               final (Color fondo, Color texto, IconData icono) = switch (tipo) {
                 'BAJA' => (
                   colorScheme.errorContainer,
@@ -2013,7 +2044,7 @@ class _HistorialBody extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${_formatFecha(a['fechaInicio'] ?? '')}  →  '
+                            '${_formatFecha(a['fechaInicio'] ?? '')}  ->  '
                             '${_formatFecha(a['fechaFin'] ?? '')}',
                             style: textTheme.bodySmall?.copyWith(color: texto),
                           ),
@@ -2061,7 +2092,7 @@ class _HistorialBody extends ConsumerWidget {
   }
 
   String _labelTipo(String tipo) => switch (tipo) {
-    'BAJA' => 'Baja médica',
+    'BAJA' => 'Baja medica',
     'VACACIONES' => 'Vacaciones',
     'PATERNIDAD' => 'Paternidad / Maternidad',
     _ => tipo,

@@ -1,6 +1,18 @@
+// =============================================================================
+// PANTALLA: EditarParteScreen
+// -----------------------------------------------------------------------------
+// QUE ES: Formulario para editar un parte de trabajo existente.
+// PARA QUE SIRVE: Modificar obra, fecha, horas, descripcion, especialidad y firma.
+// QUIEN LA VE (rol): Operarios (solo su parte del dia actual) y gestores/admin.
+// COMO SE LLEGA: Pulsando sobre un parte en la lista de partes_screen.
+// A DONDE VA DESPUES: Vuelve a '/partes' al guardar o cancelar.
+// QUE DATOS NECESITA: El objeto ParteTrabajo a editar.
+// OFFLINE: Si, guarda los cambios en cola offline si no hay conexion.
+// =============================================================================
+
 /// Pantalla para editar un parte de trabajo existente (operario normal).
-/// Permite cambiar obra, fecha, horas, descripción, especialidad y firma.
-/// Si no hay conexión, guarda el cambio en la cola offline.
+/// Permite cambiar obra, fecha, horas, descripcion, especialidad y firma.
+/// Si no hay conexion, guarda el cambio en la cola offline.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,9 +27,9 @@ import '../../widgets/buscador_obras_modal.dart';
 import '../../widgets/boton_especialidad.dart';
 import '../../widgets/seccion_firma.dart';
 
-/// Formulario de edición para un parte de trabajo.
+/// Formulario de edicion para un parte de trabajo.
 /// Los gestores pueden editar cualquier campo y cambiar la fecha;
-/// los operarios solo pueden editar el parte del día actual.
+/// los operarios solo pueden editar el parte del dia actual.
 class EditarParteScreen extends ConsumerStatefulWidget {
   final ParteTrabajo parte;
   const EditarParteScreen({super.key, required this.parte});
@@ -26,7 +38,14 @@ class EditarParteScreen extends ConsumerStatefulWidget {
   ConsumerState<EditarParteScreen> createState() => _EditarParteScreenState();
 }
 
+/// Estado del formulario de edicion.
+///
+/// Lifecycle:
+/// 1. initState: inicializa todos los campos con los valores del parte existente.
+/// 2. build: renderiza el formulario con los campos editables.
+/// 3. dispose: libera los controladores de texto.
 class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
+  // GlobalKey para validar el formulario
   final _formKey = GlobalKey<FormState>();
   final _obraSearchCtrl = TextEditingController();
   final _descripcionCtrl = TextEditingController();
@@ -38,7 +57,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   late String? _idPerfilSeleccionado;
   bool _enviando = false;
 
-  // Estado de firma — lo llena SeccionFirma via callbacks
+  // Estado de firma - lo llena SeccionFirma via callbacks
   String? _firmaBase64;
   String? _nombreFirma;
   String _trabajosExtra = '';
@@ -46,6 +65,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
   @override
   void initState() {
     super.initState();
+    // Inicializa todos los campos con los valores actuales del parte
     _fecha = widget.parte.fecha;
     _idObraSeleccionada = widget.parte.obraId;
     _especialidad = widget.parte.especialidad;
@@ -55,9 +75,6 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     _idPerfilSeleccionado = widget.parte.operarioId;
     _trabajosExtra = widget.parte.trabajosExtra;
     _nombreFirma = widget.parte.nombreFirma;
-    // Nota: la firma existente (firmaUrl) se muestra solo como imagen de referencia;
-    // si el usuario no pasa por SeccionFirma no se sobreescribe (firma_base64 no se
-    // incluirá en el payload si es null).
   }
 
   @override
@@ -68,7 +85,10 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     super.dispose();
   }
 
+  /// Abre el selector de fecha nativa de Flutter.
+  /// Solo los gestores pueden cambiar la fecha.
   Future<void> _pickDate() async {
+    // showDatePicker: dialogo nativo de seleccion de fecha
     final picked = await showDatePicker(
       context: context,
       initialDate: _fecha,
@@ -78,13 +98,14 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     if (picked != null) setState(() => _fecha = picked);
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // -- Build -----------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     final obrasAsync = ref.watch(obrasActivasProvider);
     final perfilesAsync = ref.watch(perfilesProvider);
     final perfil = ref.watch(authProvider).valueOrNull;
+    // Determina si el usuario es gestor (admin o gestion)
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
 
     return Scaffold(
@@ -102,7 +123,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Banner info ────────────────────────────────────────────────
+              // -- Banner informativo ------------------------------------------
+              // Muestra restricciones segun el rol del usuario
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -118,7 +140,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                       child: Text(
                         esGestor
                             ? 'Como gestor puedes editar este parte sin restricciones de fecha'
-                            : 'Solo puedes editar partes del día de hoy',
+                            : 'Solo puedes editar partes del dia de hoy',
                         style: const TextStyle(
                           color: Colors.orange,
                           fontSize: 12,
@@ -130,7 +152,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── Operario (solo gestor) ─────────────────────────────────────
+              // -- Operario (solo gestor) -------------------------------------
+              // Los gestores pueden reasignar el parte a otro operario
               if (esGestor) ...[
                 _sectionTitle('Operario'),
                 const SizedBox(height: 12),
@@ -162,7 +185,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 const SizedBox(height: 20),
               ],
 
-              // ── Obra ───────────────────────────────────────────────────────
+              // -- Obra -------------------------------------------------------
               _sectionTitle('Obra'),
               const SizedBox(height: 12),
               obrasAsync.when(
@@ -170,7 +193,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 error: (e, _) => Text('Error: $e'),
                 data: (obras) => TextFormField(
                   controller: _obraSearchCtrl,
-                  readOnly: true,
+                  readOnly: true, // Solo lectura, se abre modal al pulsar
                   decoration: const InputDecoration(
                     labelText: 'Seleccionar obra',
                     border: OutlineInputBorder(),
@@ -188,7 +211,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Fecha ──────────────────────────────────────────────────────
+              // -- Fecha ------------------------------------------------------
               _sectionTitle('Fecha'),
               const SizedBox(height: 12),
               ListTile(
@@ -214,11 +237,12 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                         style: TextStyle(fontSize: 11, color: Colors.orange),
                       )
                     : null,
+                // Solo los gestores pueden pulsar para cambiar la fecha
                 onTap: esGestor ? _pickDate : null,
               ),
               const SizedBox(height: 24),
 
-              // ── Horas normales ─────────────────────────────────────────────
+              // -- Horas normales ---------------------------------------------
               _sectionTitle('Horas normales'),
               const SizedBox(height: 12),
               TextFormField(
@@ -232,7 +256,8 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 24),
 
-              // ── Especialidad ───────────────────────────────────────────────
+              // -- Especialidad -----------------------------------------------
+              // Solo visible si el parte es postventa o el usuario es gestor
               if (widget.parte.esPostVenta || esGestor) ...[
                 _sectionTitle('Especialidad'),
                 const SizedBox(height: 12),
@@ -251,7 +276,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: BotonEspecialidad(
-                        label: 'Fontanería',
+                        label: 'Fontaneria',
                         icono: Icons.plumbing,
                         color: Colors.blue[700]!,
                         seleccionado: _especialidad == 'FONTANERIA',
@@ -264,23 +289,25 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
                 const SizedBox(height: 24),
               ],
 
-              // ── Descripción ────────────────────────────────────────────────
+              // -- Descripcion ------------------------------------------------
               _sectionTitle('Tareas realizadas'),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descripcionCtrl,
                 maxLines: 5,
                 decoration: const InputDecoration(
-                  hintText: 'Descripción del trabajo...',
+                  hintText: 'Descripcion del trabajo...',
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
               ),
               const SizedBox(height: 24),
 
-              // ── Firma del cliente + trabajos extra ──
+              // -- Firma del cliente + trabajos extra -------------------------
               const Divider(),
               const SizedBox(height: 16),
+              // SeccionFirma: widget que maneja la captura de firma digital
+              // Recibe callbacks que se ejecutan cuando la firma cambia
               SeccionFirma(
                 onFirmaChanged: (base64, nombre) {
                   _firmaBase64 = base64;
@@ -290,7 +317,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
               ),
               const SizedBox(height: 32),
 
-              // ── Botón guardar ──────────────────────────────────────────────
+              // -- Boton guardar ----------------------------------------------
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -319,8 +346,9 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       );
 
-  // ── Diálogo horas ──────────────────────────────────────────────────────────
+  // -- Dialogo horas ---------------------------------------------------------
 
+  /// Muestra un dialogo informativo sobre el formato correcto de horas.
   void _mostrarDialogoHoras() {
     showDialog(
       context: context,
@@ -328,9 +356,9 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
         title: const Text('Formato de horas incorrecto'),
         content: const Text(
           'Las horas deben escribirse en decimales, 0,5 es media hora.\n\n'
-          'Ejemplos válidos:\n'
-          '• 0.5  (media hora)\n'
-          '• 2.5  (dos horas y media)\n',
+          'Ejemplos validos:\n'
+          ' 0.5  (media hora)\n'
+          ' 2.5  (dos horas y media)\n',
         ),
         actions: [
           TextButton(
@@ -342,15 +370,23 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
     );
   }
 
-  // ── Guardar ────────────────────────────────────────────────────────────────
+  // -- Guardar ----------------------------------------------------------------
 
-  /// Guarda los cambios del parte. Si no hay conexión, lo encola en
+  /// Guarda los cambios del parte. Si no hay conexion, lo encola en
   /// la cola offline para enviarlo cuando se recupere la red.
+  ///
+  /// Flujo offline:
+  /// 1. Valida el formulario
+  /// 2. Construye el payload con los datos actualizados
+  /// 3. Verifica conectividad mediante conectividadProvider
+  /// 4. Si no hay red, guarda en la cola offline y vuelve a /partes
+  /// 5. Si hay red, llama al API y actualiza
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;
     if (perfil == null) return;
 
+    // Validacion de formato de horas (decimales de 0.5)
     final h = double.tryParse(_horasCtrl.text.replaceAll(',', '.'));
     if (h == null || h % 0.5 != 0) {
       _mostrarDialogoHoras();
@@ -361,6 +397,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
 
+    // Construye el payload con solo los campos que cambiaron
     final payload = <String, dynamic>{
       'id_obra': _idObraSeleccionada,
       'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
@@ -378,7 +415,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
 
     final online = ref.read(conectividadProvider).valueOrNull ?? false;
 
-    // Sin conexión: cola offline
+    // Sin conexion: guarda en cola offline
     if (!online) {
       final queue = ref.read(offlineQueueProvider);
       await queue.guardarUpdateOffline(widget.parte.id, payload);
@@ -387,7 +424,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Sin conexión — el cambio se guardará al recuperar la red',
+              'Sin conexion - el cambio se guardara al recuperar la red',
             ),
             backgroundColor: Colors.orange,
           ),
@@ -398,6 +435,7 @@ class _EditarParteScreenState extends ConsumerState<EditarParteScreen> {
       return;
     }
 
+    // Con conexion: envia al servidor
     try {
       await ref
           .read(apiServiceProvider)

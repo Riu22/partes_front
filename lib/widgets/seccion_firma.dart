@@ -1,3 +1,33 @@
+// =============================================================================
+// seccion_firma.dart  -  Seccion de captura de firma del cliente
+// =============================================================================
+// ASPECTO EN PANTALLA:
+//   Titulo "Firma del cliente" con badge "OPCIONAL", texto explicativo,
+//   campo "Nombre del firmante (opcional)" con icono de persona, campo
+//   "Trabajos extra" (textarea opcional de 3 lineas), y un boton grande
+//   "Tocar para firmar" que abre un modal.
+//   Cuando ya se firmo: recuadro verde con check, texto "Firma capturada
+//   correctamente" y boton "Borrar".
+//   Modal de firma: fondo blanco, handle, titulo "Firma del cliente",
+//   canvas para dibujar con el dedo, botones "Limpiar" y "Confirmar".
+//
+// USO:
+//   Capturar la firma del cliente al crear/editar un parte de trabajo.
+//   La firma se convierte a base64 (PNG) y se envia al servidor.
+//
+// DATOS QUE NECESITA:
+//   - onFirmaChanged: callback (base64, nombreFirma)
+//   - onTrabajosExtraChanged: callback opcional para texto extra
+//
+// INTERACCION DEL USUARIO:
+//   - Escribir nombre del firmante
+//   - Escribir trabajos extra (si disponible)
+//   - Tocar "Tocar para firmar" abre modal con pad de firma
+//   - En el modal, dibujar con el dedo, limpiar o confirmar
+//   - Confirmar guarda la firma como base64 y cierra el modal
+//   - "Borrar" elimina la firma capturada
+// =============================================================================
+
 /// Sección para capturar la firma del cliente en un parte.
 /// Incluye campos para el nombre del firmante, trabajos extra opcionales
 /// y un pad de firma donde el cliente dibuja su firma con el dedo.
@@ -7,6 +37,9 @@ import 'package:signature/signature.dart';
 
 /// Widget principal de la sección de firma.
 /// Permite escribir nombre, trabajos extra y abrir el modal para firmar.
+///
+/// [StatefulWidget] porque gestiona el estado de la firma (_firmado,
+/// _firmaBase64) y los controladores de texto.
 class SeccionFirma extends StatefulWidget {
   final void Function(String? base64, String? nombreFirma) onFirmaChanged;
   final void Function(String trabajosExtra)? onTrabajosExtraChanged;
@@ -34,6 +67,7 @@ class _SeccionFirmaState extends State<SeccionFirma> {
     super.dispose();
   }
 
+  /// Limpia la firma capturada y notifica al padre.
   void _limpiarFirma() {
     setState(() {
       _firmado = false;
@@ -42,6 +76,8 @@ class _SeccionFirmaState extends State<SeccionFirma> {
     widget.onFirmaChanged(null, null);
   }
 
+  /// Abre el modal de firma y espera el resultado (base64).
+  /// Si hay resultado, lo guarda y notifica al padre.
   Future<void> _abrirModalFirma() async {
     final resultado = await showModalBottomSheet<String>(
       context: context,
@@ -76,6 +112,7 @@ class _SeccionFirmaState extends State<SeccionFirma> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── TITULO ───────────────────────────────────────────
         Row(
           children: [
             const Text(
@@ -83,6 +120,7 @@ class _SeccionFirmaState extends State<SeccionFirma> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 8),
+            // Badge "OPCIONAL".
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
@@ -98,12 +136,12 @@ class _SeccionFirmaState extends State<SeccionFirma> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'El cliente puede firmar aquí para confirmar la realización del trabajo',
+          'El cliente puede firmar aqui para confirmar la realizacion del trabajo',
           style: TextStyle(fontSize: 12, color: Colors.grey),
         ),
         const SizedBox(height: 12),
 
-        // ── Nombre del firmante ──────────────────────────────
+        // ── NOMBRE DEL FIRMANTE ──────────────────────────────
         TextField(
           controller: _nombreCtrl,
           decoration: InputDecoration(
@@ -125,7 +163,8 @@ class _SeccionFirmaState extends State<SeccionFirma> {
         ),
         const SizedBox(height: 12),
 
-        // ── Trabajos extra ───────────────────────────────────
+        // ── TRABAJOS EXTRA ───────────────────────────────────
+        // Solo visible si el callback esta definido.
         if (widget.onTrabajosExtraChanged != null) ...[
           const Text(
             'Trabajos extra',
@@ -137,11 +176,12 @@ class _SeccionFirmaState extends State<SeccionFirma> {
             style: TextStyle(fontSize: 12, color: Colors.grey),
           ),
           const SizedBox(height: 12),
+          // Textarea de 3 lineas para trabajos extra.
           TextField(
             controller: _trabajosExtraCtrl,
             maxLines: 3,
             decoration: const InputDecoration(
-              hintText: 'Ej: cambio de válvula no incluida en presupuesto...',
+              hintText: 'Ej: cambio de valvula no incluida en presupuesto...',
               border: OutlineInputBorder(),
             ),
             onChanged: (v) => widget.onTrabajosExtraChanged!(v),
@@ -149,8 +189,9 @@ class _SeccionFirmaState extends State<SeccionFirma> {
           const SizedBox(height: 12),
         ],
 
-        // ── Pad de firma / estado ────────────────────────────
+        // ── PAD DE FIRMA / ESTADO ────────────────────────────
         if (_firmado && _firmaBase64 != null) ...[
+          // Estado: firma capturada correctamente.
           Container(
             decoration: BoxDecoration(
               border: Border.all(color: Colors.green.shade400),
@@ -176,6 +217,7 @@ class _SeccionFirmaState extends State<SeccionFirma> {
             ),
           ),
         ] else ...[
+          // Boton para abrir el modal de firma.
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -194,7 +236,7 @@ class _SeccionFirmaState extends State<SeccionFirma> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Se abrirá una ventana para firmar sin interrupciones',
+            'Se abrira una ventana para firmar sin interrupciones',
             style: TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ],
@@ -203,8 +245,10 @@ class _SeccionFirmaState extends State<SeccionFirma> {
   }
 }
 
-// ── Modal de firma ───────────────────────────────────────────────────────────
+// ── MODAL DE FIRMA ───────────────────────────────────────────────────────────
 
+/// Modal que contiene el pad de firma donde el usuario dibuja con el dedo.
+/// Usa el paquete [Signature] para capturar el trazo.
 class _ModalFirma extends StatefulWidget {
   const _ModalFirma();
 
@@ -219,11 +263,13 @@ class _ModalFirmaState extends State<_ModalFirma> {
   @override
   void initState() {
     super.initState();
+    // Inicializa el controlador de firma con trazo negro de 2px.
     _controller = SignatureController(
       penStrokeWidth: 2,
       penColor: Colors.black,
       exportBackgroundColor: Colors.white,
     );
+    // Escucha cambios en el controlador para saber si hay trazo.
     _controller.addListener(() {
       if (_controller.isNotEmpty && !_firmado) {
         setState(() => _firmado = true);
@@ -237,6 +283,7 @@ class _ModalFirmaState extends State<_ModalFirma> {
     super.dispose();
   }
 
+  /// Convierte la firma a PNG base64 y la devuelve como resultado del modal.
   Future<void> _confirmar() async {
     final bytes = await _controller.toPngBytes();
     if (bytes == null) return;
@@ -255,7 +302,7 @@ class _ModalFirmaState extends State<_ModalFirma> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
+          // ── HANDLE (barra de arrastre) ────────────────────
           Center(
             child: Container(
               width: 40,
@@ -268,7 +315,7 @@ class _ModalFirmaState extends State<_ModalFirma> {
           ),
           const SizedBox(height: 16),
 
-          // Título
+          // ── TITULO ────────────────────────────────────────
           Row(
             children: [
               const Expanded(
@@ -277,6 +324,7 @@ class _ModalFirmaState extends State<_ModalFirma> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
+              // Boton X para cerrar sin firmar.
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.of(context).pop(),
@@ -293,7 +341,7 @@ class _ModalFirmaState extends State<_ModalFirma> {
           ),
           const SizedBox(height: 12),
 
-          // Canvas de firma
+          // ── CANVAS DE FIRMA ───────────────────────────────
           Container(
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey.shade400),
@@ -311,9 +359,10 @@ class _ModalFirmaState extends State<_ModalFirma> {
           ),
           const SizedBox(height: 16),
 
-          // Botones
+          // ── BOTONES ───────────────────────────────────────
           Row(
             children: [
+              // Boton Limpiar: borra el trazo.
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.clear, size: 18),
@@ -328,6 +377,7 @@ class _ModalFirmaState extends State<_ModalFirma> {
                 ),
               ),
               const SizedBox(width: 12),
+              // Boton Confirmar: solo activo si hay trazo.
               Expanded(
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.check, size: 18),

@@ -1,3 +1,26 @@
+// =============================================================================
+// buscador_operarios_modal.dart  -  Modal para buscar y seleccionar operario
+// =============================================================================
+// ASPECTO EN PANTALLA:
+//   Panel que sube desde abajo con fondo blanco y esquinas redondeadas.
+//   Arriba una barra de arrastre, luego campo de texto "Buscar por nombre
+//   o apellido..." con lupa, y debajo lista filtrable de operarios con
+//   avatar (inicial del apellido), nombre completo y email.
+//
+// USO:
+//   Seleccionar un operario al asignar partes o configurar permisos.
+//   Los datos se obtienen del [usuariosProvider] de Riverpod.
+//
+// DATOS QUE NECESITA:
+//   - alSeleccionar: Function(Perfil) que se ejecuta al elegir un operario
+//   - Internamente usa usuariosProvider para obtener la lista de perfiles
+//
+// INTERACCION DEL USUARIO:
+//   - Escribir filtra por nombre, apellido o email en tiempo real
+//   - Tocar un operario lo selecciona y cierra el modal
+//   - Arrastrar hacia abajo o tocar fuera cierra el modal sin seleccionar
+// =============================================================================
+
 /// Ventana modal para buscar y seleccionar un operario.
 /// Abre un panel deslizable con lista filtrable de todos los usuarios.
 import 'package:flutter/material.dart';
@@ -6,6 +29,8 @@ import '../models/perfil.dart';
 import '../providers/admin_provider.dart';
 
 /// Cuerpo del buscador de operarios: campo de texto + lista filtrable.
+///
+/// [StatefulWidget] porque mantiene el estado _filtro para la busqueda.
 class CuerpoBuscadorOperarios extends StatefulWidget {
   final List<Perfil> perfiles;
   final Function(Perfil) alSeleccionar;
@@ -24,10 +49,12 @@ class CuerpoBuscadorOperarios extends StatefulWidget {
 }
 
 class _CuerpoBuscadorOperariosState extends State<CuerpoBuscadorOperarios> {
+  // Texto del filtro de busqueda.
   String _filtro = '';
 
   @override
   Widget build(BuildContext context) {
+    // Filtra perfiles por nombre, apellido o email (case-insensitive).
     final filtrados = widget.perfiles
         .where(
           (p) =>
@@ -39,6 +66,7 @@ class _CuerpoBuscadorOperariosState extends State<CuerpoBuscadorOperarios> {
 
     return Column(
       children: [
+        // ── BARRA DE ARRASTRE ─────────────────────────────────
         const SizedBox(height: 12),
         Container(
           width: 50,
@@ -48,6 +76,8 @@ class _CuerpoBuscadorOperariosState extends State<CuerpoBuscadorOperarios> {
             borderRadius: BorderRadius.circular(10),
           ),
         ),
+
+        // ── CAMPO DE BUSQUEDA ─────────────────────────────────
         Padding(
           padding: const EdgeInsets.all(20),
           child: TextField(
@@ -64,6 +94,8 @@ class _CuerpoBuscadorOperariosState extends State<CuerpoBuscadorOperarios> {
             onChanged: (v) => setState(() => _filtro = v),
           ),
         ),
+
+        // ── LISTA DE RESULTADOS ──────────────────────────────
         Expanded(
           child: filtrados.isEmpty
               ? const Center(child: Text('No se han encontrado operarios'))
@@ -78,6 +110,7 @@ class _CuerpoBuscadorOperariosState extends State<CuerpoBuscadorOperarios> {
                         horizontal: 20,
                         vertical: 8,
                       ),
+                      // Avatar circular con la inicial del apellido.
                       leading: CircleAvatar(
                         backgroundColor: Colors.blueGrey,
                         child: Text(
@@ -108,8 +141,11 @@ class _CuerpoBuscadorOperariosState extends State<CuerpoBuscadorOperarios> {
   }
 }
 
-
-
+/// Funcion global que abre el modal de busqueda de operarios.
+///
+/// Usa [Consumer] de Riverpod para leer [usuariosProvider] y obtener la
+/// lista completa de perfiles. [Consumer] es un widget que expone [WidgetRef]
+/// sin necesidad de convertir toda la pantalla en ConsumerWidget.
 void abrirBuscadorOperarios(
   BuildContext context,
   void Function(Perfil) alSeleccionar,
@@ -127,12 +163,21 @@ void abrirBuscadorOperarios(
       minChildSize: 0.4,
       maxChildSize: 0.95,
       builder: (_, scrollController) => Consumer(
+        // [Consumer] es un widget de Riverpod que proporciona [WidgetRef].
+        // Se usa aqui para no tener que convertir el builder del modal en
+        // un ConsumerWidget completo.
         builder: (context, ref, _) {
+          // Lee el provider de usuarios de forma reactiva.
+          // Cuando los datos cambian, este widget se reconstruye.
           final usuariosAsync = ref.watch(usuariosProvider);
           return usuariosAsync.when(
+            // Mientras carga: indicador de progreso.
             loading: () => const Center(child: CircularProgressIndicator()),
+            // Si hay error: mensaje de error.
             error: (e, _) => Center(child: Text('Error: $e')),
+            // Datos cargados: construye la lista de perfiles.
             data: (lista) {
+              // Convierte cada mapa JSON a un objeto Perfil.
               final perfiles = lista
                   .map((e) => Perfil.fromJson(e as Map<String, dynamic>))
                   .toList();

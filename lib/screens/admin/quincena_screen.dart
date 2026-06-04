@@ -1,7 +1,16 @@
-/// Pantalla de exportación contable por quincena.
-/// Muestra una tabla con las horas diarias de cada operario/obra para
-/// un rango de fechas seleccionable. Permite exportar a CSV y PDF.
-/// Incluye chips rápidos para seleccionar la 1ª o 2ª quincena.
+// =============================================================================
+// quincena_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla de exportacion contable por quincena.
+// PARA QUE:     Mostrar tabla de horas diarias por operario/obra para un
+//               rango de fechas, con exportacion a CSV y PDF.
+// QUIEN LO USA: Administradores, gestion y jefes de obra.
+// COMO SE LLEGA: Desde el AppDrawer o menu de administracion.
+// A DONDE VA:   GET /api/contabilidad/detalle (servidor), CSV/PDF.
+// QUE DATOS USA: auth_provider, api_service, capture_helper, app_drawer, intl.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,9 +20,9 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
 
-/// Pantalla de exportación contable por quincena.
+/// Pantalla de exportacion contable por quincena.
 /// Muestra tabla de horas diarias, permite exportar a CSV y PDF,
-/// y ofrece atajos para seleccionar 1ª/2ª quincena del mes.
+/// y ofrece atajos para seleccionar 1a/2a quincena del mes.
 class QuincenaScreen extends ConsumerStatefulWidget {
   const QuincenaScreen({super.key});
 
@@ -21,7 +30,7 @@ class QuincenaScreen extends ConsumerStatefulWidget {
   ConsumerState<QuincenaScreen> createState() => _QuincenaScreenState();
 }
 
-/// Gestiona la carga de datos contables, la tabla de horas por día
+/// Gestiona la carga de datos contables, la tabla de horas por dia
 /// y las exportaciones a CSV y PDF.
 class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   final ApiService _apiService = ApiService();
@@ -39,7 +48,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   List<String> _obrasDisponibles = [];
   Set<String>  _obrasSeleccionadas = {};
 
-  // ── Festivos nacionales fijos ─────────────────────────────────────
+  // Festivos nacionales fijos (dia, mes)
   static const Set<(int, int)> _festivosFijos = {
     (1,  1), (1,  6), (5,  1), (8, 15),
     (10,12), (11, 1), (12, 6), (12, 8), (12,25),
@@ -55,23 +64,21 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   bool get _esJefeObra =>
       ref.read(authProvider).valueOrNull?.esJefeObra == true;
 
-  // ── Helpers ───────────────────────────────────────────────────────
+  // -- Helpers --
 
-  /// Devuelve la letra del día de la semana (L, M, X, J, V, S, D).
+  /// Letra del dia de la semana (L, M, X, J, V, S, D).
   String _letraDia(DateTime d) {
     const letras = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
     return letras[d.weekday - 1];
   }
 
-  /// Comprueba si es sábado o domingo.
   bool _esFinDeSemana(DateTime d) => d.weekday >= 6;
 
-  /// Comprueba si es un festivo nacional fijo (ej. 1 de enero, 25 de diciembre).
   bool _esFestivo(DateTime d) => _festivosFijos.contains((d.month, d.day));
 
-  /// Un día "rojo" es fin de semana o festivo.
   bool _esDiaRojo(DateTime d) => _esFinDeSemana(d) || _esFestivo(d);
 
+  /// Obtiene informacion de ausencia para una celda (B = baja, V = vacaciones).
   ({Color bg, Color fg, String letra})? _infoAusencia(
     Map<String, dynamic> fila,
     String isoFecha,
@@ -90,7 +97,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     );
   }
 
-  // ── Celda de horas ────────────────────────────────────────────────
+  // -- Celda de horas --
 
   static double _extractHoras(dynamic raw) {
     if (raw == null) return 0;
@@ -104,6 +111,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     return null;
   }
 
+  /// Construye una celda de la tabla con formato segun el tipo de dia.
   DataCell _celdaH(
     dynamic raw,
     String isoFecha,
@@ -115,6 +123,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     final double v = _extractHoras(raw);
     final int? parteId = _extractParteId(raw);
 
+    // Celda con ausencia (B/V)
     if (aus != null) {
       return DataCell(
         Container(
@@ -136,7 +145,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       );
     }
 
-    // ── Día rojo (finde o festivo) ───────────────────────────────────
+    // Dia rojo (finde o festivo)
     if (esDiaRojo) {
       if (parteId != null && v > 0) {
         return DataCell(
@@ -192,7 +201,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       );
     }
 
-    // ── Día normal con parte ─────────────────────────────────────────
+    // Dia normal con parte (clic para navegar)
     if (parteId != null && v > 0) {
       return DataCell(
         Tooltip(
@@ -230,7 +239,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
       );
     }
 
-    // ── Día normal sin parte ─────────────────────────────────────────
+    // Dia normal sin parte
     return DataCell(
       Container(
         width: 35,
@@ -247,7 +256,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     );
   }
 
-  // ── Fechas ────────────────────────────────────────────────────────
+  // -- Fechas --
 
   Future<void> _seleccionarFechas(BuildContext context) async {
     final DateTimeRange? nuevoRango = await showDateRangePicker(
@@ -278,7 +287,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     _obrasSeleccionadas      = {};
   }
 
-  // ── Carga ─────────────────────────────────────────────────────────
+  // -- Carga de datos --
 
   Future<void> _cargarVistaPrevia() async {
     if (_rangoSeleccionado == null) return;
@@ -295,6 +304,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
             );
 
       if (_esJefeObra) {
+        // Jefe: agrupa por obra
         final obras = data
             .map((f) => f['obra']?.toString() ?? '')
             .where((o) => o.isNotEmpty)
@@ -307,6 +317,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
           _obrasSeleccionadas = obras.toSet();
         });
       } else {
+        // Admin: agrupa por operario
         final operarios = data
             .map((f) => f['operario']?.toString() ?? '')
             .where((o) => o.isNotEmpty)
@@ -326,7 +337,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     }
   }
 
-  // ── CSV ───────────────────────────────────────────────────────────
+  // -- CSV --
 
   Future<void> _ejecutarDescarga() async {
     if (_rangoSeleccionado == null) return;
@@ -350,11 +361,9 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     }
   }
 
-  // ── PDF ───────────────────────────────────────────────────────────
+  // -- PDF --
 
   /// Genera un PDF con la tabla de horas agrupadas por obra u operario.
-  /// Calcula totales por día, subtotales por grupo y los pasa al helper
-  /// de generación de PDF.
   Future<void> _exportarPdf() async {
     if (_rangoSeleccionado == null || _datosPrevia.isEmpty) return;
     setState(() => _exportandoPdf = true);
@@ -430,6 +439,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
               (f['total_horas'] as num).toStringAsFixed(1),
             ]);
           }
+          // Calcula subtotales por grupo
           final Map<String, double> totDia = {};
           double totGen = 0;
           for (final f in fg) {
@@ -466,7 +476,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         filas: filas,
         subtotales: indicesSubtotal,
         titulo:
-            '${_esJefeObra ? 'Mis obras' : 'Exportacion Contable'} — ${_labelRango()}',
+            '${_esJefeObra ? 'Mis obras' : 'Exportacion Contable'} - ${_labelRango()}',
       );
     } catch (e) {
       _mostrarError('Error al generar PDF: $e');
@@ -475,7 +485,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     }
   }
 
-  // ── Utilidades ────────────────────────────────────────────────────
+  // -- Utilidades --
 
   String _labelRango() {
     if (_rangoSeleccionado == null) return '';
@@ -518,9 +528,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         ),
       );
 
-  // ─────────────────────────────────────────────────────────────────
-  //  BUILD
-  // ─────────────────────────────────────────────────────────────────
+  // -- BUILD --
 
   @override
   Widget build(BuildContext context) {
@@ -530,7 +538,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text(esJefe ? 'Mis obras' : 'Exportación Contable'),
+        title: Text(esJefe ? 'Mis obras' : 'Exportacion Contable'),
         backgroundColor: Colors.indigo,
         elevation: 0,
       ),
@@ -549,7 +557,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     );
   }
 
-  // ── Header ────────────────────────────────────────────────────────
+  // -- Header --
 
   Widget _buildSelectorHeader(bool esJefe) {
     final hayDatos      = _datosPrevia.isNotEmpty;
@@ -699,7 +707,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     );
   }
 
-  // ── Chips de quincena ─────────────────────────────────────────────
+  // -- Chips de quincena rapida --
 
   Widget _buildBotonesQuincena() {
     final ahora = DateTime.now();
@@ -762,7 +770,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     );
   }
 
-  // ── Empty state ───────────────────────────────────────────────────
+  // -- Empty state --
 
   Widget _buildEmptyState() => Center(
         child: Column(
@@ -776,9 +784,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         ),
       );
 
-  // ─────────────────────────────────────────────────────────────────
-  //  TABLA
-  // ─────────────────────────────────────────────────────────────────
+  // -- TABLA --
 
   Widget _buildTablaDetalle(bool esJefe) {
     final datosFiltrados = esJefe
@@ -811,7 +817,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
         : _buildTablaAgrupadaPorOperario(datosFiltrados, dias);
   }
 
-  // ── Tabla agrupada por obra ───────────────────────────────────────
+  // -- Tabla agrupada por obra (jefe) --
 
   Widget _buildTablaAgrupadaPorObra(
       List<dynamic> datos, List<DateTime> dias) {
@@ -931,7 +937,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     return _wrapTabla(dias, filas);
   }
 
-  // ── Tabla agrupada por operario ───────────────────────────────────
+  // -- Tabla agrupada por operario (admin) --
 
   Widget _buildTablaAgrupadaPorOperario(
       List<dynamic> datos, List<DateTime> dias) {
@@ -1051,7 +1057,7 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
     return _wrapTabla(dias, filas);
   }
 
-  // ── Wrapper tabla ─────────────────────────────────────────────────
+  // -- Wrapper tabla (scroll sincronizado) --
 
   Widget _wrapTabla(List<DateTime> dias, List<DataRow> filas) {
     return LayoutBuilder(
@@ -1164,9 +1170,9 @@ class _QuincenaScreenState extends ConsumerState<QuincenaScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Widgets auxiliares
-// ─────────────────────────────────────────────────────────────────────────────
+// ============================================
+// Widgets auxiliares
+// ============================================
 
 class _LeyendaCelda extends StatelessWidget {
   final Color  color;

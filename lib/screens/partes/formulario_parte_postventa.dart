@@ -1,7 +1,18 @@
-/// Formulario para crear un parte de postventa.
-/// Similar al formulario normal, pero con la particularidad de que el
-/// operario de postventa debe seleccionar una especialidad (electricidad
-/// o fontanería). Incluye firma del cliente y guardado offline.
+// =============================================================================
+// formulario_parte_postventa.dart
+// =============================================================================
+// QUE ES:       Formulario para crear un parte de trabajo de postventa.
+// PARA QUE:     Registrar partes con especialidad obligatoria (electricidad
+//               o fontaneria) para operarios de postventa.
+// QUIEN LO USA: Operarios de postventa y gestores que crean partes para ellos.
+// COMO SE LLEGA: Desde partes_screen.dart al pulsar FAB y elegir "postventa",
+//                o desde admin_home_screen.dart con operario postventa.
+// A DONDE VA:   POST /api/partes (con campo es_post_venta=true) o cola offline.
+// QUE DATOS USA: auth_provider, perfiles_provider, obras_provider,
+//                apiServiceProvider, offlineQueueProvider, connectivity_plus.
+// OFFLINE:      Si no hay red, guarda en offlineQueueProvider para envio posterior.
+// =============================================================================
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +32,7 @@ import '../../widgets/seccion_firma.dart';
 import '../../widgets/boton_especialidad.dart';
 
 /// Formulario para registrar un parte de postventa.
-/// Los operarios de postventa eligen especialidad (electricidad/fontanería).
+/// Los operarios de postventa eligen especialidad (electricidad/fontaneria).
 /// Los gestores pueden crear partes para cualquier operario postventa.
 class FormularioPostVenta extends ConsumerStatefulWidget {
   const FormularioPostVenta({
@@ -31,6 +42,7 @@ class FormularioPostVenta extends ConsumerStatefulWidget {
     this.fechaPreseleccionada,
   });
 
+  // -- Parametros opcionales para preseleccion --
   final String? perfilIdPreseleccionado;
   final String? nombrePreseleccionado;
   final DateTime? fechaPreseleccionada;
@@ -40,25 +52,33 @@ class FormularioPostVenta extends ConsumerStatefulWidget {
       _FormularioPostVentaState();
 }
 
+/// Estado mutable del formulario de parte postventa.
+/// Similar a formulario_parte_normal pero con especialidad obligatoria
+/// para el operario y logica de postventa integrada.
 class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
+  // -- Claves y controladores --
   final _formKey = GlobalKey<FormState>();
   final _obraSearchCtrl = TextEditingController();
+
+  // -- Estado del formulario --
   late DateTime _fecha;
   double _horasNormales = 0;
   String _descripcion = '';
   String _trabajosExtra = '';
   int? _idObraSeleccionada;
-  String? _especialidad;
+  String? _especialidad; // Especialidad que elige el operario postventa
   String? _idPerfilSeleccionado;
   Perfil? _perfilOperarioSeleccionado;
   bool _enviando = false;
   String? _firmaBase64;
   String? _nombreFirma;
 
+  // -- Perfiles y fechas --
   List<Perfil> _perfilesOrdenados = [];
   bool _cargandoFechas = false;
   List<DateTime> _fechasPermitidas = [];
 
+  /// Navega a la pantalla de inicio segun el rol.
   void _volverAHome() {
     final perfil = ref.read(authProvider).valueOrNull;
     final esAdminOGestion =
@@ -77,6 +97,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
       _cargarMisFechas();
     }
     _cargarFechasPermitidas();
+    // Escucha cambios en perfiles para mostrar buscador de operarios
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.listenManual(perfilesProvider, (_, next) {
         next.whenData((perfiles) {
@@ -97,6 +118,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     });
   }
 
+  /// Carga fechas del usuario actual.
   Future<void> _cargarMisFechas() async {
     setState(() => _cargandoFechas = true);
     try {
@@ -108,6 +130,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     }
   }
 
+  /// Carga fechas de un operario especifico.
   Future<void> _cargarFechasDeOperario(String id) async {
     setState(() => _cargandoFechas = true);
     try {
@@ -119,6 +142,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     }
   }
 
+  /// Carga fechas libres habilitadas por el admin.
   Future<void> _cargarFechasPermitidas() async {
     try {
       final fechas = await ref.read(apiServiceProvider).getMisFechasLibres();
@@ -128,13 +152,12 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     }
   }
 
-  /// Comprueba si una fecha está dentro de las fechas habilitadas
-  /// por el administrador.
+  /// Comprueba si una fecha esta en las fechas habilitadas por el admin.
   bool _fechaEstaPermitida(DateTime dia) => _fechasPermitidas.any(
     (f) => f.year == dia.year && f.month == dia.month && f.day == dia.day,
   );
 
-  /// Permite o no seleccionar una fecha según el rol del usuario.
+  /// Permite o no seleccionar una fecha segun el rol del usuario.
   bool _predicate(DateTime dia, bool esGestor) {
     if (esGestor) return true;
     final ahora = DateTime.now();
@@ -152,13 +175,14 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
   }
 
   /// Abre el selector de fechas respetando las fechas permitidas.
-  /// Para no gestores busca automáticamente la fecha disponible más cercana.
+  /// Para no gestores busca automaticamente la fecha disponible mas cercana.
   Future<void> _pickDate(bool esGestor) async {
     final ahora = DateTime.now();
     DateTime initialDate = _fecha;
     DateTime firstDate = DateTime(2020);
     DateTime lastDate = DateTime.now().add(const Duration(days: 365));
 
+    // Ajusta limites para no gestores segun fechas permitidas
     if (!esGestor && _fechasPermitidas.isNotEmpty) {
       DateTime? minPermitida;
       DateTime? maxPermitida;
@@ -171,6 +195,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
         lastDate = maxPermitida;
     }
 
+    // Busca fecha disponible si la actual no lo esta
     if (!esGestor && !_predicate(initialDate, esGestor)) {
       DateTime? mejorFecha;
       for (int i = 1; i <= 60; i++) {
@@ -207,11 +232,12 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
       firstDate: firstDate,
       lastDate: lastDate,
       selectableDayPredicate: (day) => _predicate(day, esGestor),
-      helpText: 'Selecciona un día',
+      helpText: 'Selecciona un dia',
     );
     if (picked != null) setState(() => _fecha = picked);
   }
 
+  /// Abre el modal de busqueda de operarios.
   void _abrirBuscadorOperarios(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -255,7 +281,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nuevo Parte Post Venta'),
-        backgroundColor: Colors.purple[700],
+        backgroundColor: Colors.purple[700], // Color distintivo para postventa
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -269,7 +295,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Selector de operario ──
+              // ---- Selector de operario (solo gestor) ----
               if (esGestor) ...[
                 const Text(
                   'Operario',
@@ -330,7 +356,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                 const SizedBox(height: 20),
               ],
 
-              // ── Fecha ──
+              // ---- Fecha ----
               const Text(
                 'Fecha',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -379,12 +405,12 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                   ),
                   subtitle: Text(
                     _cargandoFechas
-                        ? 'Cargando días disponibles...'
+                        ? 'Cargando dias disponibles...'
                         : widget.fechaPreseleccionada != null
                         ? 'Fecha preseleccionada desde el panel'
                         : _fechasPermitidas.isNotEmpty
-                        ? 'Tienes ${_fechasPermitidas.length} día(s) extra habilitados'
-                        : 'Los partes son únicamente del dia de hoy',
+                        ? 'Tienes ${_fechasPermitidas.length} dia(s) extra habilitados'
+                        : 'Los partes son unicamente del dia de hoy',
                     style: TextStyle(
                       fontSize: 11,
                       color: widget.fechaPreseleccionada != null
@@ -398,7 +424,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                 ),
               const SizedBox(height: 20),
 
-              // ── Obra ──
+              // ---- Obra ----
               const Text(
                 'Obra',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -429,7 +455,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
               ),
               const SizedBox(height: 25),
 
-              // ── Horas ──
+              // ---- Horas normales ----
               const Text(
                 'Horas normales',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -450,7 +476,8 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
               ),
               const SizedBox(height: 25),
 
-              // ── Especialidad (operario no gestor) ──
+              // ---- Especialidad (operario no gestor) ----
+              // El operario postventa elige especialidad manualmente
               if (!esGestor) ...[
                 const Text(
                   'Especialidad',
@@ -472,7 +499,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: BotonEspecialidad(
-                        label: 'Fontanería',
+                        label: 'Fontaneria',
                         icono: Icons.plumbing,
                         color: Colors.blue[700]!,
                         seleccionado: _especialidad == 'FONTANERIA',
@@ -485,7 +512,8 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                 const SizedBox(height: 25),
               ],
 
-              // ── Especialidad (gestor con operario seleccionado) ──
+              // ---- Especialidad (gestor con operario seleccionado) ----
+              // Muestra la especialidad que ya tiene asignada el operario
               if (esGestor && _perfilOperarioSeleccionado != null) ...[
                 const Text(
                   'Especialidad',
@@ -519,7 +547,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                             ? 'Electricidad (del operario)'
                             : _perfilOperarioSeleccionado!.especialidad ==
                                   'FONTANERIA'
-                            ? 'Fontanería (del operario)'
+                            ? 'Fontaneria (del operario)'
                             : 'Sin especialidad asignada',
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
@@ -529,7 +557,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
                 const SizedBox(height: 25),
               ],
 
-              // ── Descripción ──
+              // ---- Descripcion ----
               const Text(
                 'Tareas realizadas',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -538,7 +566,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
               TextFormField(
                 maxLines: 5,
                 decoration: const InputDecoration(
-                  hintText: 'Descripción del trabajo...',
+                  hintText: 'Descripcion del trabajo...',
                   border: OutlineInputBorder(),
                 ),
                 validator: (v) => v!.isEmpty ? 'Campo obligatorio' : null,
@@ -546,7 +574,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
               ),
               const SizedBox(height: 30),
 
-              // ── Firma + trabajos extra ──
+              // ---- Firma + trabajos extra ----
               const Divider(),
               const SizedBox(height: 16),
               SeccionFirma(
@@ -558,6 +586,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
               ),
               const SizedBox(height: 30),
 
+              // ---- Boton de envio ----
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -585,6 +614,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     );
   }
 
+  /// Muestra dialogo de ayuda sobre formato de horas.
   void _mostrarDialogoHoras() {
     showDialog(
       context: context,
@@ -592,9 +622,9 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
         title: const Text('Formato de horas incorrecto'),
         content: const Text(
           'Las horas deben escribirse en decimales, 0,5 es media hora.\n\n'
-          'Ejemplos válidos:\n'
-          '• 0.5  (media hora)\n'
-          '• 2.5  (dos horas y media)\n',
+          'Ejemplos validos:\n'
+          '- 0.5  (media hora)\n'
+          '- 2.5  (dos horas y media)\n',
         ),
         actions: [
           TextButton(
@@ -606,13 +636,14 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     );
   }
 
-  /// Envía el parte de postventa al servidor con especialidad incluida.
+  /// Envia el parte de postventa al servidor con especialidad incluida.
   /// Si no hay red, lo guarda en la cola offline.
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
     final perfil = ref.read(authProvider).valueOrNull;
     if (perfil == null) return;
 
+    // Valida formato de horas
     if (_horasNormales % 0.5 != 0) {
       _mostrarDialogoHoras();
       return;
@@ -622,19 +653,21 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
 
     final esGestor = perfil.esAdmin || perfil.esGestion;
 
+    // Determina especialidad: gestor usa la del operario, operario la eligio
     final String? especialidadFinal = esGestor
         ? (_perfilOperarioSeleccionado?.especialidad?.isNotEmpty == true
               ? _perfilOperarioSeleccionado!.especialidad
               : null)
         : _especialidad;
 
+    // Construye datos incluyendo es_post_venta=true
     final data = <String, dynamic>{
       'id_obra': _idObraSeleccionada,
       'id_perfil': esGestor ? _idPerfilSeleccionado : perfil.id,
       'fecha': DateFormat('yyyy-MM-dd').format(_fecha),
       'horas_normales': _horasNormales,
       'descripcion': _descripcion,
-      'es_post_venta': true,
+      'es_post_venta': true, // Marca como parte de postventa
       if (especialidadFinal != null) 'especialidad': especialidadFinal,
       if (_firmaBase64 != null) 'firma_base64': _firmaBase64,
       if (_nombreFirma != null) 'nombre_firmado': _nombreFirma,
@@ -642,17 +675,19 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
     };
 
     try {
+      // Verifica conectividad
       final resultado = await Connectivity().checkConnectivity();
       final hayRed = resultado.any((r) => r != ConnectivityResult.none);
 
       if (!hayRed) {
+        // Sin conexion: cola offline
         await ref.read(offlineQueueProvider).guardarParteOffline(data);
         ref.invalidate(pendientesOfflineProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Sin conexión — parte guardado, se enviará automáticamente',
+                'Sin conexion - parte guardado, se enviara automaticamente',
               ),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 4),
@@ -663,6 +698,7 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
         return;
       }
 
+      // Envia al servidor
       await ref.read(apiServiceProvider).crearParte(data);
       ref.invalidate(partesProvider);
       if (mounted) {
@@ -674,12 +710,13 @@ class _FormularioPostVentaState extends ConsumerState<FormularioPostVenta> {
         _volverAHome();
       }
     } on DioException catch (_) {
+      // Error de conexion: guarda offline
       await ref.read(offlineQueueProvider).guardarParteOffline(data);
       ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Error de conexión — parte guardado localmente'),
+            content: Text('Error de conexion - parte guardado localmente'),
             backgroundColor: Colors.orange,
           ),
         );

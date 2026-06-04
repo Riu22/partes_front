@@ -1,3 +1,30 @@
+// =============================================================================
+// export_preview.dart  -  Vista previa de exportacion a PDF/ZIP
+// =============================================================================
+// ASPECTO EN PANTALLA:
+//   Recuadro verde claro con borde verde. Muestra icono (PDF o ZIP),
+//   nombre del archivo, tamano en KB, y boton azul "Descargar".
+//   Si es ZIP, anade texto explicativo: "El ZIP contiene un PDF por obra/u
+//   operario". Mientras se genera: spinner de carga centrado. Si hay error:
+//   mensaje en rojo.
+//
+// USO:
+//   Pantalla de exportacion de partes. El usuario selecciona parametros
+//   (rango de fechas, obras, operarios, modo) y esta vista previa genera
+//   el archivo y permite descargarlo.
+//
+// DATOS QUE NECESITA:
+//   - params: PdfParams con desde, hasta, obraIds, perfilIds, modo
+//     (pdf, zip, zipOperario)
+//   - exportProvider: FutureProvider.family que genera los bytes del archivo
+//   - apiServiceProvider: para guardar el archivo localmente
+//
+// INTERACCION DEL USUARIO:
+//   - Tocar "Descargar": guarda el archivo y muestra SnackBar
+//   - Mientras se genera: spinner de carga
+//   - Si hay error: mensaje de error
+// =============================================================================
+
 /// Vista previa de la exportación de partes a PDF o ZIP.
 /// Muestra el tamaño del archivo generado y un botón para descargarlo.
 /// Soporta exportación normal (PDF), ZIP por obra y ZIP por operario.
@@ -8,6 +35,14 @@ import 'package:intl/intl.dart';
 import '../models/pdf_export_params.dart';
 import '../providers/auth_provider.dart';
 
+/// [FutureProvider.family] que genera los bytes del archivo (PDF o ZIP).
+///
+/// Toma [PdfParams] como argumento de la familia. Se invalida solo cuando
+/// los parametros cambian. Usa [apiServiceProvider] para hacer la llamada
+/// HTTP al backend que genera el archivo.
+///
+/// [FutureProvider] es un provider de Riverpod para operaciones asincronas.
+/// .family permite parametrizarlo (en este caso por los filtros).
 final exportProvider =
     FutureProvider.family<Uint8List, PdfParams>((ref, params) async {
   if (params.modo == ModoExport.zip) {
@@ -29,6 +64,7 @@ final exportProvider =
           perfilIds: params.perfilIds,
         );
   } else {
+    // Modo por defecto: PDF normal.
     return ref
         .read(apiServiceProvider)
         .generarPdfPartes(
@@ -40,6 +76,8 @@ final exportProvider =
   }
 });
 
+/// Widget que muestra la vista previa del archivo generado y permite
+/// descargarlo. [ConsumerWidget] para acceder a providers.
 class ExportPreview extends ConsumerWidget {
   final PdfParams params;
 
@@ -47,25 +85,38 @@ class ExportPreview extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Escucha el provider que genera el archivo. Se reconstruye cuando
+    // cambia el estado (loading, error, data).
     final async = ref.watch(exportProvider(params));
 
     return async.when(
+      // ── ESTADO DE CARGA ─────────────────────────────────
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Center(child: CircularProgressIndicator()),
       ),
+
+      // ── ESTADO DE ERROR ─────────────────────────────────
       error: (e, _) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Center(
           child: Text('Error: $e', style: const TextStyle(color: Colors.red)),
         ),
       ),
+
+      // ── DATOS CARGADOS ──────────────────────────────────
       data: (bytes) {
         final esZip = params.modo == ModoExport.zip;
         final esZipOp = params.modo == ModoExport.zipOperario;
+
+        // Calcula tamano en KB con un decimal.
         final kb = (bytes.length / 1024).toStringAsFixed(1);
+
+        // Formatea fechas para el nombre del archivo.
         final desde = DateFormat('yyyy-MM-dd').format(params.desde);
         final hasta = DateFormat('yyyy-MM-dd').format(params.hasta);
+
+        // Nombre del archivo segun el modo.
         final nombre = esZipOp
             ? 'partes_por_operario_${desde}_$hasta.zip'
             : esZip
@@ -73,6 +124,7 @@ class ExportPreview extends ConsumerWidget {
             : 'partes_${desde}_$hasta.pdf';
 
         return Container(
+          // Contenedor verde claro con borde verde.
           decoration: BoxDecoration(
             color: Colors.green.shade50,
             borderRadius: BorderRadius.circular(8),
@@ -82,8 +134,10 @@ class ExportPreview extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── FILA: icono + info + boton descargar ─────
               Row(
                 children: [
+                  // Icono: ZIP (carpeta) o PDF.
                   Icon(
                     esZip || esZipOp
                         ? Icons.folder_zip
@@ -97,16 +151,18 @@ class ExportPreview extends ConsumerWidget {
                           ? 'ZIP por operario'
                           : esZip
                           ? 'ZIP por obra'
-                          : 'PDF'} generado — $kb KB',
+                          : 'PDF'} generado -- $kb KB',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
+                  // Boton azul de descarga.
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1565C0),
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () {
+                      // Guarda el archivo en el dispositivo local.
                       ref
                           .read(apiServiceProvider)
                           .guardarPdfLocal(bytes, nombre);
@@ -119,6 +175,8 @@ class ExportPreview extends ConsumerWidget {
                   ),
                 ],
               ),
+
+              // ── TEXTO EXPLICATIVO PARA ZIP ───────────────
               if (esZip) ...[
                 const SizedBox(height: 8),
                 Text(

@@ -1,3 +1,32 @@
+// =============================================================================
+// card_parte.dart  -  Tarjeta de parte para operario
+// =============================================================================
+// ASPECTO EN PANTALLA:
+//   Tarjeta blanca con borde gris claro. Cabecera colapsada muestra:
+//   icono cuadrado (naranja/gris), nombre de obra, subtitulo con fecha
+//   y badge ADMIN (si aplica) + badge de firma verde (si tiene firma),
+//   y a la derecha las horas + chip de especialidad.
+//   Al expandir: descripcion, seccion de firma (imagen + nombre),
+//   y botones Editar/Eliminar (si tiene permisos).
+//
+// USO:
+//   Mostrar un parte de trabajo individual. Usado en listas de partes
+//   de operarios y en la vista agrupada por fechas.
+//
+// DATOS QUE NECESITA:
+//   - parte: objeto ParteTrabajo con obraNombre, fecha, horasNormales,
+//     especialidad, firmaUrl, nombreFirma, creadoPorGestor, id, etc.
+//   - authProvider: para permisos de edicion/eliminacion
+//   - fechasPermitidasProvider: fechas habilitadas para editar
+//   - apiServiceProvider: para llamar a eliminar
+//
+// INTERACCION DEL USUARIO:
+//   - Tocar cabecera expande/colapsa
+//   - Tocar "Editar" navega a /partes/editar con el parte como extra
+//   - Tocar "Eliminar" muestra dialogo de confirmacion y borra
+//   - Las imagenes de firma se cargan con loading/error states
+// =============================================================================
+
 /// Tarjeta que muestra un parte de trabajo para el operario.
 /// Incluye obra, fecha, horas, especialidad, descripción, firma del cliente
 /// y botones para editar o eliminar (si tiene permisos).
@@ -11,18 +40,27 @@ import '../providers/auth_provider.dart';
 import '../providers/partes_provider.dart';
 import 'chip_especialidad.dart';
 
+/// Tarjeta expandible de un parte de trabajo para operario.
+///
+/// [ConsumerWidget]: StatelessWidget que accede a [WidgetRef] para leer
+/// providers de Riverpod. ref.watch() escucha cambios; ref.read() lee
+/// una sola vez o accede al notifier.
 class CardParte extends ConsumerWidget {
   final ParteTrabajo parte;
 
   const CardParte({super.key, required this.parte});
 
+  /// Muestra un dialogo de confirmacion y, si se acepta, elimina el parte
+  /// via API e invalida los providers para que se recarguen.
   Future<void> _eliminar(BuildContext context, WidgetRef ref) async {
+    // Dialogo de confirmacion de eliminacion.
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar parte'),
         content: const Text(
-          '¿Estás seguro de que quieres eliminar este parte? Esta acción no se puede deshacer.',
+          '¿Estás seguro de que quieres eliminar este parte? '
+          'Esta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(
@@ -38,10 +76,13 @@ class CardParte extends ConsumerWidget {
       ),
     );
 
+    // Si no confirmo o el contexto ya no es valido, sale.
     if (confirmar != true || !context.mounted) return;
 
     try {
+      // Llama al API para eliminar el parte por su ID.
       await ref.read(apiServiceProvider).eliminarParte(parte.id);
+      // Invalida los providers para que se recarguen automaticamente.
       ref.invalidate(partesProvider);
       ref.invalidate(partesJefeProvider);
       if (context.mounted) {
@@ -60,21 +101,28 @@ class CardParte extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Lee el perfil del usuario logueado.
+    // valueOrNull devuelve null si aun no cargo.
     final perfil = ref.watch(authProvider).valueOrNull;
+
+    // Los gestores (admin o gestion) tienen permisos totales.
     final esGestor = perfil?.esAdmin == true || perfil?.esGestion == true;
 
+    // Obtiene las fechas permitidas para editar (solo si no es gestor).
     final fechasPermitidas = esGestor
-        ? <DateTime>[]
+        ? <DateTime>[] // Gestores no necesitan fechas permitidas.
         : ref.watch(fechasPermitidasProvider).valueOrNull ?? [];
 
-    // Los gestores siempre pueden editar; los operarios solo si es hoy o hay fecha habilitada
+    // Los gestores siempre pueden editar; los operarios solo si es hoy
+    // o hay fecha habilitada.
     final puedeEditar =
         esGestor || parte.puedeEditarseConFechas(fechasPermitidas);
     final puedeEliminar =
         esGestor || parte.puedeEditarseConFechas(fechasPermitidas);
 
     final String? esp = parte.especialidad;
-    final bool esElec = esp == 'ELECTRICIDAD'; // Determina color del chip de especialidad
+    // Determina color del chip de especialidad: true = electricidad.
+    final bool esElec = esp == 'ELECTRICIDAD';
 
     return Card(
       color: bgCard,
@@ -87,6 +135,7 @@ class CardParte extends ConsumerWidget {
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         childrenPadding: EdgeInsets.zero,
+        // Icono cuadrado: naranja si se puede editar, gris si no.
         leading: Container(
           width: 36,
           height: 36,
@@ -108,8 +157,10 @@ class CardParte extends ConsumerWidget {
             color: textPrimary,
           ),
         ),
+        // ── SUBTITULO: fecha + badges ─────────────────────────
         subtitle: Row(
           children: [
+            // Badge "ADMIN" si el parte fue creado por un gestor.
             if (parte.creadoPorGestor)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -127,10 +178,12 @@ class CardParte extends ConsumerWidget {
                   ),
                 ),
               ),
+            // Fecha formateada.
             Text(
               fmtDMY(parte.fecha),
               style: const TextStyle(fontSize: 12, color: textSecondary),
             ),
+            // Badge de firma verde si el parte tiene firma del cliente.
             if ((parte.firmaUrl != null && parte.firmaUrl!.isNotEmpty) ||
                 (parte.nombreFirma != null && parte.nombreFirma!.isNotEmpty)) ...[
               const SizedBox(width: 6),
@@ -161,10 +214,12 @@ class CardParte extends ConsumerWidget {
             ],
           ],
         ),
+        // ── TRAILING: horas + chip especialidad ──────────────
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            // Horas normales (sin decimales si es entero).
             Text(
               '${parte.horasNormales % 1 == 0 ? parte.horasNormales.toInt() : parte.horasNormales}h',
               style: const TextStyle(
@@ -180,6 +235,7 @@ class CardParte extends ConsumerWidget {
             ],
           ],
         ),
+        // ── CONTENIDO EXPANDIDO ──────────────────────────────
         children: [
           Container(
             width: double.infinity,
@@ -190,7 +246,7 @@ class CardParte extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Descripción ──
+                // ── DESCRIPCION ──
                 const Text(
                   'Descripción',
                   style: TextStyle(
@@ -211,7 +267,9 @@ class CardParte extends ConsumerWidget {
                   ),
                 ),
 
-                // ── Firma ──
+                // ── FIRMA ──
+                // Muestra la imagen de la firma y el nombre del firmante
+                // si existen.
                 if ((parte.firmaUrl != null && parte.firmaUrl!.isNotEmpty) ||
                     (parte.nombreFirma != null && parte.nombreFirma!.isNotEmpty)) ...[
                   const SizedBox(height: 16),
@@ -228,6 +286,7 @@ class CardParte extends ConsumerWidget {
                       if (parte.nombreFirma != null &&
                           parte.nombreFirma!.isNotEmpty) ...[
                         const SizedBox(width: 8),
+                        // Badge con el nombre del firmante.
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -261,6 +320,7 @@ class CardParte extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  // Imagen de la firma con manejo de carga y error.
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Image.network(
@@ -268,6 +328,7 @@ class CardParte extends ConsumerWidget {
                       height: 120,
                       fit: BoxFit.contain,
                       alignment: Alignment.centerLeft,
+                      // loadingBuilder: muestra spinner mientras carga.
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Container(
@@ -284,6 +345,7 @@ class CardParte extends ConsumerWidget {
                           ),
                         );
                       },
+                      // errorBuilder: muestra icono de error si falla la carga.
                       errorBuilder: (context, error, stackTrace) => Container(
                         height: 48,
                         padding: const EdgeInsets.all(12),
@@ -310,7 +372,8 @@ class CardParte extends ConsumerWidget {
                   ),
                 ],
 
-                // ── Botones editar / eliminar ──
+                // ── BOTONES EDITAR / ELIMINAR ──
+                // Solo se muestran si el usuario tiene permisos.
                 if (puedeEditar || puedeEliminar) ...[
                   const SizedBox(height: 12),
                   Row(
@@ -325,6 +388,7 @@ class CardParte extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
+                            // Navega a la pantalla de edicion con el parte.
                             onPressed: () =>
                                 context.go('/partes/editar', extra: parte),
                             icon: const Icon(Icons.edit_outlined, size: 16),

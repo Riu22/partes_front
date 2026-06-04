@@ -1,7 +1,19 @@
+// =============================================================================
+// PANTALLA: FormularioParteJefe
+// -----------------------------------------------------------------------------
+// QUE ES: Formulario para crear un parte de jefe de obra.
+// PARA QUE SIRVE: Registrar rango de fechas, obras con horas electricas/mecanicas.
+// QUIEN LA VE (rol): Jefes de obra.
+// COMO SE LLEGA: Desde crear_parte_screen (role-based routing).
+// A DONDE VA DESPUES: Vuelve a '/partes' al enviar o cancelar.
+// QUE DATOS NECESITA: Lista de obras, fechas de inicio y fin.
+// OFFLINE: Si, guarda en cola offline si no hay conexion.
+// =============================================================================
+
 /// Formulario para crear un parte de jefe de obra.
-/// Permite seleccionar un rango de fechas (inicio y fin), añadir una o
-/// varias obras con horas eléctricas y mecánicas desglosadas, y escribir
-/// una descripción general. Si no hay conexión, se guarda en la cola offline.
+/// Permite seleccionar un rango de fechas (inicio y fin), anadir una o
+/// varias obras con horas electricas y mecanicas desglosadas, y escribir
+/// una descripcion general. Si no hay conexion, se guarda en la cola offline.
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,8 +27,8 @@ import '../../providers/partes_provider.dart';
 import '../../widgets/buscador_obras_modal.dart';
 
 /// Formulario para que el jefe de obra cree un parte con rango de fechas,
-/// múltiples obras y horas desglosadas en eléctricas y mecánicas.
-/// Soporta guardado offline cuando no hay conexión.
+/// multiples obras y horas desglosadas en electricas y mecanicas.
+/// Soporta guardado offline cuando no hay conexion.
 class FormularioParteJefe extends ConsumerStatefulWidget {
   const FormularioParteJefe({super.key});
 
@@ -25,6 +37,12 @@ class FormularioParteJefe extends ConsumerStatefulWidget {
       _FormularioParteJefeState();
 }
 
+/// Estado del formulario de parte de jefe.
+///
+/// Lifecycle:
+/// 1. initState: no requiere inicializacion especial.
+/// 2. build: renderiza el formulario con selector de fechas y obras.
+/// 3. dispose: no requiere limpieza especial.
 class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
   final _formKey = GlobalKey<FormState>();
   String _descripcion = '';
@@ -32,11 +50,11 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
   DateTime? _fechaInicio;
   DateTime? _fechaFin;
 
-    // Cada línea representa una obra con sus horas desglosadas en eléctricas y mecánicas
+    // Cada linea representa una obra con sus horas desglosadas en electricas y mecanicas
     // { obra_id, obra_nombre, horas_electricas, horas_mecanicas }
   final List<Map<String, dynamic>> _lineas = [];
 
-  // Suma todas las horas eléctricas y mecánicas de todas las líneas de obra
+  // Suma todas las horas electricas y mecanicas de todas las lineas de obra
   double get _totalHorasIntroducidas => _lineas.fold(
     0.0,
     (sum, l) =>
@@ -45,15 +63,20 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
         ((l['horas_mecanicas'] as double?) ?? 0.0),
   );
 
+  // Valida que el rango de fechas sea correcto
   bool get _fechasValidas =>
       _fechaInicio != null &&
       _fechaFin != null &&
       !_fechaFin!.isBefore(_fechaInicio!);
 
+  // El formulario esta listo cuando hay fechas validas y al menos una obra
   bool get _formularioListo =>
       _fechasValidas && _lineas.isNotEmpty && !_enviando;
 
-  // ── Selector de fecha ──────────────────────────────────────────────
+  // -- Selector de fecha ------------------------------------------------------
+  /// Abre el DatePicker para seleccionar fecha de inicio o fin.
+  /// Si se cambia la fecha de inicio y la fecha fin queda anterior,
+  /// se resetea la fecha fin.
   Future<void> _seleccionarFecha({required bool esInicio}) async {
     final ahora = DateTime.now();
     final picked = await showDatePicker(
@@ -99,9 +122,9 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Rango de fechas ──────────────────────────────────
+              // -- Rango de fechas ------------------------------------------
               const Text(
-                'Período del parte',
+                'Periodo del parte',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -128,19 +151,20 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                   ),
                 ],
               ),
+              // Mensaje de advertencia si las fechas no son validas
               if (!_fechasValidas &&
                   (_fechaInicio != null || _fechaFin != null))
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
-                    '⚠️ La fecha fin debe ser igual o posterior a la fecha inicio',
+                    'La fecha fin debe ser igual o posterior a la fecha inicio',
                     style: TextStyle(color: Colors.orange, fontSize: 12),
                   ),
                 ),
 
               const SizedBox(height: 25),
 
-              // ── Obras ────────────────────────────────────────────
+              // -- Obras ----------------------------------------------------
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -160,14 +184,17 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
               ),
               const SizedBox(height: 12),
 
+              // Renderiza las lineas de obra existentes
               ..._lineas.asMap().entries.map(
                 (e) => _buildCardLinea(e.key, e.value),
               ),
 
+              // Boton para anadir obras disponibles
               obrasAsync.when(
                 loading: () => const SizedBox(),
                 error: (e, _) => const SizedBox(),
                 data: (obras) {
+                  // Filtra obras que aun no estan en la lista
                   final obraIds = _lineas.map((l) => l['obra_id']).toSet();
                   final disponibles = obras
                       .where((o) => !obraIds.contains(o.id))
@@ -189,16 +216,16 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                           );
                         }),
                     icon: const Icon(Icons.search),
-                    label: const Text('Buscar y añadir obra'),
+                    label: const Text('Buscar y anadir obra'),
                   );
                 },
               ),
 
               const SizedBox(height: 25),
 
-              // ── Descripción ──────────────────────────────────────
+              // -- Descripcion ----------------------------------------------
               const Text(
-                'Descripción general',
+                'Descripcion general',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -211,7 +238,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
 
               const SizedBox(height: 30),
 
-              // ── Botón enviar ─────────────────────────────────────
+              // -- Boton enviar ---------------------------------------------
               SizedBox(
                 width: double.infinity,
                 height: 55,
@@ -220,6 +247,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                     backgroundColor: Colors.teal,
                     foregroundColor: Colors.white,
                   ),
+                  // Boton habilitado solo cuando el formulario esta completo
                   onPressed: _formularioListo ? _enviarParte : null,
                   child: _enviando
                       ? const CircularProgressIndicator(color: Colors.white)
@@ -239,8 +267,9 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     );
   }
 
-  // ── Widgets auxiliares ─────────────────────────────────────────────
+  // -- Widgets auxiliares -----------------------------------------------------
 
+  /// Selector visual de fecha con formato.
   Widget _buildSelectorFecha({
     required String label,
     required String valor,
@@ -278,6 +307,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     ),
   );
 
+  /// Tarjeta para una linea de obra con inputs de horas electricas y mecanicas.
   Widget _buildCardLinea(int i, Map<String, dynamic> linea) {
     final electricas = (linea['horas_electricas'] as double?) ?? 0.0;
     final mecanicas = (linea['horas_mecanicas'] as double?) ?? 0.0;
@@ -312,7 +342,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
               children: [
                 Expanded(
                   child: _buildInputHoras(
-                    label: '⚡ Eléctricas (h)',
+                    label: 'Electricas (h)',
                     valor: electricas,
                     onChanged: (v) =>
                         setState(() => _lineas[i]['horas_electricas'] = v),
@@ -321,7 +351,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildInputHoras(
-                    label: '🔧 Mecánicas (h)',
+                    label: 'Mecanicas (h)',
                     valor: mecanicas,
                     onChanged: (v) =>
                         setState(() => _lineas[i]['horas_mecanicas'] = v),
@@ -343,6 +373,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     );
   }
 
+  /// Input numerico para un campo de horas.
   Widget _buildInputHoras({
     required String label,
     required double valor,
@@ -358,10 +389,16 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     onChanged: (v) => onChanged(double.tryParse(v) ?? 0.0),
   );
 
-  // ── Envío ──────────────────────────────────────────────────────────
+  // -- Envio ------------------------------------------------------------------
 
-  /// Envía el parte de jefe al servidor con rango de fechas y obras.
-  /// Si no hay red o hay error de conexión, guarda en cola offline.
+  /// Envia el parte de jefe al servidor con rango de fechas y obras.
+  /// Si no hay red o hay error de conexion, guarda en cola offline.
+  ///
+  /// Estrategia offline:
+  /// 1. Verifica conectividad con Connectivity().checkConnectivity()
+  /// 2. Si no hay red, guarda en offlineQueueProvider
+  /// 3. Si hay error de red (DioException), tambien guarda en offline
+  /// 4. Invalida los providers para actualizar la UI
   Future<void> _enviarParte() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_fechasValidas) return;
@@ -385,17 +422,19 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
     };
 
     try {
+      // Verifica conectividad usando connectivity_plus
       final resultado = await Connectivity().checkConnectivity();
       final hayRed = resultado.any((r) => r != ConnectivityResult.none);
 
       if (!hayRed) {
+        // Guarda offline y sale
         await ref.read(offlineQueueProvider).guardarParteJefeOffline(data);
         ref.invalidate(pendientesOfflineProvider);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Sin conexión — parte guardado, se enviará automáticamente',
+                'Sin conexion - parte guardado, se enviara automaticamente',
               ),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 4),
@@ -406,6 +445,7 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
         return;
       }
 
+      // Envia al servidor
       await ref.read(apiServiceProvider).crearParteJefe(data);
       ref.invalidate(partesJefeProvider);
       if (mounted) {
@@ -415,12 +455,13 @@ class _FormularioParteJefeState extends ConsumerState<FormularioParteJefe> {
         context.go('/partes');
       }
     } on DioException catch (_) {
+      // Error de conexion: guarda en cola offline
       await ref.read(offlineQueueProvider).guardarParteJefeOffline(data);
       ref.invalidate(pendientesOfflineProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Error de conexión — parte guardado localmente'),
+            content: Text('Error de conexion - parte guardado localmente'),
             backgroundColor: Colors.orange,
           ),
         );

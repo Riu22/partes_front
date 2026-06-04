@@ -1,6 +1,16 @@
-/// Pantalla de resumen mensual de dedicación del jefe de obra.
-/// Muestra las horas totales por operario y obra, con porcentajes
-/// eléctricos y mecánicos, para un mes seleccionable.
+// =============================================================================
+// resumen_mensual_jefe_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla de resumen mensual de dedicacion del jefe de obra.
+// PARA QUE:     Mostrar horas totales por operario y obra con porcentajes
+//               electricos y mecanicos para un mes seleccionable.
+// QUIEN LO USA: Jefes de obra (ven su equipo) y administradores (ven todos).
+// COMO SE LLEGA: Desde el AppDrawer o menu de navegacion.
+// A DONDE VA:   GET /api/resumen-mensual (servidor).
+// QUE DATOS USA: auth_provider, partes_provider, tema_constants, app_drawer.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../helpers/tema_constants.dart';
@@ -8,8 +18,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/partes_provider.dart';
 import '../../widgets/app_drawer.dart';
 
-/// Resumen mensual de dedicación: para cada operario muestra las horas
-/// por obra con porcentajes de especialidad (eléctrico/mecánico).
+/// Resumen mensual de dedicacion: para cada operario muestra las horas
+/// por obra con porcentajes de especialidad (electrico/mecanico).
 /// Los administradores ven todos los usuarios; los jefes solo los suyos.
 class ResumenMensualJefeScreen extends ConsumerStatefulWidget {
   const ResumenMensualJefeScreen({super.key});
@@ -19,11 +29,14 @@ class ResumenMensualJefeScreen extends ConsumerStatefulWidget {
       _ResumenMensualJefeScreenState();
 }
 
+/// Estado del resumen mensual: gestiona mes/anio seleccionados,
+/// carga de datos y construccion de la UI.
 class _ResumenMensualJefeScreenState
     extends ConsumerState<ResumenMensualJefeScreen> {
-  late int _anio;
-  late int _mes;
+  late int _anio; // Anio seleccionado
+  late int _mes; // Mes seleccionado (1-12)
 
+  // Nombres de meses en espanol
   static const _meses = [
     'Enero',
     'Febrero',
@@ -47,6 +60,7 @@ class _ResumenMensualJefeScreenState
     _mes = ahora.month;
   }
 
+  /// Navega al mes anterior.
   void _anteriorMes() => setState(() {
     if (_mes == 1) {
       _mes = 12;
@@ -56,6 +70,7 @@ class _ResumenMensualJefeScreenState
     }
   });
 
+  /// Navega al mes siguiente.
   void _siguienteMes() => setState(() {
     if (_mes == 12) {
       _mes = 1;
@@ -68,9 +83,11 @@ class _ResumenMensualJefeScreenState
   @override
   Widget build(BuildContext context) {
     final perfil = ref.watch(authProvider).valueOrNull;
+    // Determina si es admin/gestion (ve todos) o jefe (ve solo su equipo)
     final esAdmin = perfil?.esAdmin == true || perfil?.esGestion == true;
     final params = (anio: _anio, mes: _mes);
 
+    // Provider segun el rol
     final asyncData = esAdmin
         ? ref.watch(resumenMensualPorUsuarioProvider(params))
         : ref.watch(resumenMensualJefeProvider(params)).whenData((r) => [r]);
@@ -83,7 +100,7 @@ class _ResumenMensualJefeScreenState
         backgroundColor: bgCard,
         elevation: 0,
         title: const Text(
-          'Dedicación mensual',
+          'Dedicacion mensual',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
@@ -94,7 +111,7 @@ class _ResumenMensualJefeScreenState
       ),
       body: Column(
         children: [
-          // ── Selector mes ──────────────────────────────────
+          // ---- Selector de mes ----
           Container(
             color: bgCard,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -122,6 +139,7 @@ class _ResumenMensualJefeScreenState
           ),
           const Divider(height: 1, color: cardBorder),
 
+          // ---- Lista de usuarios con su dedicacion ----
           Expanded(
             child: asyncData.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -135,7 +153,7 @@ class _ResumenMensualJefeScreenState
                 if (usuarios.isEmpty) {
                   return const Center(
                     child: Text(
-                      'Sin dedicación este mes',
+                      'Sin dedicacion este mes',
                       style: TextStyle(color: textSecondary),
                     ),
                   );
@@ -147,7 +165,7 @@ class _ResumenMensualJefeScreenState
                   separatorBuilder: (_, __) => const SizedBox(height: 16),
                   itemBuilder: (_, i) {
                     final u = usuarios[i] as Map<String, dynamic>;
-                    final nombre = u['nombre'] as String? ?? '—';
+                    final nombre = u['nombre'] as String? ?? '--';
                     final totalHoras = u['total_horas_laborables'] as num?;
                     final obras = (u['obras'] as List?) ?? [];
 
@@ -160,7 +178,7 @@ class _ResumenMensualJefeScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // ── Cabecera usuario ──────────────
+                          // ---- Cabecera del usuario ----
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -197,6 +215,7 @@ class _ResumenMensualJefeScreenState
                                     ),
                                   ),
                                 ),
+                                // Badge con total de horas
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
@@ -207,7 +226,7 @@ class _ResumenMensualJefeScreenState
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
-                                    '${totalHoras?.toStringAsFixed(2) ?? '—'} h',
+                                    '${totalHoras?.toStringAsFixed(2) ?? '--'} h',
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
@@ -219,7 +238,7 @@ class _ResumenMensualJefeScreenState
                             ),
                           ),
 
-                          // ── Obras ─────────────────────────
+                          // ---- Obras del usuario ----
                           if (obras.isEmpty)
                             const Padding(
                               padding: EdgeInsets.all(14),
@@ -267,6 +286,7 @@ class _ResumenMensualJefeScreenState
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    // Nombre de la obra
                                     Row(
                                       children: [
                                         const Icon(
@@ -277,7 +297,7 @@ class _ResumenMensualJefeScreenState
                                         const SizedBox(width: 5),
                                         Expanded(
                                           child: Text(
-                                            o['nombre_obra'] ?? '—',
+                                            o['nombre_obra'] ?? '--',
                                             style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
@@ -288,10 +308,11 @@ class _ResumenMensualJefeScreenState
                                       ],
                                     ),
                                     const SizedBox(height: 6),
+                                    // Chips de electrico y mecanico
                                     Row(
                                       children: [
                                         _chip(
-                                          '⚡',
+                                          'E',
                                           '$pctE%',
                                           '$hE h',
                                           orangePill,
@@ -299,7 +320,7 @@ class _ResumenMensualJefeScreenState
                                         ),
                                         const SizedBox(width: 8),
                                         _chip(
-                                          '🔧',
+                                          'M',
                                           '$pctM%',
                                           '$hM h',
                                           bluePill,
@@ -312,9 +333,10 @@ class _ResumenMensualJefeScreenState
                               );
                             }),
 
-                            // ── Totales ───────────────────────
+                            // ---- Totales del usuario ----
                             Builder(
                               builder: (_) {
+                                // Calcula totales electricos y mecanicos
                                 double totalE = obras.fold(
                                   0.0,
                                   (s, o) =>
@@ -349,6 +371,7 @@ class _ResumenMensualJefeScreenState
                                     ? (totalM / base) * 100
                                     : 0.0;
                                 final pctTotal = pctE + pctM;
+                                // Verifica si suma 100% (con tolerancia)
                                 final esCien = (pctTotal - 100.0).abs() < 0.01;
 
                                 return Container(
@@ -365,7 +388,7 @@ class _ResumenMensualJefeScreenState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // fila ⚡ + 🔧
+                                      // Fila de totales
                                       Row(
                                         children: [
                                           const Text(
@@ -378,7 +401,7 @@ class _ResumenMensualJefeScreenState
                                           ),
                                           const SizedBox(width: 8),
                                           _chip(
-                                            '⚡',
+                                            'E',
                                             '${pctE.toStringAsFixed(2)}%',
                                             '${totalE.toStringAsFixed(2)} h',
                                             orangePill,
@@ -386,7 +409,7 @@ class _ResumenMensualJefeScreenState
                                           ),
                                           const SizedBox(width: 8),
                                           _chip(
-                                            '🔧',
+                                            'M',
                                             '${pctM.toStringAsFixed(2)}%',
                                             '${totalM.toStringAsFixed(2)} h',
                                             bluePill,
@@ -395,7 +418,7 @@ class _ResumenMensualJefeScreenState
                                         ],
                                       ),
                                       const SizedBox(height: 8),
-                                      // indicador total combinado
+                                      // Indicador de total combinado
                                       Container(
                                         width: double.infinity,
                                         padding: const EdgeInsets.symmetric(
@@ -428,7 +451,7 @@ class _ResumenMensualJefeScreenState
                                             ),
                                             const SizedBox(width: 8),
                                             Text(
-                                              'Total dedicación: ${pctTotal.toStringAsFixed(2)}%',
+                                              'Total dedicacion: ${pctTotal.toStringAsFixed(2)}%',
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w700,
@@ -469,7 +492,8 @@ class _ResumenMensualJefeScreenState
     );
   }
 
-  // pct es el valor grande (principal), horas es el pequeño (secundario)
+  /// Chip visual con emoji/letra, porcentaje y horas.
+  /// pct es el valor grande (principal), horas es el pequeno (secundario).
   Widget _chip(
     String emoji,
     String pct,

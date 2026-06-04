@@ -1,7 +1,17 @@
-/// Pantalla para gestionar el equipo y las obras asignadas a un usuario.
-/// Tiene dos pestañas:
-/// - Equipo: asigna o quita subordinados (encargados/operarios).
-/// - Obras: asigna o quita obras al usuario.
+// =============================================================================
+// asignar_jefe_screen.dart
+// =============================================================================
+// QUE ES:       Pantalla para gestionar el equipo y las obras asignadas
+//               a un usuario (jefe, encargado o gestor).
+// PARA QUE:     Asignar/desasignar subordinados y obras a un responsable.
+// QUIEN LO USA: Administradores.
+// COMO SE LLEGA: Desde usuarios_screen.dart al pulsar "Gestionar Equipo".
+// A DONDE VA:   GET/POST /api/subordinados, GET/POST /api/asignaciones-obra,
+//               DELETE /api/asignaciones (servidor).
+// QUE DATOS USA: admin_provider, auth_provider, obras_provider, obra model.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/obra.dart';
@@ -9,7 +19,7 @@ import '../../providers/admin_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/obras_provider.dart';
 
-/// Pantalla con dos pestañas para gestionar el equipo (subordinados)
+/// Pantalla con dos pestanas para gestionar el equipo (subordinados)
 /// y las obras asignadas a un jefe, encargado o gestor.
 class AsignarJefeScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> usuario;
@@ -27,23 +37,23 @@ class AsignarJefeScreen extends ConsumerStatefulWidget {
 
 class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     with SingleTickerProviderStateMixin {
-  // ── Estado pestaña Equipo ──
+  // -- Estado pestana Equipo --
   bool _asignandoPersonal = false;
   bool _cargandoLista = true;
   List<dynamic> _subordinadosActuales = [];
 
-  // Buscador y selección — Equipo
+  // Buscador y seleccion - Equipo
   final TextEditingController _busquedaPersonalCtrl = TextEditingController();
   String _filtroPersonal = '';
   final Set<String> _seleccionadosPersonal = {};
 
-  // ── Estado pestaña Obras ──
+  // -- Estado pestana Obras --
   bool _asignandoObras = false;
   bool _cargandoObras = true;
   List<dynamic> _obrasAsignadas = [];
   List<Obra> _todasLasObras = [];
 
-  // Buscador y selección — Obras
+  // Buscador y seleccion - Obras
   final TextEditingController _busquedaObrasCtrl = TextEditingController();
   String _filtroObras = '';
   final Set<int> _seleccionadasObras = {};
@@ -61,6 +71,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Carga todas las obras disponibles
     final obrasAsync = ref.read(obrasProvider);
     obrasAsync.whenData((lista) {
       if (mounted) setState(() => _todasLasObras = lista);
@@ -75,6 +86,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     super.dispose();
   }
 
+  /// Carga los subordinados actuales del usuario.
   Future<void> _cargarSubordinados() async {
     setState(() => _cargandoLista = true);
     try {
@@ -90,6 +102,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     }
   }
 
+  /// Carga las obras asignadas al usuario.
   Future<void> _cargarObrasAsignadas() async {
     setState(() => _cargandoObras = true);
     try {
@@ -105,14 +118,16 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     }
   }
 
-  // ── Helpers — Personal ──
+  // -- Helpers - Personal --
 
+  /// Filtra los usuarios disponibles para asignar como subordinados.
   List<dynamic> get _posiblesSubordinados {
     return widget.todos.where((u) {
       final yaAsignado =
           _subordinadosActuales.any((s) => s['id'] == u['id']);
       final esElMismo = u['id'] == widget.usuario['id'];
       bool rolValido = false;
+      // Segun el rol del usuario, solo ciertos roles pueden ser subordinados
       if (widget.usuario['rol'] == 'JEFE_DE_OBRA') {
         rolValido = u['rol'] == 'ENCARGADO' || u['rol'] == 'OPERARIO';
       } else if (widget.usuario['rol'] == 'ENCARGADO') {
@@ -124,6 +139,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     }).toList();
   }
 
+  /// Aplica filtro de busqueda a los posibles subordinados.
   List<dynamic> get _personalFiltrado {
     if (_filtroPersonal.isEmpty) return _posiblesSubordinados;
     final q = _filtroPersonal.toLowerCase();
@@ -153,7 +169,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     });
   }
 
-  // ── Helpers — Obras ──
+  // -- Helpers - Obras --
 
   List<Obra> get _posiblesObras {
     final asignadasIds =
@@ -214,16 +230,16 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     );
   }
 
-  // ════════════════════════════════════════════
-  // PESTAÑA 1 — EQUIPO
-  // ════════════════════════════════════════════
+  // ============================================
+  // PESTANA 1 - EQUIPO
+  // ============================================
   Widget _buildEquipoTab() {
     final filtrados = _personalFiltrado;
     final posibles = _posiblesSubordinados;
 
     return Column(
       children: [
-        // ── Buscador + botón Todas ──
+        // Buscador + boton Seleccionar todos
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
@@ -278,7 +294,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
           ),
         ),
 
-        // ── Barra de acción cuando hay selección ──
+        // Barra de accion cuando hay seleccion
         AnimatedSize(
           duration: const Duration(milliseconds: 200),
           child: _seleccionadosPersonal.isEmpty
@@ -337,7 +353,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                 ),
         ),
 
-        // ── Contador ──
+        // Contador de personal disponible
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Row(
@@ -347,8 +363,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                 _filtroPersonal.isEmpty
                     ? 'Personal disponible (${posibles.length})'
                     : '${filtrados.length} resultado${filtrados.length == 1 ? '' : 's'}',
-                style:
-                    const TextStyle(fontSize: 13, color: Colors.grey),
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
               ),
               if (_cargandoLista)
                 const SizedBox(
@@ -361,7 +376,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
 
         const Divider(height: 1),
 
-        // ── Lista con checkboxes — disponibles ──
+        // Lista de personal disponible con checkboxes
         Expanded(
           child: filtrados.isEmpty && !_cargandoLista
               ? Center(
@@ -404,7 +419,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                 ),
         ),
 
-        // ── Subordinados actuales ──
+        // Subordinados actuales
         const Divider(height: 1),
         Padding(
           padding:
@@ -424,7 +439,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
           height: 180,
           child: _subordinadosActuales.isEmpty
               ? const Center(
-                  child: Text('No hay personal asignado todavía.',
+                  child: Text('No hay personal asignado todavia.',
                       style: TextStyle(color: Colors.grey)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -452,16 +467,16 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     );
   }
 
-  // ════════════════════════════════════════════
-  // PESTAÑA 2 — OBRAS
-  // ════════════════════════════════════════════
+  // ============================================
+  // PESTANA 2 - OBRAS
+  // ============================================
   Widget _buildObrasTab() {
     final filtradas = _obrasFiltradas;
     final posibles = _posiblesObras;
 
     return Column(
       children: [
-        // ── Buscador + botón Todas ──
+        // Buscador + boton seleccionar todos
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
@@ -516,7 +531,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
           ),
         ),
 
-        // ── Barra de acción cuando hay selección ──
+        // Barra de accion cuando hay seleccion
         AnimatedSize(
           duration: const Duration(milliseconds: 200),
           child: _seleccionadasObras.isEmpty
@@ -575,7 +590,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                 ),
         ),
 
-        // ── Contador ──
+        // Contador
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Row(
@@ -585,8 +600,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                 _filtroObras.isEmpty
                     ? 'Obras disponibles (${posibles.length})'
                     : '${filtradas.length} resultado${filtradas.length == 1 ? '' : 's'}',
-                style:
-                    const TextStyle(fontSize: 13, color: Colors.grey),
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
               ),
               if (_cargandoObras)
                 const SizedBox(
@@ -599,12 +613,12 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
 
         const Divider(height: 1),
 
-        // ── Lista con checkboxes — disponibles ──
+        // Lista de obras disponibles con checkboxes
         Expanded(
           child: filtradas.isEmpty && !_cargandoObras
               ? Center(
                   child: Text(_filtroObras.isEmpty
-                      ? 'Todas las obras ya están asignadas.'
+                      ? 'Todas las obras ya estan asignadas.'
                       : 'Sin resultados para "$_filtroObras"'),
                 )
               : ListView.builder(
@@ -613,8 +627,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                   itemCount: filtradas.length,
                   itemBuilder: (context, index) {
                     final obra = filtradas[index];
-                    final marcada =
-                        _seleccionadasObras.contains(obra.id);
+                    final marcada = _seleccionadasObras.contains(obra.id);
                     return CheckboxListTile(
                       value: marcada,
                       title: Text(obra.nombre),
@@ -641,7 +654,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
                 ),
         ),
 
-        // ── Obras ya asignadas ──
+        // Obras ya asignadas
         const Divider(height: 1),
         Padding(
           padding:
@@ -656,7 +669,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
           height: 180,
           child: _obrasAsignadas.isEmpty
               ? const Center(
-                  child: Text('No hay obras asignadas todavía.',
+                  child: Text('No hay obras asignadas todavia.',
                       style: TextStyle(color: Colors.grey)))
               : ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -688,10 +701,11 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     );
   }
 
-  // ════════════════════════════════════════════
-  // LÓGICA — EQUIPO
-  // ════════════════════════════════════════════
+  // ============================================
+  // LOGICA - EQUIPO
+  // ============================================
 
+  /// Asigna el personal seleccionado como subordinados.
   Future<void> _asignarPersonalSeleccionado() async {
     if (_seleccionadosPersonal.isEmpty) return;
     setState(() => _asignandoPersonal = true);
@@ -743,13 +757,14 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     }
   }
 
+  /// Confirma y elimina un subordinado.
   Future<void> _confirmarEliminacion(Map<String, dynamic> subordinado) async {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Quitar del equipo'),
         content: Text(
-            '¿Deseas desvincular a ${subordinado['name']} de este jefe?'),
+            'Deseas desvincular a ${subordinado['name']} de este jefe?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -777,10 +792,11 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     }
   }
 
-  // ════════════════════════════════════════════
-  // LÓGICA — OBRAS
-  // ════════════════════════════════════════════
+  // ============================================
+  // LOGICA - OBRAS
+  // ============================================
 
+  /// Asigna las obras seleccionadas al usuario.
   Future<void> _asignarObrasSeleccionadas() async {
     if (_seleccionadasObras.isEmpty) return;
     setState(() => _asignandoObras = true);
@@ -830,6 +846,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
     }
   }
 
+  /// Confirma y elimina una asignacion de obra.
   Future<void> _confirmarEliminacionObra(
       Map<String, dynamic> asignacion) async {
     final obra = asignacion['obra'] as Map<String, dynamic>;
@@ -838,7 +855,7 @@ class _AsignarJefeScreenState extends ConsumerState<AsignarJefeScreen>
       builder: (ctx) => AlertDialog(
         title: const Text('Quitar de la obra'),
         content: Text(
-          '¿Deseas desasignar a ${widget.usuario['name']} '
+          'Deseas desasignar a ${widget.usuario['name']} '
           'de "${obra['nombre'] ?? 'esta obra'}"?',
         ),
         actions: [

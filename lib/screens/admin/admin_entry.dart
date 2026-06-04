@@ -1,6 +1,17 @@
-/// Punto de entrada diferido (lazy) para las pantallas del módulo de
-/// administración: inicio, usuarios (listar, crear, editar, asignar jefe),
-/// informes contables (quincena, detalle de días) y gestión de fechas libres.
+// =============================================================================
+// admin_entry.dart
+// =============================================================================
+// QUE ES:       Punto de entrada diferido (lazy) para las pantallas del
+//               modulo de administracion.
+// PARA QUE:     Centralizar la creacion de pantallas admin para usar con
+//               go_router (lazy loading).
+// QUIEN LO USA: Sistema de rutas (go_router) al navegar a /admin/*.
+// COMO SE LLEGA: Se importa desde el router; no es una pantalla en si misma.
+// A DONDE VA:   No va al servidor; solo instancia widgets.
+// QUE DATOS USA: Ninguno directamente; pasa datos a las pantallas hijas.
+// OFFLINE:      No aplica.
+// =============================================================================
+
 import 'package:flutter/material.dart';
 import 'admin_home_screen.dart';
 import 'usuarios_screen.dart';
@@ -11,7 +22,7 @@ import 'quincena_screen.dart';
 import 'dias_quincena_screen.dart';
 import 'fecha_libre_screen.dart';
 
-/// Crea la pantalla de inicio del panel de administración.
+/// Crea la pantalla de inicio del panel de administracion.
 Widget makeAdminHomeScreen() => const AdminHomeScreen();
 
 /// Crea la pantalla de listado de usuarios.
@@ -29,11 +40,11 @@ Widget makeAsignarJefeScreen(
     Map<String, dynamic> usuario, List<dynamic> todos) =>
     AsignarJefeScreen(usuario: usuario, todos: todos);
 
-/// Crea la pantalla de informe de quincena (exportación contable).
+/// Crea la pantalla de informe de quincena (exportacion contable).
 Widget makeQuincenaScreen() => const QuincenaScreen();
 
-/// Crea la pantalla de detalle de días de la quincena por trabajador.
+/// Crea la pantalla de detalle de dias de la quincena por trabajador.
 Widget makeContabilidadScreen() => const ContabilidadScreen();
 
-/// Crea la pantalla de gestión de fechas libres por operario.
+/// Crea la pantalla de gestion de fechas libres por operario.
 Widget makeFechaLibreScreen() => const FechaLibreScreen();

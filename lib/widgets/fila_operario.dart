@@ -1,3 +1,26 @@
+// =============================================================================
+// fila_operario.dart  -  Fila de operario en agrupacion por persona
+// =============================================================================
+// ASPECTO EN PANTALLA:
+//   Rectangulo con borde gris, avatar circular con la inicial del nombre,
+//   nombre del operario, contador de partes (si tiene mas de 1), pastilla
+//   con total de horas (verde si son 8h exactas, rojo si <8h, naranja si
+//   >8h), y flecha de expandir. Al expandir se muestran las tarjetas
+//   [CardParte] de cada parte del operario.
+//
+// USO:
+//   Agrupar los partes de un dia por operario, mostrando el total de horas
+//   de cada uno con indicador visual de cumplimiento de jornada.
+//
+// DATOS QUE NECESITA:
+//   - nombre: String del operario
+//   - partes: List<ParteTrabajo> de ese operario en el dia
+//
+// INTERACCION DEL USUARIO:
+//   - Tocar la fila expande/colapsa los partes individuales
+//   - Cada parte expandido muestra la tarjeta CardParte completa
+// =============================================================================
+
 /// Fila que representa a un operario dentro de un grupo.
 /// Muestra su nombre, total de horas (con color según cumpla la jornada)
 /// y la cantidad de partes. Al expandir se ven las tarjetas de cada parte.
@@ -6,6 +29,10 @@ import '../helpers/tema_constants.dart';
 import '../models/parte_trabajo.dart';
 import 'card_parte.dart';
 
+/// Fila expandible de un operario con su total de horas y lista de partes.
+///
+/// [StatefulWidget] porque mantiene _expandido para mostrar/ocultar
+/// los partes individuales.
 class FilaOperario extends StatefulWidget {
   final String nombre;
   final List<ParteTrabajo> partes;
@@ -25,11 +52,16 @@ class _FilaOperarioState extends State<FilaOperario> {
 
   @override
   Widget build(BuildContext context) {
+    // Suma todas las horas normales de los partes de este operario.
     final totalHoras = widget.partes.fold<double>(
       0,
       (s, p) => s + p.horasNormales,
     );
-    // Lógica de colores: verde si son 8h exactas, rojo si <8h, naranja si >8h (extras)
+
+    // Logica de colores:
+    // - Verde si son 8h exactas (jornada completa)
+    // - Rojo si <8h (jornada incompleta)
+    // - Naranja si >8h (horas extra)
     final horas8 = (totalHoras - 8).abs() < 0.01;
     final horasBajas = totalHoras < 8;
 
@@ -46,6 +78,7 @@ class _FilaOperarioState extends State<FilaOperario> {
       textColor = orange;
     }
 
+    // Formatea las horas: sin decimales si es entero, con 1 decimal si no.
     final horasLabel = totalHoras == totalHoras.truncateToDouble()
         ? '${totalHoras.toInt()}h'
         : '${totalHoras.toStringAsFixed(1)}h';
@@ -54,6 +87,7 @@ class _FilaOperarioState extends State<FilaOperario> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Column(
         children: [
+          // ── FILA DEL OPERARIO (tocable) ─────────────────────
           GestureDetector(
             onTap: () => setState(() => _expandido = !_expandido),
             child: Container(
@@ -66,6 +100,7 @@ class _FilaOperarioState extends State<FilaOperario> {
               ),
               child: Row(
                 children: [
+                  // Avatar circular con la inicial del nombre.
                   CircleAvatar(
                     radius: 16,
                     backgroundColor: bgStat,
@@ -81,6 +116,7 @@ class _FilaOperarioState extends State<FilaOperario> {
                     ),
                   ),
                   const SizedBox(width: 10),
+                  // Nombre del operario.
                   Expanded(
                     child: Text(
                       widget.nombre,
@@ -91,6 +127,7 @@ class _FilaOperarioState extends State<FilaOperario> {
                       ),
                     ),
                   ),
+                  // Contador de partes (solo si tiene mas de 1).
                   if (widget.partes.length > 1)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -102,6 +139,7 @@ class _FilaOperarioState extends State<FilaOperario> {
                         ),
                       ),
                     ),
+                  // Pastilla de horas con color segun jornada.
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -121,6 +159,7 @@ class _FilaOperarioState extends State<FilaOperario> {
                     ),
                   ),
                   const SizedBox(width: 6),
+                  // Flecha indicadora de expansion.
                   Icon(
                     _expandido
                         ? Icons.keyboard_arrow_up
@@ -132,7 +171,9 @@ class _FilaOperarioState extends State<FilaOperario> {
               ),
             ),
           ),
+          // ── PARTES EXPANDIDOS ────────────────────────────
           if (_expandido)
+            // Itera sobre los partes y muestra cada uno como CardParte.
             ...widget.partes.map(
               (p) => Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 4),

@@ -1,7 +1,19 @@
+// =============================================================================
+// PANTALLA: PartesScreen
+// -----------------------------------------------------------------------------
+// QUE ES: Pantalla principal de partes de trabajo.
+// PARA QUE SIRVE: Muestra la lista de partes con filtros por obra, operario y especialidad.
+// QUIEN LA VE (rol): Todos los roles autenticados (operario, encargado, jefe, admin, gestion).
+// COMO SE LLEGA: Ruta '/partes' despues del login, o desde el menu lateral.
+// A DONDE VA DESPUES: A '/partes/nuevo' para crear, o a detalle de parte al hacer tap.
+// QUE DATOS NECESITA: Lista de partes desde el provider, perfil del usuario.
+// OFFLINE: Si, soporta visualizacion de partes cacheados y cola offline.
+// =============================================================================
+
 /// Pantalla principal de partes de trabajo.
 /// Muestra la lista de partes con filtros por obra, operario y especialidad.
 /// Incluye un selector de calendario (vista semanal/mensual), un indicador
-/// de partes pendientes sin conexión y un botón para crear nuevos partes.
+/// de partes pendientes sin conexion y un boton para crear nuevos partes.
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,20 +34,29 @@ import '../../widgets/lista_partes.dart';
 import '../../widgets/partes_views.dart';
 
 /// Lista principal de partes con filtros, vista de calendario y
-/// botón para crear nuevos partes. Soporta carga directa de un parte
+/// boton para crear nuevos partes. Soporta carga directa de un parte
 /// concreto (usado desde la tabla de contabilidad).
 class PartesScreen extends ConsumerStatefulWidget {
   const PartesScreen({super.key, this.parteIdInicial});
 
   /// Si viene informado, la pantalla arranca mostrando solo ese parte.
-  /// Usado al navegar desde la tabla de contabilidad.
+  /// Usado al navegar desde la tabla de contabilidad (quincena_screen).
   final int? parteIdInicial;
 
   @override
   ConsumerState<PartesScreen> createState() => _PartesScreenState();
 }
 
+/// Estado interno de la pantalla de partes.
+/// Gestiona filtros, carga de datos, sincronizacion offline y actualizaciones.
+///
+/// Lifecycle:
+/// 1. initState: precarga datos (obras, fechas), comprueba actualizacion,
+///    y si viene un parteIdInicial lo carga directamente.
+/// 2. build: renderiza la interfaz con filtros, lista y boton FAB.
+/// 3. dispose: libera controladores de texto.
 class _PartesScreenState extends ConsumerState<PartesScreen> {
+  // TextEditingController: controla el texto de los campos de busqueda
   final _obraCtrl     = TextEditingController();
   final _operarioCtrl = TextEditingController();
   Obra?   _obraSeleccionada;
@@ -46,28 +67,35 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
 
   final _updateService = UpdateService();
 
+  // Propiedad calculada: true si hay al menos un filtro activo
   bool get _hayFiltros =>
       _obraSeleccionada != null ||
       _operarioSeleccionado != null ||
       _especialidadFiltro != null;
 
-  // ── Ciclo de vida ─────────────────────────────────────────────────
+  // -- Ciclo de vida ---------------------------------------------------------
 
   @override
   void initState() {
     super.initState();
+    // addPostFrameCallback: ejecuta el codigo despues del primer frame
+    // para asegurar que el widget ya esta montado en el arbol
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Verifica conectividad antes de precargar datos
       final conectado = ref.read(conectividadProvider).valueOrNull ?? false;
       if (conectado) {
+        // Invalida los providers para forzar recarga de datos frescos
         ref.invalidate(obrasActivasProvider);
         ref.invalidate(obrasProvider);
         ref.invalidate(fechasPermitidasProvider);
         try {
+          // Precarga las fechas libres del usuario
           await ref.read(apiServiceProvider).getMisFechasLibres();
         } catch (e) {
           debugPrint('>>> error precarga fechas permitidas: $e');
         }
       }
+      // Comprueba actualizaciones solo en movil
       if (!kIsWeb) _checkUpdate();
 
       // Carga directa si venimos desde contabilidad con un parte concreto
@@ -84,14 +112,19 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     super.dispose();
   }
 
-  // ── Carga de parte concreto ───────────────────────────────────────
+  // -- Carga de parte concreto -----------------------------------------------
 
-  /// Carga un parte específico desde el proveedor y lo muestra
+  /// Carga un parte especifico desde el proveedor y lo muestra
   /// filtrado. Se usa al navegar desde la pantalla de contabilidad.
+  ///
+  /// Filtra la lista completa de partes por el ID proporcionado
+  /// y lo asigna a _partesFiltradas para que el build lo muestre.
   Future<void> _cargarParteConcreto(int parteId) async {
     setState(() => _cargandoParte = true);
     try {
+      // Obtiene todas las partes del provider
       final partes = await ref.read(partesProvider.future);
+      // Filtra por el ID solicitado
       final parte  = partes.where((p) => p.id == parteId).toList();
       if (mounted) {
         setState(() => _partesFiltradas = parte.isNotEmpty ? parte : null);
@@ -103,10 +136,12 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
   }
 
-  // ── Actualización ─────────────────────────────────────────────────
+  // -- Actualizacion ---------------------------------------------------------
 
-  /// Comprueba si hay una versión más reciente de la app.
-  /// Muestra un diálogo para descargarla si es necesario.
+  /// Comprueba si hay una version mas reciente de la app.
+  /// Muestra un dialogo para descargarla si es necesario.
+  /// Similar a login_screen pero con mensaje extendido para
+  /// indicar que hacer si falla la instalacion.
   Future<void> _checkUpdate() async {
     final update = await _updateService.hayActualizacion();
     if (update != null && mounted) {
@@ -116,7 +151,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         builder: (context) => AlertDialog(
           title: const Text('Nueva version disponible'),
           content: Text(
-            'Hay una actualizacion a la versión ${update['version']}.\n\n'
+            'Hay una actualizacion a la version ${update['version']}.\n\n'
             'Descargala para tener las ultimas mejoras.\n\n'
             'Una vez descargado dale a abrir y selecciona actualizar.\n\n'
             'En caso de que de un error desinstale la aplicacion y '
@@ -140,11 +175,15 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
   }
 
-  // ── Filtros ───────────────────────────────────────────────────────
+  // -- Filtros ---------------------------------------------------------------
 
-  /// Llama al endpoint /partes/buscar del backend con los filtros activos.
-  /// Llama al endpoint de búsqueda del backend con los filtros activos
+  /// Llama al endpoint /partes/buscar del backend con los filtros activos
   /// (obra, operario, especialidad) y actualiza la lista de partes.
+  ///
+  /// Flujo:
+  /// 1. Si no hay filtros, limpia _partesFiltradas para mostrar todo.
+  /// 2. Construye un mapa con los filtros y llama al provider de busqueda.
+  /// 3. Convierte el resultado JSON a objetos ParteTrabajo.
   Future<void> _aplicarFiltro() async {
     if (!_hayFiltros) {
       setState(() => _partesFiltradas = null);
@@ -153,6 +192,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
 
     setState(() => _cargandoParte = true);
     try {
+      // Provider parametrizado: recibe los filtros y devuelve resultados
       final resultado = await ref.read(
         busquedaPartesProvider({
           'obra':         _obraSeleccionada?.nombre,
@@ -161,6 +201,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         }).future,
       );
       if (mounted) {
+        // Mapea los resultados JSON a objetos del modelo
         setState(() => _partesFiltradas =
             resultado.map((e) => ParteTrabajo.fromJson(e)).toList());
       }
@@ -176,6 +217,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     }
   }
 
+  /// Refresca todos los providers: invalida sus datos para forzar recarga.
+  /// Invalida partes normales, de jefe, cola offline y fechas permitidas.
   Future<void> _refrescar() async {
     ref.invalidate(partesProvider);
     ref.invalidate(partesJefeProvider);
@@ -184,6 +227,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     ref.invalidate(fechasPermitidasProvider);
   }
 
+  /// Limpia todos los filtros activos y restablece la vista completa.
   void _limpiarBusqueda() {
     _obraCtrl.clear();
     _operarioCtrl.clear();
@@ -195,10 +239,11 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     });
   }
 
-  // ── Build ─────────────────────────────────────────────────────────
+  // -- Build -----------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
+    // ref.watch(syncProvider): observa el estado de sincronizacion
     ref.watch(syncProvider);
     final pendientesAsync = ref.watch(pendientesOfflineProvider);
     final totalPendientes = pendientesAsync.valueOrNull ?? 0;
@@ -218,6 +263,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
         backgroundColor: bgPage,
         elevation: 0,
         iconTheme: const IconThemeData(color: textPrimary),
+        // Si hay filtro activo por parte concreto, muestra el ID en la barra
         title: _partesFiltradas != null && widget.parteIdInicial != null
             ? Row(
                 children: [
@@ -236,12 +282,14 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
               )
             : null,
         actions: [
+          // Badge: muestra el numero de partes pendientes de envio offline
           if (totalPendientes > 0)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: IconButton(
                 tooltip: 'Sincronizar partes pendientes',
                 onPressed: () {
+                  // Al pulsar, invalida el syncProvider para reintentar el envio
                   ref.invalidate(syncProvider);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -279,9 +327,11 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
             ),
           ),
 
+          // Buscador: solo visible para roles que no son operarios
           if (!perfil.esOperario) _buildBuscador(),
 
-          // Banner sin conexión
+          // Banner sin conexion: se muestra cuando no hay internet
+          // conectividadProvider expone un AsyncValue<bool> con el estado de red
           conexionAsync.when(
             data: (online) => online
                 ? const SizedBox.shrink()
@@ -290,7 +340,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     color: Colors.red.shade100,
                     padding: const EdgeInsets.all(6),
                     child: const Text(
-                      'Sin conexión — los partes se guardarán en el móvil',
+                      'Sin conexion - los partes se guardaran en el movil',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
@@ -310,14 +360,17 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     onRefresh: _refrescar,
                     child: CustomScrollView(
                       slivers: [
+                        // Muestra los partes pendientes de envio offline
                         const SliverToBoxAdapter(
                             child: _PartesPendientesOffline()),
                         SliverFillRemaining(
                           child: _partesFiltradas != null
+                              // Vista filtrada
                               ? ListaPartes(
                                   partes: _partesFiltradas!,
                                   agruparPorOperario: true,
                                 )
+                              // Vista segun el rol del usuario
                               : perfil.esJefeObra
                               ? const PartesJefeCombinadaView()
                               : PartesNormalesView(
@@ -332,6 +385,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
           ),
         ],
       ),
+      // FloatingActionButton: boton flotante para crear nuevo parte
       floatingActionButton: FloatingActionButton(
         heroTag: 'fab_partes_unique',
         backgroundColor: bgCard,
@@ -343,8 +397,10 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  // ── Buscador ──────────────────────────────────────────────────────
+  // -- Buscador --------------------------------------------------------------
 
+  /// Construye la fila de filtros: obra, operario, especialidad y boton buscar.
+  /// Solo visible para roles no operario.
   Widget _buildBuscador() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
@@ -368,6 +424,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                     border: Border.all(color: cardBorder),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
+                  // DropdownButtonHideUnderline: oculta la linea inferior del dropdown
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String?>(
                       value: _especialidadFiltro,
@@ -384,7 +441,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                         ),
                         DropdownMenuItem(
                           value: 'FONTANERIA',
-                          child: Text('Fontanería'),
+                          child: Text('Fontaneria'),
                         ),
                       ],
                       onChanged: (v) =>
@@ -414,6 +471,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                   ),
                 ),
               ),
+              // Boton de limpiar filtros, solo visible cuando hay filtros activos
               if (_hayFiltros)
                 IconButton(
                   icon: const Icon(Icons.clear,
@@ -427,8 +485,10 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  // ── Selector obra ─────────────────────────────────────────────────
+  // -- Selector obra ---------------------------------------------------------
 
+  /// Selector de obra: al pulsar abre un modal de busqueda de obras.
+  /// Muestra el nombre de la obra seleccionada o "Obra" como placeholder.
   Widget _buildSelectorObra() {
     final obras = ref.watch(obrasProvider).valueOrNull ?? [];
 
@@ -441,6 +501,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
+          // abrirBuscadorObras: funcion definida en buscador_obras_modal.dart
+          // Muestra un modal con lista de obras filtrable por texto
           abrirBuscadorObras(context, obras, (o) {
             setState(() {
               _obraSeleccionada = o;
@@ -467,6 +529,7 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // Boton de limpiar, solo visible si hay obra seleccionada
               if (_obraSeleccionada != null)
                 GestureDetector(
                   onTap: () => setState(() {
@@ -483,10 +546,13 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
-  // ── Selector operario ─────────────────────────────────────────────
+  // -- Selector operario -----------------------------------------------------
 
+  /// Selector de operario: al pulsar abre un modal de busqueda.
+  /// Muestra el nombre completo del operario o "Operario" como placeholder.
   Widget _buildSelectorOperario() {
     final perfiles  = ref.watch(perfilesProvider).valueOrNull ?? [];
+    // Filtra solo activos y ordena alfabeticamente
     final operarios = perfiles.where((p) => p.activo).toList()
       ..sort((a, b) =>
           a.nombreApellidoCompleto.compareTo(b.nombreApellidoCompleto));
@@ -535,6 +601,8 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
     );
   }
 
+  /// Abre un modal bottom sheet con la lista de operarios para seleccionar.
+  /// DraggableScrollableSheet permite arrastrar para expandir/contraer.
   void _abrirBuscadorOperarios(
       BuildContext context, List<Perfil> perfiles) {
     showModalBottomSheet(
@@ -567,10 +635,13 @@ class _PartesScreenState extends ConsumerState<PartesScreen> {
   }
 }
 
-// ── Widget: sección de partes pendientes offline ─────────────────────────────
+// -- Widget: seccion de partes pendientes offline -----------------------------
 
-/// Muestra las tarjetas de partes que aún no se han enviado
-/// por falta de conexión a internet.
+/// Muestra las tarjetas de partes que aun no se han enviado
+/// por falta de conexion a internet.
+///
+/// ConsumerWidget: widget sin estado que lee providers.
+/// Se reconstruye cuando el proveedor listaOfflineProvider cambia.
 class _PartesPendientesOffline extends ConsumerWidget {
   const _PartesPendientesOffline();
 
@@ -593,7 +664,7 @@ class _PartesPendientesOffline extends ConsumerWidget {
                   const Icon(Icons.cloud_off, size: 13, color: orange),
                   const SizedBox(width: 6),
                   Text(
-                    '${partes.length} parte(s) pendiente(s) de envío',
+                    '${partes.length} parte(s) pendiente(s) de envio',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -603,6 +674,7 @@ class _PartesPendientesOffline extends ConsumerWidget {
                 ],
               ),
             ),
+            // Itera sobre cada parte pendiente y crea una tarjeta
             ...partes.map((p) => _TarjetaParteOffline(data: p)),
             const Divider(height: 1, thickness: 1),
             const SizedBox(height: 4),
@@ -613,20 +685,26 @@ class _PartesPendientesOffline extends ConsumerWidget {
   }
 }
 
-/// Tarjeta que muestra un parte pendiente de envío por falta de conexión.
+/// Tarjeta que muestra un parte pendiente de envio por falta de conexion.
 /// Indica el estado (intentando enviar / pendiente) y permite borrarlo.
+///
+/// Manejo offline: los partes se guardan en una cola local (SQLite/Hive)
+/// y se reenvian automaticamente cuando se recupera la conexion.
 class _TarjetaParteOffline extends ConsumerWidget {
   const _TarjetaParteOffline({required this.data});
   final Map<String, dynamic> data;
 
+  /// Borra un parte de la cola offline con confirmacion del usuario.
   Future<void> _borrar(BuildContext context, WidgetRef ref) async {
+    // showDialog<bool>: dialogo que devuelve un booleano
+    // Navigator.pop(context, true/false) es como se devuelve el valor
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Eliminar parte'),
         content: const Text(
-          '¿Seguro que quieres eliminar este parte pendiente? '
-          'No se podrá recuperar.',
+          'Seguro que quieres eliminar este parte pendiente? '
+          'No se podra recuperar.',
         ),
         actions: [
           TextButton(
@@ -644,6 +722,7 @@ class _TarjetaParteOffline extends ConsumerWidget {
 
     if (confirmar != true) return;
 
+    // Obtiene la cola offline y determina el tipo de parte
     final queue      = ref.read(offlineQueueProvider);
     final esJefe     = data['_tipo'] == 'jefe';
     final dataLimpia = Map<String, dynamic>.from(data)..remove('_tipo');
@@ -654,6 +733,7 @@ class _TarjetaParteOffline extends ConsumerWidget {
       await queue.borrarParteNormal(dataLimpia);
     }
 
+    // Invalida los providers para actualizar la UI
     ref.invalidate(pendientesOfflineProvider);
     ref.invalidate(listaOfflineProvider);
   }
@@ -665,6 +745,7 @@ class _TarjetaParteOffline extends ConsumerWidget {
     final descripcion = (data['descripcion'] as String? ?? '').trim();
     final esPostVenta = data['es_post_venta'] == true;
     final esJefe      = data['_tipo'] == 'jefe';
+    // Verifica si hay conexion a internet
     final tieneRed    = ref.watch(conectividadProvider).valueOrNull ?? false;
     final errorSync   = ref.watch(syncErrorProvider);
 
@@ -699,6 +780,7 @@ class _TarjetaParteOffline extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
+                    // Badge para tipo Post Venta o Jefe Obra
                     if (esPostVenta || esJefe)
                       _Badge(
                         label: esPostVenta ? 'Post Venta' : 'Jefe Obra',
@@ -735,13 +817,17 @@ class _TarjetaParteOffline extends ConsumerWidget {
                 ],
                 const SizedBox(height: 4),
 
-                // ── Pie de estado ────────────────────────────────
+                // -- Pie de estado ----------------------------------------
+                // Muestra el estado actual del parte pendiente:
+                // - Si hay red y no hay error: "Intentando enviar..."
+                // - Si no hay red: "Pendiente de envio..."
+                // - Si hay error: muestra el mensaje de error en rojo
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Línea principal: spinner + texto de estado
                     Row(
                       children: [
+                        // Spinner cuando se esta intentando enviar
                         if (tieneRed && errorSync == null) ...[
                           const SizedBox(
                             width: 10,
@@ -757,7 +843,7 @@ class _TarjetaParteOffline extends ConsumerWidget {
                           Text(
                             tieneRed
                                 ? 'Intentando enviar...'
-                                : 'Pendiente de envío — se enviará al recuperar conexión',
+                                : 'Pendiente de envio - se enviara al recuperar conexion',
                             style: const TextStyle(
                               fontSize: 11,
                               color: orange,
@@ -767,7 +853,7 @@ class _TarjetaParteOffline extends ConsumerWidget {
                       ],
                     ),
 
-                    // Línea de error (solo si hay error)
+                    // Linea de error (solo si hay error de sincronizacion)
                     if (errorSync != null) ...[
                       const SizedBox(height: 2),
                       Row(
@@ -799,8 +885,10 @@ class _TarjetaParteOffline extends ConsumerWidget {
   }
 }
 
-/// Pequeña etiqueta de color para indicar el tipo de parte
+/// Pequena etiqueta de color para indicar el tipo de parte
 /// (Post Venta o Jefe Obra).
+///
+/// StatelessWidget: widget sin estado, solo recibe parametros y renderiza.
 class _Badge extends StatelessWidget {
   const _Badge({required this.label, required this.color});
   final String label;
