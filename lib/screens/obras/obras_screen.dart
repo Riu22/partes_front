@@ -156,7 +156,21 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
                           o.nombre,
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text('${o.municipio} - ${o.ubicacion}'),
+                        // Subtitulo con municipio/ubicacion y chips de estado
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${o.municipio} - ${o.ubicacion}'),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              children: [
+                                _chipActiva(o.activa),
+                                if (o.postventa == true) _chipPostventa(),
+                              ],
+                            ),
+                          ],
+                        ),
                         trailing: PopupMenuButton<String>(
                           onSelected: (accion) {
                             if (accion == 'editar') {
@@ -261,6 +275,40 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
       ),
     );
   }
+
+  /// Chip indicando si la obra esta activa o inactiva.
+  Widget _chipActiva(bool activa) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: activa ? Colors.green : Colors.red,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Text(
+      activa ? 'ACTIVA' : 'INACTIVA',
+      style: const TextStyle(
+        fontSize: 9,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
+
+  /// Chip morado indicando que la obra es de postventa.
+  Widget _chipPostventa() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: Colors.purple,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Text(
+      'POSTVENTA',
+      style: TextStyle(
+        fontSize: 9,
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  );
 
   // ---- Dialogs de CRUD ----
 
@@ -590,7 +638,7 @@ class _MisObrasView extends ConsumerWidget {
                         ),
                         backgroundColor: (obra['activa'] ?? true)
                             ? Colors.green
-                            : Colors.grey,
+                            : Colors.red,
                       ),
                     ),
                   );

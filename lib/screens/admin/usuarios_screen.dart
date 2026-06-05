@@ -30,7 +30,8 @@ class UsuariosScreen extends ConsumerStatefulWidget {
 /// Estado del listado de usuarios: gestiona filtro de busqueda,
 /// carga de usuarios y construccion de la UI.
 class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
-  String _filtro = ''; // Texto para filtrar usuarios
+  String _filtro = '';         // Texto para filtrar usuarios
+  bool? _activoFiltro;         // null = todos, true = activos, false = inactivos
 
   @override
   Widget build(BuildContext context) {
@@ -45,27 +46,65 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
       ),
       body: Column(
         children: [
-          // Barra de busqueda
+          // Barra de busqueda por texto
           BuscadorOperario(
             onBuscar: (texto) => setState(() => _filtro = texto),
-            onLimpiar: () => setState(() => _filtro = ''),
+            onLimpiar: () => setState(() {
+              _filtro = '';
+              _activoFiltro = null;
+            }),
+          ),
+          // Filtro de estado activo/inactivo
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<bool?>(
+                    value: _activoFiltro,
+                    decoration: const InputDecoration(
+                      labelText: 'Estado',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: null,  child: Text('Todos')),
+                      DropdownMenuItem(value: true,  child: Text('Activos')),
+                      DropdownMenuItem(value: false, child: Text('Inactivos')),
+                    ],
+                    onChanged: (v) => setState(() => _activoFiltro = v),
+                  ),
+                ),
+                if (_activoFiltro != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    tooltip: 'Limpiar filtro de estado',
+                    onPressed: () => setState(() => _activoFiltro = null),
+                  ),
+                ],
+              ],
+            ),
           ),
           Expanded(
             child: usuariosAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (usuarios) {
-                // Filtra usuarios por nombre, apellido o email
+                // Filtra por texto (nombre, apellidos, email) y por estado
                 final listaFiltrada = usuarios.where((u) {
                   final nombre = (u['name'] ?? '').toString().toLowerCase();
-                  final apellidos = (u['apellidos'] ?? '')
-                      .toString()
-                      .toLowerCase();
+                  final apellidos =
+                      (u['apellidos'] ?? '').toString().toLowerCase();
                   final email = (u['email'] ?? '').toString().toLowerCase();
                   final filtroLower = _filtro.toLowerCase();
-                  return nombre.contains(filtroLower) ||
+                  final matchTexto = nombre.contains(filtroLower) ||
                       apellidos.contains(filtroLower) ||
                       email.contains(filtroLower);
+                  // Trata null como activo (igual que _chipActivo)
+                  final matchActivo = _activoFiltro == null ||
+                      (u['activo'] ?? true) == _activoFiltro;
+                  return matchTexto && matchActivo;
                 }).toList();
 
                 if (listaFiltrada.isEmpty) {
@@ -253,9 +292,9 @@ class _UsuariosScreenState extends ConsumerState<UsuariosScreen> {
       case 'GESTION':
         return Colors.blue;
       case 'JEFE_DE_OBRA':
-        return Colors.red;
+        return Colors.black;
       case 'ENCARGADO':
-        return Colors.green;
+        return Colors.orange;
       default:
         return Colors.grey;
     }
