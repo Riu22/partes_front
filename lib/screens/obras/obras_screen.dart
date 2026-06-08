@@ -46,8 +46,8 @@ class ObrasScreen extends ConsumerWidget {
 // Vista admin - con buscador y CRUD completo
 // ============================================
 /// Vista de administracion de obras: lista todas las obras con filtros
-/// por nombre, municipio y estado. Permite crear, editar, asignar
-/// personal y eliminar obras.
+/// por nombre, municipio, estado y postventa. Permite crear, editar,
+/// asignar personal y eliminar obras.
 class _ObrasAdminView extends ConsumerStatefulWidget {
   final bool esAdmin;
   const _ObrasAdminView({required this.esAdmin});
@@ -60,13 +60,15 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
   // -- Controladores para filtros --
   final _nombreCtrl = TextEditingController();
   final _municipioCtrl = TextEditingController();
-  bool? _activaFiltro; // null = todas, true = activas, false = inactivas
+  bool? _activaFiltro;   // null = todas, true = activas, false = inactivas
+  bool? _postventa;      // null = todas, true = solo postventa, false = sin postventa
 
   /// Verifica si hay algun filtro activo.
   bool get _hayFiltros =>
       _nombreCtrl.text.isNotEmpty ||
       _municipioCtrl.text.isNotEmpty ||
-      _activaFiltro != null;
+      _activaFiltro != null ||
+      _postventa != null;
 
   /// Filtra la lista de obras segun los criterios activos.
   List<dynamic> _filtrar(List<dynamic> obras) {
@@ -80,7 +82,8 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
           _municipioCtrl.text.isEmpty ||
           municipio.contains(_municipioCtrl.text.toLowerCase());
       final matchActiva = _activaFiltro == null || o.activa == _activaFiltro;
-      return matchNombre && matchMunicipio && matchActiva;
+      final matchPostventa = _postventa == null || o.postventa == _postventa;
+      return matchNombre && matchMunicipio && matchActiva && matchPostventa;
     }).toList();
   }
 
@@ -88,7 +91,10 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
   void _limpiarBusqueda() {
     _nombreCtrl.clear();
     _municipioCtrl.clear();
-    setState(() => _activaFiltro = null);
+    setState(() {
+      _activaFiltro = null;
+      _postventa = null;
+    });
   }
 
   @override
@@ -242,9 +248,10 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
             ],
           ),
           const SizedBox(height: 8),
-          // Filtro por estado (activa/inactiva)
+          // Filtros por estado y postventa en la misma fila
           Row(
             children: [
+              // Dropdown estado (activa/inactiva)
               Expanded(
                 child: DropdownButtonFormField<bool?>(
                   value: _activaFiltro,
@@ -261,6 +268,25 @@ class _ObrasAdminViewState extends ConsumerState<_ObrasAdminView> {
                   onChanged: (v) => setState(() => _activaFiltro = v),
                 ),
               ),
+              const SizedBox(width: 8),
+              // Dropdown postventa
+              Expanded(
+                child: DropdownButtonFormField<bool?>(
+                  value: _postventa,
+                  decoration: const InputDecoration(
+                    labelText: 'Postventa',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todas')),
+                    DropdownMenuItem(value: true, child: Text('Postventa')),
+                    DropdownMenuItem(value: false, child: Text('Normal')),
+                  ],
+                  onChanged: (v) => setState(() => _postventa = v),
+                ),
+              ),
+              // Boton limpiar filtros
               if (_hayFiltros) ...[
                 const SizedBox(width: 8),
                 IconButton(
