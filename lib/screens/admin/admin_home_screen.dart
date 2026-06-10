@@ -112,6 +112,7 @@ class AdminHomeScreen extends ConsumerWidget {
 
 /// Pestana "Partes": muestra un resumen de incidencias y la lista de
 /// operarios que tienen dias sin parte o con horas incompletas.
+/// La lista se ordena alfabeticamente por apellido (ultima palabra del nombre).
 class _PartesTab extends StatelessWidget {
   const _PartesTab({
     required this.ausenciasAsync,
@@ -214,7 +215,12 @@ class _PartesTab extends StatelessWidget {
                   .where(
                     (a) => a.diasSin.isNotEmpty || a.diasIncompletos.isNotEmpty,
                   )
-                  .toList();
+                  .toList()
+                ..sort((a, b) {
+                  final apellidoA = a.nombre.trim().split(' ').last.toLowerCase();
+                  final apellidoB = b.nombre.trim().split(' ').last.toLowerCase();
+                  return apellidoA.compareTo(apellidoB);
+                });
 
               if (lista.isEmpty) {
                 return const SliverFillRemaining(
